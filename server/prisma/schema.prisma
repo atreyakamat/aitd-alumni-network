@@ -1,0 +1,792 @@
+// Prisma Schema for Alumni Connect Platform
+// This schema defines all database models for the alumni network
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============== ENUMS ==============
+
+enum RoleType {
+  STUDENT
+  ALUMNI
+  FACULTY
+}
+
+enum UserRole {
+  MEMBER
+  CHAPTER_ADMIN
+  ADMIN
+  SUPER_ADMIN
+}
+
+enum MembershipStatus {
+  ACTIVE
+  EXPIRED
+  CANCELLED
+  PENDING
+}
+
+enum PostType {
+  GENERAL
+  JOB
+  BUSINESS
+  ANNOUNCEMENT
+}
+
+enum JobType {
+  FULL_TIME
+  PART_TIME
+  INTERNSHIP
+  CONTRACT
+  FREELANCE
+  VOLUNTEER
+  MENTORSHIP
+}
+
+enum WorkplaceType {
+  ONSITE
+  REMOTE
+  HYBRID
+}
+
+enum JobStatus {
+  DRAFT
+  PENDING_REVIEW
+  PUBLISHED
+  CLOSED
+  REJECTED
+}
+
+enum EventType {
+  ONLINE
+  OFFLINE
+  HYBRID
+}
+
+enum EventStatus {
+  DRAFT
+  PUBLISHED
+  CANCELLED
+  COMPLETED
+}
+
+enum GalleryAlbumType {
+  EVENT
+  BATCH
+  INSTITUTIONAL
+}
+
+enum NewsCategory {
+  EVENT_RECAP
+  ALUMNI_STORY
+  INSTITUTE_UPDATE
+  NEWSLETTER
+}
+
+enum ArticleStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+enum MarketplaceListingType {
+  BUSINESS
+  SERVICE
+  REQUIREMENT
+}
+
+enum ConnectionStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+  BLOCKED
+}
+
+enum NotificationType {
+  CONNECTION_REQUEST
+  CONNECTION_ACCEPTED
+  MESSAGE_RECEIVED
+  POST_LIKED
+  POST_COMMENTED
+  EVENT_RSVP
+  MEMBERSHIP_EXPIRY
+  JOB_MATCH
+  ADMIN_ANNOUNCEMENT
+  MENTION
+}
+
+enum TransactionType {
+  MEMBERSHIP
+  DONATION
+}
+
+enum TransactionStatus {
+  PENDING
+  SUCCESS
+  FAILED
+  REFUNDED
+}
+
+// ============== MODELS ==============
+
+model User {
+  id                String    @id @default(uuid())
+  email             String    @unique
+  passwordHash      String?
+  fullName          String
+  profilePhotoUrl   String?
+  coverPhotoUrl     String?
+  
+  // Academic info
+  batchYear         Int
+  department        String
+  degree            String
+  roleType          RoleType  @default(ALUMNI)
+  
+  // Professional info
+  currentDesignation String?
+  shortBio          String?   @db.Text
+  
+  // Location
+  city              String?
+  hometown          String?
+  locationLat       Decimal?  @db.Decimal(10, 8)
+  locationLng       Decimal?  @db.Decimal(11, 8)
+  isLocationPublic  Boolean   @default(false)
+  
+  // Contact & Social
+  phoneNumber       String?   // Encrypted
+  phoneVisibility   String    @default("PRIVATE") // PUBLIC, CONNECTIONS, PRIVATE
+  linkedinUrl       String?
+  twitterUrl        String?
+  githubUrl         String?
+  websiteUrl        String?
+  secondaryEmail    String?
+  
+  // System
+  userRole          UserRole  @default(MEMBER)
+  isActive          Boolean   @default(true)
+  isVerified        Boolean   @default(false)
+  emailVerifiedAt   DateTime?
+  profileCompleteness Int     @default(0)
+  lastLoginAt       DateTime?
+  
+  // Membership
+  membershipTierId  String?
+  membershipTier    MembershipTier? @relation(fields: [membershipTierId], references: [id])
+  
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  
+  // Relations
+  workExperiences   WorkExperience[]
+  educations        Education[]
+  skills            UserSkill[]
+  memberships       UserMembership[]
+  posts             Post[]
+  postLikes         PostLike[]
+  postComments      PostComment[]
+  jobOpportunities  JobOpportunity[]
+  mentorProfile     MentorProfile?
+  mentorRequests    MentorshipRequest[] @relation("Mentee")
+  mentorSessions    MentorshipRequest[] @relation("Mentor")
+  eventsCreated     Event[]   @relation("EventCreator")
+  eventRsvps        EventRSVP[]
+  galleryPhotosUploaded GalleryPhoto[]
+  newsArticles      NewsArticle[]
+  donations         Donation[]
+  chapterMemberships ChapterMembership[]
+  chaptersAdmin     Chapter[] @relation("ChapterAdmin")
+  marketplaceListings MarketplaceListing[]
+  messagesSent      Message[] @relation("Sender")
+  messagesReceived  Message[] @relation("Receiver")
+  connectionsSent   Connection[] @relation("Requester")
+  connectionsReceived Connection[] @relation("Addressee")
+  notifications     Notification[]
+  transactions      Transaction[]
+  invitesSent       Invite[]
+  refreshTokens     RefreshToken[]
+  
+  @@index([email])
+  @@index([batchYear])
+  @@index([department])
+  @@index([city])
+  @@index([isActive])
+  @@index([fullName])
+}
+
+model RefreshToken {
+  id          String   @id @default(uuid())
+  token       String   @unique
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt   DateTime
+  createdAt   DateTime @default(now())
+  
+  @@index([userId])
+  @@index([token])
+}
+
+model WorkExperience {
+  id          String    @id @default(uuid())
+  userId      String
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  company     String
+  role        String
+  location    String?
+  startDate   DateTime
+  endDate     DateTime?
+  isCurrent   Boolean   @default(false)
+  description String?   @db.Text
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  
+  @@index([userId])
+}
+
+model Education {
+  id            String    @id @default(uuid())
+  userId        String
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  institution   String
+  degree        String
+  fieldOfStudy  String?
+  startYear     Int
+  endYear       Int?
+  grade         String?
+  description   String?   @db.Text
+  isPrimary     Boolean   @default(false) // Primary = the alumni institution
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  
+  @@index([userId])
+}
+
+model Skill {
+  id        String      @id @default(uuid())
+  name      String      @unique
+  category  String?
+  users     UserSkill[]
+  createdAt DateTime    @default(now())
+  
+  @@index([name])
+}
+
+model UserSkill {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  skillId   String
+  skill     Skill    @relation(fields: [skillId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  
+  @@unique([userId, skillId])
+  @@index([userId])
+  @@index([skillId])
+}
+
+// ============== MEMBERSHIP ==============
+
+model MembershipTier {
+  id              String    @id @default(uuid())
+  name            String    @unique
+  description     String?   @db.Text
+  priceInr        Decimal   @db.Decimal(10, 2)
+  durationMonths  Int?      // null for lifetime
+  benefits        Json      // Array of benefit strings
+  isActive        Boolean   @default(true)
+  displayOrder    Int       @default(0)
+  badgeColor      String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  
+  users           User[]
+  memberships     UserMembership[]
+}
+
+model UserMembership {
+  id            String           @id @default(uuid())
+  userId        String
+  user          User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tierId        String
+  tier          MembershipTier   @relation(fields: [tierId], references: [id])
+  startDate     DateTime         @default(now())
+  endDate       DateTime?
+  status        MembershipStatus @default(ACTIVE)
+  transactionId String?
+  transaction   Transaction?     @relation(fields: [transactionId], references: [id])
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+  
+  @@index([userId])
+  @@index([status])
+}
+
+// ============== NOTICE BOARD (SOCIAL FEED) ==============
+
+model Post {
+  id          String    @id @default(uuid())
+  userId      String
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type        PostType  @default(GENERAL)
+  content     String    @db.Text
+  mediaUrls   Json?     // Array of URLs
+  linkUrl     String?
+  isPinned    Boolean   @default(false)
+  isPublished Boolean   @default(true)
+  likeCount   Int       @default(0)
+  commentCount Int      @default(0)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  
+  likes       PostLike[]
+  comments    PostComment[]
+  
+  @@index([userId])
+  @@index([type])
+  @@index([createdAt])
+  @@index([isPinned])
+}
+
+model PostLike {
+  id        String   @id @default(uuid())
+  postId    String
+  post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  
+  @@unique([postId, userId])
+  @@index([postId])
+  @@index([userId])
+}
+
+model PostComment {
+  id        String   @id @default(uuid())
+  postId    String
+  post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  content   String   @db.Text
+  parentId  String?  // For nested comments
+  parent    PostComment? @relation("CommentReplies", fields: [parentId], references: [id])
+  replies   PostComment[] @relation("CommentReplies")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  @@index([postId])
+  @@index([userId])
+  @@index([parentId])
+}
+
+// ============== CAREERS ==============
+
+model JobOpportunity {
+  id              String        @id @default(uuid())
+  postedById      String
+  postedBy        User          @relation(fields: [postedById], references: [id], onDelete: Cascade)
+  title           String
+  description     String        @db.Text
+  company         String
+  location        String?
+  workplaceType   WorkplaceType @default(ONSITE)
+  jobType         JobType       @default(FULL_TIME)
+  industry        String?
+  salaryMin       Decimal?      @db.Decimal(12, 2)
+  salaryMax       Decimal?      @db.Decimal(12, 2)
+  experienceMin   Int?
+  experienceMax   Int?
+  skills          Json?         // Array of skill names
+  applicationLink String?
+  deadline        DateTime?
+  status          JobStatus     @default(DRAFT)
+  isFeatured      Boolean       @default(false)
+  viewCount       Int           @default(0)
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  
+  @@index([postedById])
+  @@index([status])
+  @@index([jobType])
+  @@index([createdAt])
+  @@index([title])
+}
+
+model MentorProfile {
+  id            String    @id @default(uuid())
+  userId        String    @unique
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  focusAreas    Json      // Array of areas
+  availability  String?   // Description of availability
+  bio           String?   @db.Text
+  maxMentees    Int       @default(5)
+  currentMentees Int      @default(0)
+  isActive      Boolean   @default(true)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  
+  requests      MentorshipRequest[]
+}
+
+model MentorshipRequest {
+  id          String    @id @default(uuid())
+  menteeId    String
+  mentee      User      @relation("Mentee", fields: [menteeId], references: [id], onDelete: Cascade)
+  mentorId    String
+  mentor      User      @relation("Mentor", fields: [mentorId], references: [id], onDelete: Cascade)
+  profileId   String
+  profile     MentorProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  message     String?   @db.Text
+  status      String    @default("PENDING") // PENDING, ACCEPTED, DECLINED
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  
+  sessions    MentorshipSession[]
+  
+  @@index([menteeId])
+  @@index([mentorId])
+  @@index([status])
+}
+
+model MentorshipSession {
+  id          String    @id @default(uuid())
+  requestId   String
+  request     MentorshipRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  scheduledAt DateTime
+  notes       String?   @db.Text
+  outcomes    String?   @db.Text
+  completed   Boolean   @default(false)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  
+  @@index([requestId])
+}
+
+// ============== EVENTS ==============
+
+model Event {
+  id            String      @id @default(uuid())
+  title         String
+  description   String      @db.Text
+  bannerUrl     String?
+  eventType     EventType   @default(OFFLINE)
+  venue         String?
+  address       String?
+  city          String?
+  joinLink      String?
+  startDate     DateTime
+  endDate       DateTime?
+  capacity      Int?
+  rsvpCount     Int         @default(0)
+  tags          Json?       // Array of tags
+  isPublic      Boolean     @default(true)
+  status        EventStatus @default(DRAFT)
+  chapterId     String?
+  chapter       Chapter?    @relation(fields: [chapterId], references: [id])
+  createdById   String
+  createdBy     User        @relation("EventCreator", fields: [createdById], references: [id])
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+  
+  rsvps         EventRSVP[]
+  galleryAlbums GalleryAlbum[]
+  
+  @@index([startDate])
+  @@index([status])
+  @@index([chapterId])
+}
+
+model EventRSVP {
+  id        String   @id @default(uuid())
+  eventId   String
+  event     Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  rsvpAt    DateTime @default(now())
+  attended  Boolean  @default(false)
+  
+  @@unique([eventId, userId])
+  @@index([eventId])
+  @@index([userId])
+}
+
+// ============== GALLERY ==============
+
+model GalleryAlbum {
+  id            String           @id @default(uuid())
+  title         String
+  description   String?          @db.Text
+  albumType     GalleryAlbumType @default(INSTITUTIONAL)
+  batchYear     Int?
+  eventId       String?
+  event         Event?           @relation(fields: [eventId], references: [id])
+  coverPhotoUrl String?
+  photoCount    Int              @default(0)
+  isPublic      Boolean          @default(true)
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+  
+  photos        GalleryPhoto[]
+  
+  @@index([albumType])
+  @@index([batchYear])
+  @@index([eventId])
+}
+
+model GalleryPhoto {
+  id          String       @id @default(uuid())
+  albumId     String
+  album       GalleryAlbum @relation(fields: [albumId], references: [id], onDelete: Cascade)
+  url         String
+  thumbnailUrl String?
+  caption     String?
+  uploadedById String
+  uploadedBy  User         @relation(fields: [uploadedById], references: [id])
+  createdAt   DateTime     @default(now())
+  
+  @@index([albumId])
+}
+
+// ============== NEWS & STORIES ==============
+
+model NewsArticle {
+  id            String        @id @default(uuid())
+  title         String
+  slug          String        @unique
+  content       String        @db.Text
+  excerpt       String?       @db.Text
+  category      NewsCategory  @default(INSTITUTE_UPDATE)
+  featuredImage String?
+  authorId      String
+  author        User          @relation(fields: [authorId], references: [id])
+  status        ArticleStatus @default(DRAFT)
+  readingTime   Int?          // In minutes
+  viewCount     Int           @default(0)
+  publishedAt   DateTime?
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+  
+  @@index([slug])
+  @@index([category])
+  @@index([status])
+  @@index([publishedAt])
+}
+
+// ============== DONATIONS ==============
+
+model Donation {
+  id            String    @id @default(uuid())
+  userId        String?
+  user          User?     @relation(fields: [userId], references: [id])
+  amount        Decimal   @db.Decimal(12, 2)
+  currency      String    @default("INR")
+  isAnonymous   Boolean   @default(false)
+  dedicatedTo   String?   // In memory of / In honor of
+  message       String?   @db.Text
+  chapterId     String?
+  chapter       Chapter?  @relation(fields: [chapterId], references: [id])
+  transactionId String?
+  transaction   Transaction? @relation(fields: [transactionId], references: [id])
+  isFeatured    Boolean   @default(false)
+  createdAt     DateTime  @default(now())
+  
+  @@index([userId])
+  @@index([chapterId])
+  @@index([createdAt])
+}
+
+// ============== CHAPTERS ==============
+
+model Chapter {
+  id              String    @id @default(uuid())
+  name            String    @unique
+  description     String?   @db.Text
+  region          String
+  adminUserId     String?
+  admin           User?     @relation("ChapterAdmin", fields: [adminUserId], references: [id])
+  logoUrl         String?
+  memberCount     Int       @default(0)
+  totalDonations  Decimal   @default(0) @db.Decimal(12, 2)
+  isActive        Boolean   @default(true)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  
+  memberships     ChapterMembership[]
+  events          Event[]
+  donations       Donation[]
+  
+  @@index([region])
+  @@index([isActive])
+}
+
+model ChapterMembership {
+  id        String   @id @default(uuid())
+  chapterId String
+  chapter   Chapter  @relation(fields: [chapterId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  joinedAt  DateTime @default(now())
+  
+  @@unique([chapterId, userId])
+  @@index([chapterId])
+  @@index([userId])
+}
+
+// ============== MARKETPLACE ==============
+
+model MarketplaceListing {
+  id          String                 @id @default(uuid())
+  userId      String
+  user        User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type        MarketplaceListingType @default(BUSINESS)
+  title       String
+  category    String
+  description String                 @db.Text
+  location    String?
+  website     String?
+  contactInfo String?
+  priceRange  String?
+  isActive    Boolean                @default(true)
+  isFeatured  Boolean                @default(false)
+  viewCount   Int                    @default(0)
+  createdAt   DateTime               @default(now())
+  updatedAt   DateTime               @updatedAt
+  
+  @@index([userId])
+  @@index([type])
+  @@index([category])
+  @@index([isActive])
+}
+
+// ============== MESSAGING ==============
+
+model Message {
+  id          String   @id @default(uuid())
+  senderId    String
+  sender      User     @relation("Sender", fields: [senderId], references: [id], onDelete: Cascade)
+  receiverId  String
+  receiver    User     @relation("Receiver", fields: [receiverId], references: [id], onDelete: Cascade)
+  content     String   @db.Text
+  mediaUrl    String?
+  isRead      Boolean  @default(false)
+  readAt      DateTime?
+  isRequest   Boolean  @default(false) // True if sender is not connected
+  requestStatus String? // PENDING, ACCEPTED, DECLINED
+  createdAt   DateTime @default(now())
+  
+  @@index([senderId])
+  @@index([receiverId])
+  @@index([createdAt])
+}
+
+// ============== NETWORKING ==============
+
+model Connection {
+  id          String           @id @default(uuid())
+  requesterId String
+  requester   User             @relation("Requester", fields: [requesterId], references: [id], onDelete: Cascade)
+  addresseeId String
+  addressee   User             @relation("Addressee", fields: [addresseeId], references: [id], onDelete: Cascade)
+  status      ConnectionStatus @default(PENDING)
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+  
+  @@unique([requesterId, addresseeId])
+  @@index([requesterId])
+  @@index([addresseeId])
+  @@index([status])
+}
+
+// ============== NOTIFICATIONS ==============
+
+model Notification {
+  id        String           @id @default(uuid())
+  userId    String
+  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type      NotificationType
+  title     String
+  message   String
+  link      String?
+  isRead    Boolean          @default(false)
+  metadata  Json?            // Additional data
+  createdAt DateTime         @default(now())
+  
+  @@index([userId])
+  @@index([isRead])
+  @@index([createdAt])
+}
+
+// ============== TRANSACTIONS ==============
+
+model Transaction {
+  id              String            @id @default(uuid())
+  userId          String
+  user            User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type            TransactionType
+  amount          Decimal           @db.Decimal(12, 2)
+  currency        String            @default("INR")
+  status          TransactionStatus @default(PENDING)
+  gatewayOrderId  String?           // Razorpay order ID
+  gatewayPaymentId String?          // Razorpay payment ID
+  gatewaySignature String?
+  receiptUrl      String?
+  metadata        Json?
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+  
+  memberships     UserMembership[]
+  donations       Donation[]
+  
+  @@index([userId])
+  @@index([status])
+  @@index([type])
+  @@index([gatewayOrderId])
+}
+
+// ============== INVITES ==============
+
+model Invite {
+  id          String    @id @default(uuid())
+  email       String
+  fullName    String?
+  batchYear   Int?
+  roleType    RoleType  @default(ALUMNI)
+  invitedById String
+  invitedBy   User      @relation(fields: [invitedById], references: [id], onDelete: Cascade)
+  token       String    @unique
+  status      String    @default("PENDING") // PENDING, ACCEPTED, EXPIRED
+  expiresAt   DateTime
+  acceptedAt  DateTime?
+  createdAt   DateTime  @default(now())
+  
+  @@index([email])
+  @@index([token])
+  @@index([invitedById])
+  @@index([status])
+}
+
+// ============== AUDIT LOG ==============
+
+model AuditLog {
+  id          String   @id @default(uuid())
+  userId      String?
+  action      String
+  entityType  String
+  entityId    String?
+  oldValues   Json?
+  newValues   Json?
+  ipAddress   String?
+  userAgent   String?
+  createdAt   DateTime @default(now())
+  
+  @@index([userId])
+  @@index([entityType])
+  @@index([action])
+  @@index([createdAt])
+}
