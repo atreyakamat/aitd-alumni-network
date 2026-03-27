@@ -1,4 +1,6 @@
 export const config = {
+  port: parseInt(process.env.PORT || '5000'),
+  corsOrigins: (process.env.CORS_ORIGINS || 'http://localhost:3000').split(','),
   jwt: {
     secret: process.env.JWT_SECRET || 'default-secret-change-me',
     refreshSecret: process.env.JWT_REFRESH_SECRET || 'default-refresh-secret-change-me',
