@@ -4,7 +4,12 @@ import { eventService } from '../services/eventService';
 export class EventController {
   async getEvents(req: Request, res: Response, next: NextFunction) {
     try {
-      const result = await eventService.getEvents(req.query as any);
+      const filters = {
+        ...req.query,
+        page: req.query.page ? parseInt(req.query.page as string) : 1,
+        limit: req.query.limit ? parseInt(req.query.limit as string) : 12,
+      };
+      const result = await eventService.getEvents(filters);
       res.json({ success: true, ...result });
     } catch (error) {
       next(error);

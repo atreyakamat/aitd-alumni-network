@@ -93,7 +93,12 @@ export class GalleryController {
 export class NewsController {
   async getArticles(req: Request, res: Response, next: NextFunction) {
     try {
-      const result = await newsService.getArticles(req.query as any);
+      const filters = {
+        ...req.query,
+        page: req.query.page ? parseInt(req.query.page as string) : 1,
+        limit: req.query.limit ? parseInt(req.query.limit as string) : 12,
+      };
+      const result = await newsService.getArticles(filters);
       res.json({ success: true, ...result });
     } catch (error) {
       next(error);
@@ -268,7 +273,12 @@ export class ChapterController {
 export class MarketplaceController {
   async getListings(req: Request, res: Response, next: NextFunction) {
     try {
-      const result = await marketplaceService.getListings(req.query as any);
+      const filters = {
+        ...req.query,
+        page: req.query.page ? parseInt(req.query.page as string) : 1,
+        limit: req.query.limit ? parseInt(req.query.limit as string) : 12,
+      };
+      const result = await marketplaceService.getListings(filters);
       res.json({ success: true, ...result });
     } catch (error) {
       next(error);

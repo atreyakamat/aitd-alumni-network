@@ -96,7 +96,13 @@ export class UserController {
   // Directory
   async searchDirectory(req: Request, res: Response, next: NextFunction) {
     try {
-      const result = await userService.searchDirectory(req.query as any);
+      const filters = {
+        ...req.query,
+        page: req.query.page ? parseInt(req.query.page as string) : 1,
+        limit: req.query.limit ? parseInt(req.query.limit as string) : 12,
+        batchYear: req.query.batchYear ? parseInt(req.query.batchYear as string) : undefined,
+      };
+      const result = await userService.searchDirectory(filters);
       res.json({ success: true, ...result });
     } catch (error) {
       next(error);

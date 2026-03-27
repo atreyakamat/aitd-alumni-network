@@ -4,7 +4,12 @@ import { jobService } from '../services/jobService';
 export class JobController {
   async getJobs(req: Request, res: Response, next: NextFunction) {
     try {
-      const result = await jobService.getJobs(req.query as any);
+      const filters = {
+        ...req.query,
+        page: req.query.page ? parseInt(req.query.page as string) : 1,
+        limit: req.query.limit ? parseInt(req.query.limit as string) : 12,
+      };
+      const result = await jobService.getJobs(filters);
       res.json({ success: true, ...result });
     } catch (error) {
       next(error);
