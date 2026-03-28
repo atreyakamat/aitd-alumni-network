@@ -35,7 +35,7 @@ A comprehensive alumni network platform built with Next.js and Express.js, desig
 - **Express.js** - Node.js web framework
 - **TypeScript** - Type-safe backend
 - **Prisma** - Database ORM
-- **PostgreSQL** - Primary database
+- **MySQL** - Primary database
 - **Redis** - Caching and sessions
 - **JWT** - Authentication
 
@@ -77,7 +77,7 @@ aitd-alumni-network/
 
 ### Prerequisites
 - Node.js 18+
-- PostgreSQL 14+
+- MySQL 8.0+
 - Redis (optional, for caching)
 
 ### Installation
@@ -93,13 +93,19 @@ aitd-alumni-network/
    npm install
    ```
 
-3. **Set up environment variables**
+3. **Set up MySQL database**
    ```bash
-   cp .env.example .env
-   # Edit .env with your configuration
+   mysql -u root -p -e "CREATE DATABASE alumni_connect;"
    ```
 
-4. **Set up the database**
+4. **Set up environment variables**
+   ```bash
+   cp .env.example .env
+   # Edit .env with your MySQL credentials
+   # DATABASE_URL="mysql://root:YOUR_PASSWORD@localhost:3306/alumni_connect"
+   ```
+
+5. **Set up the database**
    ```bash
    # Generate Prisma client
    cd server && npx prisma generate
@@ -111,7 +117,7 @@ aitd-alumni-network/
    npx prisma db seed
    ```
 
-5. **Start development servers**
+6. **Start development servers**
    ```bash
    # From root directory
    npm run dev
@@ -125,7 +131,7 @@ aitd-alumni-network/
 
 See `.env.example` for all required environment variables:
 
-- `DATABASE_URL` - PostgreSQL connection string
+- `DATABASE_URL` - MySQL connection string (e.g., `mysql://root:password@localhost:3306/alumni_connect`)
 - `REDIS_URL` - Redis connection string
 - `JWT_SECRET` - Secret for JWT tokens
 - `RAZORPAY_KEY_ID` / `RAZORPAY_KEY_SECRET` - Payment gateway

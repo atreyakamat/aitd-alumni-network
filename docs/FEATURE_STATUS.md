@@ -316,7 +316,7 @@ This document tracks the implementation status of all features defined in the PR
 | shadcn/ui components | ✅ | Radix-based UI |
 | Express.js backend | ✅ | Modular architecture |
 | Prisma ORM | ✅ | 25+ models |
-| PostgreSQL | ✅ | Primary database |
+| MySQL | ✅ | Primary database |
 | Redis caching | ✅ | Optional, configured |
 | JWT authentication | ✅ | Access + Refresh tokens |
 | Razorpay payments | ✅ | Order + verification |

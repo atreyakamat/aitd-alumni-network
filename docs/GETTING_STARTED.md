@@ -7,7 +7,7 @@ This guide will walk you through setting up the Alumni Connect platform on your 
 Before you begin, ensure you have the following installed:
 
 - **Node.js** (v18.0.0 or higher) - [Download](https://nodejs.org/)
-- **PostgreSQL** (v14 or higher) - [Download](https://www.postgresql.org/download/)
+- **MySQL** (v8.0 or higher) - [Download](https://dev.mysql.com/downloads/mysql/)
 - **Git** - [Download](https://git-scm.com/)
 - **Redis** (optional, for caching) - [Download](https://redis.io/download)
 
@@ -16,7 +16,7 @@ Before you begin, ensure you have the following installed:
 ```bash
 node --version    # Should be v18.x or higher
 npm --version     # Should be v9.x or higher
-psql --version    # Should be v14 or higher
+mysql --version   # Should be v8.x or higher
 ```
 
 ## Quick Start
@@ -36,17 +36,17 @@ npm install
 
 This installs dependencies for both the client and server workspaces.
 
-### 3. Set Up PostgreSQL Database
+### 3. Set Up MySQL Database
 
 ```bash
-# Connect to PostgreSQL
-psql -U postgres
+# Connect to MySQL (use your root password)
+mysql -u root -p
 
 # Create the database
 CREATE DATABASE alumni_connect;
 
-# Exit psql
-\q
+# Exit mysql
+exit
 ```
 
 ### 4. Configure Environment Variables
@@ -64,8 +64,10 @@ cp server/.env.example server/.env
 Edit `server/.env` with your configuration:
 
 ```env
-# Database
-DATABASE_URL="postgresql://postgres:YOUR_PASSWORD@localhost:5432/alumni_connect?schema=public"
+# Database (MySQL)
+# Replace YOUR_PASSWORD with your MySQL root password
+# If no password, use: mysql://root@localhost:3306/alumni_connect
+DATABASE_URL="mysql://root:YOUR_PASSWORD@localhost:3306/alumni_connect"
 
 # JWT Secrets (generate strong secrets for production!)
 JWT_SECRET="your-super-secret-jwt-key"
@@ -340,11 +342,15 @@ taskkill /PID <PID> /F
 
 ### Database Connection Issues
 
-1. Ensure PostgreSQL is running
+1. Ensure MySQL is running
 2. Verify credentials in `.env`
 3. Check if database exists:
    ```bash
-   psql -U postgres -c "\l"
+   mysql -u root -p -e "SHOW DATABASES;"
+   ```
+4. Test connection manually:
+   ```bash
+   mysql -u root -p alumni_connect
    ```
 
 ### Prisma Issues
