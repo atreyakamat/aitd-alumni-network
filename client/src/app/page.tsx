@@ -10,7 +10,7 @@ import { PublicNav } from '@/components/layout/PublicNav';
 
 export default function HomePage() {
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background font-body">
       <PublicNav />
       <main>
         <HeroSection />
@@ -18,25 +18,23 @@ export default function HomePage() {
         <FeaturesSection />
         <UpcomingEvents />
         <LatestNews />
-        
-        {/* CTA Section */}
-        <section className="py-16 bg-primary">
+
+        <section className="bg-primary py-20">
           <div className="container text-center">
-            <h2 className="text-3xl font-bold text-white mb-4">
+            <h2 className="mb-4 font-headline text-4xl text-white md:text-5xl">
               Join Your Alumni Network Today
             </h2>
-            <p className="text-lg text-white/80 mb-8 max-w-2xl mx-auto">
-              Connect with thousands of fellow alumni, discover opportunities, 
-              and be part of a thriving community.
+            <p className="mx-auto mb-8 max-w-2xl text-lg text-white/80 font-body">
+              Connect with thousands of fellow alumni, discover opportunities, and be part of a thriving community.
             </p>
-            <div className="flex gap-4 justify-center">
+            <div className="flex justify-center gap-4">
               <Link href="/register">
-                <Button size="lg" variant="secondary">
+                <Button size="lg" variant="secondary" className="font-label">
                   Get Started
                 </Button>
               </Link>
               <Link href="/login">
-                <Button size="lg" variant="outline" className="text-white border-white hover:bg-white/10">
+                <Button size="lg" variant="outline" className="border-white text-white hover:bg-white/10 font-label">
                   Sign In
                 </Button>
               </Link>

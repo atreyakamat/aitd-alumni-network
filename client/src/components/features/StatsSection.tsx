@@ -61,20 +61,31 @@ function AnimatedNumber({ value, suffix }: { value: number; suffix: string }) {
 
 export function StatsSection() {
   return (
-    <section className="py-16 bg-primary text-white">
+    <section className="py-20 bg-slate-100">
       <div className="container">
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
+        <div className="mb-10 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+          <div className="max-w-2xl">
+            <h2 className="font-headline text-4xl text-primary">A Legacy of Connection</h2>
+            <p className="mt-3 text-slate-600 font-body">
+              Our digital architecture is designed to foster meaningful scholarly exchange and professional advancement.
+            </p>
+          </div>
+          <div className="hidden h-[2px] flex-grow bg-slate-300/40 md:block" />
+        </div>
+
+        <div className="grid grid-cols-2 gap-6 md:grid-cols-4">
           {stats.map((stat, index) => (
-            <div key={index} className="text-center">
-              <div className="flex justify-center mb-4">
-                <div className="bg-white/10 p-3 rounded-full">
-                  <stat.icon className="h-6 w-6" />
-                </div>
+            <div
+              key={index}
+              className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-lg hover:shadow-primary/5"
+            >
+              <div className="mb-4 inline-flex rounded-full bg-slate-100 p-3 text-primary">
+                <stat.icon className="h-5 w-5" />
               </div>
-              <p className="text-3xl md:text-4xl font-bold mb-2">
+              <p className="mb-1 font-headline text-4xl font-bold text-primary">
                 <AnimatedNumber value={stat.value} suffix={stat.suffix} />
               </p>
-              <p className="text-white/80 text-sm">{stat.label}</p>
+              <p className="text-xs uppercase tracking-wide text-slate-600 font-label">{stat.label}</p>
             </div>
           ))}
         </div>

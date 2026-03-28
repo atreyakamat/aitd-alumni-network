@@ -1,115 +1,74 @@
 import Link from 'next/link';
-import { GraduationCap, Facebook, Twitter, Linkedin, Instagram, Mail, Phone, MapPin } from 'lucide-react';
+import { Share2, Globe, GraduationCap } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 
 export function Footer() {
   return (
-    <footer className="bg-gray-900 text-gray-300">
-      <div className="container py-12">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
-          {/* Brand */}
-          <div>
-            <Link href="/" className="flex items-center gap-2 mb-4">
-              <div className="bg-primary rounded-lg p-2">
-                <GraduationCap className="h-5 w-5 text-white" />
-              </div>
-              <span className="text-xl font-bold text-white">Alumni Connect</span>
+    <footer className="mt-20 w-full border-t border-slate-200 bg-slate-100">
+      <div className="grid grid-cols-1 gap-8 px-8 py-16 md:grid-cols-3 lg:px-12">
+        <div className="space-y-6">
+          <div className="font-headline text-lg font-bold text-blue-900">Alumni Connect</div>
+          <p className="max-w-xs text-sm tracking-wide text-slate-500 font-body">
+            Connecting past excellence with future potential through a global network of scholarly leaders.
+          </p>
+        </div>
+
+        <div className="grid grid-cols-2 gap-4">
+          <div className="flex flex-col space-y-3">
+            <span className="mb-2 text-xs font-bold uppercase tracking-widest text-primary font-label">Network</span>
+            <Link href="/directory" className="text-sm tracking-wide text-slate-500 transition-colors hover:text-blue-700 font-body">
+              Directory
             </Link>
-            <p className="text-sm mb-4">
-              Connecting graduates, building futures. Join our vibrant community of alumni 
-              making a difference in their fields.
-            </p>
-            <div className="flex gap-4">
-              <a href="#" className="hover:text-primary transition-colors">
-                <Facebook className="h-5 w-5" />
-              </a>
-              <a href="#" className="hover:text-primary transition-colors">
-                <Twitter className="h-5 w-5" />
-              </a>
-              <a href="#" className="hover:text-primary transition-colors">
-                <Linkedin className="h-5 w-5" />
-              </a>
-              <a href="#" className="hover:text-primary transition-colors">
-                <Instagram className="h-5 w-5" />
-              </a>
-            </div>
+            <Link href="/jobs" className="text-sm tracking-wide text-slate-500 transition-colors hover:text-blue-700 font-body">
+              Jobs
+            </Link>
+            <Link href="/events" className="text-sm tracking-wide text-slate-500 transition-colors hover:text-blue-700 font-body">
+              Events
+            </Link>
           </div>
-
-          {/* Quick Links */}
-          <div>
-            <h3 className="text-white font-semibold mb-4">Quick Links</h3>
-            <ul className="space-y-2 text-sm">
-              <li>
-                <Link href="/about" className="hover:text-primary transition-colors">About Us</Link>
-              </li>
-              <li>
-                <Link href="/directory" className="hover:text-primary transition-colors">Alumni Directory</Link>
-              </li>
-              <li>
-                <Link href="/events" className="hover:text-primary transition-colors">Events</Link>
-              </li>
-              <li>
-                <Link href="/jobs" className="hover:text-primary transition-colors">Job Board</Link>
-              </li>
-              <li>
-                <Link href="/donate" className="hover:text-primary transition-colors">Support Us</Link>
-              </li>
-            </ul>
-          </div>
-
-          {/* Resources */}
-          <div>
-            <h3 className="text-white font-semibold mb-4">Resources</h3>
-            <ul className="space-y-2 text-sm">
-              <li>
-                <Link href="/news" className="hover:text-primary transition-colors">News & Stories</Link>
-              </li>
-              <li>
-                <Link href="/gallery" className="hover:text-primary transition-colors">Photo Gallery</Link>
-              </li>
-              <li>
-                <Link href="/chapters" className="hover:text-primary transition-colors">Chapters</Link>
-              </li>
-              <li>
-                <Link href="/mentorship" className="hover:text-primary transition-colors">Mentorship</Link>
-              </li>
-              <li>
-                <Link href="/membership" className="hover:text-primary transition-colors">Membership</Link>
-              </li>
-            </ul>
-          </div>
-
-          {/* Contact */}
-          <div>
-            <h3 className="text-white font-semibold mb-4">Contact Us</h3>
-            <ul className="space-y-3 text-sm">
-              <li className="flex items-start gap-2">
-                <MapPin className="h-4 w-4 mt-1 flex-shrink-0" />
-                <span>Alumni Office, Main Building<br />College Campus, City - 400001</span>
-              </li>
-              <li className="flex items-center gap-2">
-                <Phone className="h-4 w-4 flex-shrink-0" />
-                <span>+91 22 1234 5678</span>
-              </li>
-              <li className="flex items-center gap-2">
-                <Mail className="h-4 w-4 flex-shrink-0" />
-                <span>alumni@college.edu</span>
-              </li>
-            </ul>
+          <div className="flex flex-col space-y-3">
+            <span className="mb-2 text-xs font-bold uppercase tracking-widest text-primary font-label">Legal</span>
+            <Link href="/privacy" className="text-sm tracking-wide text-slate-500 transition-colors hover:text-blue-700 font-body">
+              Privacy Policy
+            </Link>
+            <Link href="/terms" className="text-sm tracking-wide text-slate-500 transition-colors hover:text-blue-700 font-body">
+              Terms of Service
+            </Link>
+            <Link href="/contact" className="text-sm tracking-wide text-slate-500 transition-colors hover:text-blue-700 font-body">
+              Contact Us
+            </Link>
           </div>
         </div>
 
-        <div className="border-t border-gray-800 mt-8 pt-8 flex flex-col md:flex-row justify-between items-center gap-4">
-          <p className="text-sm">
-            © {new Date().getFullYear()} Alumni Connect. All rights reserved.
-          </p>
-          <div className="flex gap-6 text-sm">
-            <Link href="/privacy" className="hover:text-primary transition-colors">
-              Privacy Policy
-            </Link>
-            <Link href="/terms" className="hover:text-primary transition-colors">
-              Terms of Service
-            </Link>
+        <div className="space-y-6">
+          <span className="block text-xs font-bold uppercase tracking-widest text-primary font-label">Join the Legacy</span>
+          <p className="text-sm tracking-wide text-slate-500 font-body">Sign up for our monthly editorial digest.</p>
+          <div className="flex">
+            <Input
+              type="email"
+              placeholder="Email Address"
+              className="h-12 rounded-r-none border-none bg-white text-sm focus-visible:ring-1 focus-visible:ring-primary"
+            />
+            <Button className="h-12 rounded-l-none px-4 text-sm font-bold font-label">Join</Button>
           </div>
+        </div>
+      </div>
+
+      <div className="flex flex-col items-center justify-between gap-4 bg-slate-200/50 px-8 py-8 md:flex-row lg:px-12">
+        <span className="text-xs tracking-wide text-slate-500 font-body">
+          © {new Date().getFullYear()} Alumni Connect. All rights reserved.
+        </span>
+        <div className="flex space-x-4">
+          <Button variant="ghost" size="icon" className="text-slate-400 hover:text-primary">
+            <Share2 className="h-5 w-5" />
+          </Button>
+          <Button variant="ghost" size="icon" className="text-slate-400 hover:text-primary">
+            <Globe className="h-5 w-5" />
+          </Button>
+          <Button variant="ghost" size="icon" className="text-slate-400 hover:text-primary">
+            <GraduationCap className="h-5 w-5" />
+          </Button>
         </div>
       </div>
     </footer>

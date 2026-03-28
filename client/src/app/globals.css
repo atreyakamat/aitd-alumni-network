@@ -75,6 +75,12 @@
   }
 }
 
+@layer utilities {
+  .hero-gradient {
+    background: linear-gradient(135deg, #002045 0%, #1a365d 100%);
+  }
+}
+
 /* Custom scrollbar */
 ::-webkit-scrollbar {
   width: 8px;

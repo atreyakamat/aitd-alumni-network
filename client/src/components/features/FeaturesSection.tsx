@@ -1,87 +1,71 @@
+import Link from 'next/link';
 import { Card, CardContent } from '@/components/ui/card';
-import { 
-  Users, 
-  Briefcase, 
-  CalendarDays, 
-  MessageSquare, 
-  Heart,
-  MapPin,
-  BookOpen,
-  Award
-} from 'lucide-react';
+import { Users, Briefcase, BookOpen, CalendarDays, ArrowRight } from 'lucide-react';
 
 const features = [
   {
     icon: Users,
-    title: 'Alumni Directory',
-    description: 'Search and connect with thousands of alumni across batches, departments, and locations.',
-    color: 'bg-blue-100 text-blue-600',
+    title: 'Directory',
+    description: 'Locate peers across generations and geographies through our verified global database.',
+    href: '/directory',
+    cta: 'Search Members',
   },
   {
     icon: Briefcase,
     title: 'Job Board',
-    description: 'Explore exclusive job opportunities and internships posted by fellow alumni.',
-    color: 'bg-amber-100 text-amber-600',
-  },
-  {
-    icon: CalendarDays,
-    title: 'Events',
-    description: 'Stay updated on reunions, workshops, webinars, and networking events.',
-    color: 'bg-green-100 text-green-600',
-  },
-  {
-    icon: MessageSquare,
-    title: 'Networking',
-    description: 'Connect directly with alumni through our messaging platform.',
-    color: 'bg-purple-100 text-purple-600',
-  },
-  {
-    icon: Heart,
-    title: 'Give Back',
-    description: 'Support your alma mater through donations and volunteer opportunities.',
-    color: 'bg-rose-100 text-rose-600',
-  },
-  {
-    icon: MapPin,
-    title: 'Chapters',
-    description: 'Join local alumni chapters in your city and participate in regional events.',
-    color: 'bg-cyan-100 text-cyan-600',
+    description: 'Exclusive access to high-tier professional opportunities from alumni and partner organizations.',
+    href: '/jobs',
+    cta: 'View Openings',
   },
   {
     icon: BookOpen,
     title: 'Mentorship',
-    description: 'Give or receive guidance through our alumni mentorship program.',
-    color: 'bg-indigo-100 text-indigo-600',
+    description: 'Bridge the gap between experience and ambition through structured guidance programs.',
+    href: '/jobs',
+    cta: 'Find a Mentor',
   },
   {
-    icon: Award,
-    title: 'Recognition',
-    description: 'Celebrate achievements and success stories of our distinguished alumni.',
-    color: 'bg-orange-100 text-orange-600',
+    icon: CalendarDays,
+    title: 'Events',
+    description: 'From gala dinners to digital seminars, stay connected with our curated global calendar.',
+    href: '/events',
+    cta: 'Browse Calendar',
   },
 ];
 
 export function FeaturesSection() {
   return (
-    <section className="py-20 bg-background">
+    <section className="bg-slate-50 py-24">
       <div className="container">
-        <div className="text-center mb-12">
-          <h2 className="text-3xl font-bold mb-4">Everything You Need to Stay Connected</h2>
-          <p className="text-muted-foreground max-w-2xl mx-auto">
-            Our platform offers a comprehensive suite of features designed to help alumni 
-            network, grow professionally, and give back to the community.
-          </p>
+        <div className="mb-16 flex flex-col gap-6 md:flex-row md:items-end md:justify-between">
+          <div className="max-w-2xl">
+            <h2 className="font-headline text-4xl text-primary">A Legacy of Connection</h2>
+            <p className="mt-4 max-w-2xl text-slate-600 font-body">
+              Our platform is designed to foster meaningful scholarly exchange and professional advancement.
+            </p>
+          </div>
+          <div className="mx-12 hidden h-[2px] flex-grow bg-slate-300/30 md:block" />
         </div>
 
-        <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className="grid gap-8 md:grid-cols-2 lg:grid-cols-4">
           {features.map((feature, index) => (
-            <Card key={index} className="border-none shadow-md hover:shadow-lg transition-shadow">
-              <CardContent className="p-6">
-                <div className={`inline-flex p-3 rounded-xl ${feature.color} mb-4`}>
+            <Card
+              key={index}
+              className="group border-slate-200 bg-white shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-2xl hover:shadow-primary/5"
+            >
+              <CardContent className="p-8">
+                <div className="mb-6 inline-flex h-12 w-12 items-center justify-center rounded-full bg-slate-100 text-primary transition-colors group-hover:bg-primary group-hover:text-white">
                   <feature.icon className="h-6 w-6" />
                 </div>
-                <h3 className="font-semibold text-lg mb-2">{feature.title}</h3>
-                <p className="text-sm text-muted-foreground">{feature.description}</p>
+                <h3 className="mb-3 font-headline text-2xl text-primary">{feature.title}</h3>
+                <p className="mb-6 text-sm leading-relaxed text-slate-600 font-body">{feature.description}</p>
+                <Link
+                  href={feature.href}
+                  className="inline-flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-amber-700 font-label"
+                >
+                  {feature.cta}
+                  <ArrowRight className="h-3 w-3 transition-transform group-hover:translate-x-1" />
+                </Link>
               </CardContent>
             </Card>
           ))}
