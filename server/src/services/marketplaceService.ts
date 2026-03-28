@@ -36,17 +36,17 @@ export class MarketplaceService {
     }
 
     if (filters.category) {
-      where.category = { contains: filters.category, mode: 'insensitive' };
+      where.category = { contains: filters.category };
     }
 
     if (filters.location) {
-      where.location = { contains: filters.location, mode: 'insensitive' };
+      where.location = { contains: filters.location };
     }
 
     if (filters.search) {
       where.OR = [
-        { title: { contains: filters.search, mode: 'insensitive' } },
-        { description: { contains: filters.search, mode: 'insensitive' } },
+        { title: { contains: filters.search } },
+        { description: { contains: filters.search } },
       ];
     }
 

@@ -268,7 +268,7 @@ export class UserService {
     };
 
     if (filters.name) {
-      where.fullName = { contains: filters.name, mode: 'insensitive' };
+      where.fullName = { contains: filters.name };
     }
 
     if (filters.batchYear) {
@@ -276,17 +276,17 @@ export class UserService {
     }
 
     if (filters.department) {
-      where.department = { contains: filters.department, mode: 'insensitive' };
+      where.department = { contains: filters.department };
     }
 
     if (filters.city) {
-      where.city = { contains: filters.city, mode: 'insensitive' };
+      where.city = { contains: filters.city };
     }
 
     if (filters.company) {
       where.workExperiences = {
         some: {
-          company: { contains: filters.company, mode: 'insensitive' },
+          company: { contains: filters.company },
         },
       };
     }

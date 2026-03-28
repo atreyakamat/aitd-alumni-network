@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import Image from 'next/image';
 import { useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useForm } from 'react-hook-form';
@@ -12,7 +13,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useAuth } from '@/context/auth-context';
 import { useToast } from '@/hooks/use-toast';
-import { GraduationCap, Eye, EyeOff, Loader2 } from 'lucide-react';
+import { Eye, EyeOff, Loader2 } from 'lucide-react';
 
 const loginSchema = z.object({
   email: z.string().email('Please enter a valid email'),
@@ -58,31 +59,55 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary/5 via-background to-background py-12 px-4">
-      <div className="w-full max-w-md">
-        <div className="text-center mb-8">
-          <Link href="/" className="inline-flex items-center gap-2 mb-6">
-            <div className="bg-primary rounded-lg p-2">
-              <GraduationCap className="h-6 w-6 text-white" />
-            </div>
-            <span className="text-2xl font-bold text-primary">Alumni Connect</span>
+    <div className="relative flex min-h-screen">
+      {/* Left Panel - Branding */}
+      <div className="relative hidden w-1/2 lg:block">
+        <Image
+          src="https://lh3.googleusercontent.com/aida-public/AB6AXuCRJLheGW1Jq6n3IMGtta80GBzk0IbB5NQMrbmKTCBCk_kVXPufjO894SK8YfCuz3tx6grTBQTA7gFog7d1AfuPuT5qRbqB-j3EkDqIF8eVStgvdlGAMcg4heMjtdvcj_XrXJJ3hXs2-kl_0Ho7V09OozP-A_D3F8_N-ZhIKQbiXTpyaCAxNrfoGtQX67NVatG_6bTmLXXaIhiBL_42OwBIjWLNIJYRlSXRujV9OlsVF5ixuswtyhC1QUX30-c-cwnAnhD1BZbD8qD6"
+          alt="University Campus"
+          fill
+          priority
+          className="object-cover"
+          sizes="50vw"
+        />
+        <div className="absolute inset-0 bg-gradient-to-br from-[#002045]/90 via-[#1a365d]/80 to-transparent" />
+        <div className="relative z-10 flex h-full flex-col justify-between p-12">
+          <Link href="/" className="font-headline text-3xl italic text-white">
+            Alumni Connect
           </Link>
-        </div>
-
-        {registered && (
-          <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-lg mb-6">
-            Registration successful! Please check your email to verify your account.
+          <div className="max-w-md space-y-6">
+            <h1 className="font-headline text-5xl leading-tight text-white">
+              Welcome back to the <span className="italic text-amber-400">Legacy.</span>
+            </h1>
+            <p className="text-lg leading-relaxed text-white/80 font-body">
+              Sign in to reconnect with fellow scholars, explore opportunities, and shape the future of our community.
+            </p>
           </div>
-        )}
+          <p className="text-sm text-white/60 font-label">© {new Date().getFullYear()} Alumni Connect</p>
+        </div>
+      </div>
 
-        <Card>
-          <CardHeader className="text-center">
-            <CardTitle className="text-2xl">Welcome Back</CardTitle>
-            <CardDescription>
-              Sign in to your alumni account
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
+      {/* Right Panel - Form */}
+      <div className="flex w-full flex-col items-center justify-center bg-slate-50 px-6 py-12 lg:w-1/2">
+        <div className="w-full max-w-md">
+          <div className="mb-8 text-center lg:hidden">
+            <Link href="/" className="font-headline text-2xl italic text-primary">
+              Alumni Connect
+            </Link>
+          </div>
+
+          {registered && (
+            <div className="mb-6 rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-green-700 font-body">
+              Registration successful! Please check your email to verify your account.
+            </div>
+          )}
+
+          <Card className="border-slate-200 shadow-xl shadow-primary/5">
+            <CardHeader className="text-center">
+              <CardTitle className="font-headline text-3xl text-primary">Welcome Back</CardTitle>
+              <CardDescription className="font-body">Sign in to your alumni account</CardDescription>
+            </CardHeader>
+            <CardContent>
             <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="email">Email</Label>
@@ -185,6 +210,7 @@ export default function LoginPage() {
             </p>
           </CardContent>
         </Card>
+        </div>
       </div>
     </div>
   );

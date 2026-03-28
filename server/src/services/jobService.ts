@@ -48,11 +48,11 @@ export class JobService {
     }
 
     if (filters.location) {
-      where.location = { contains: filters.location, mode: 'insensitive' };
+      where.location = { contains: filters.location };
     }
 
     if (filters.industry) {
-      where.industry = { contains: filters.industry, mode: 'insensitive' };
+      where.industry = { contains: filters.industry };
     }
 
     if (filters.experience !== undefined) {

@@ -43,7 +43,7 @@ export class EventService {
     }
 
     if (filters.city) {
-      where.city = { contains: filters.city, mode: 'insensitive' };
+      where.city = { contains: filters.city };
     }
 
     if (filters.chapterId) {
