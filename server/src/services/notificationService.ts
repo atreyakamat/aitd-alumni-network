@@ -1,5 +1,7 @@
 import prisma from '../config/database';
 import { paginationHelper, buildPaginationResponse } from '../utils/helpers';
+import { NotificationType } from '@prisma/client';
+import { emitToUser } from '../utils/socket';
 
 export class NotificationService {
   async getNotifications(userId: string, page: number = 1, limit: number = 20, unreadOnly: boolean = false) {
@@ -32,7 +34,7 @@ export class NotificationService {
   }
 
   async markAsRead(userId: string, notificationId: string) {
-    await prisma.notification.updateMany({
+    const notification = await prisma.notification.updateMany({
       where: { id: notificationId, userId },
       data: { isRead: true },
     });
@@ -55,6 +57,34 @@ export class NotificationService {
     });
 
     return { message: 'Notification deleted' };
+  }
+
+  /**
+   * Internal helper to create and emit notification
+   */
+  async createNotification(data: {
+    userId: string;
+    type: NotificationType;
+    title: string;
+    message: string;
+    link?: string;
+    metadata?: any;
+  }) {
+    const notification = await prisma.notification.create({
+      data: {
+        userId: data.userId,
+        type: data.type,
+        title: data.title,
+        message: data.message,
+        link: data.link,
+        metadata: data.metadata,
+      },
+    });
+
+    // Emit real-time notification
+    emitToUser(data.userId, 'new_notification', notification);
+
+    return notification;
   }
 }
 

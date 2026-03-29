@@ -31,6 +31,7 @@
     "passport-google-oauth20": "^2.0.0",
     "passport-linkedin-oauth2": "^2.0.0",
     "razorpay": "^2.9.2",
+    "socket.io": "^4.8.3",
     "uuid": "^9.0.1",
     "zod": "^3.22.4"
   },
@@ -44,6 +45,7 @@
     "@types/nodemailer": "^6.4.14",
     "@types/passport": "^1.0.16",
     "@types/passport-google-oauth20": "^2.0.14",
+    "@types/socket.io": "^3.0.1",
     "@types/uuid": "^9.0.7",
     "@typescript-eslint/eslint-plugin": "^6.17.0",
     "@typescript-eslint/parser": "^6.17.0",

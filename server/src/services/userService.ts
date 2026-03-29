@@ -2,6 +2,7 @@ import prisma from '../config/database';
 import { AppError } from '../middleware/errorHandler';
 import { calculateProfileCompleteness, paginationHelper, buildPaginationResponse } from '../utils/helpers';
 import { Prisma } from '@prisma/client';
+import { deleteFromStorage } from '../utils/storage';
 
 interface UpdateProfileInput {
   fullName?: string;
@@ -429,6 +430,30 @@ export class UserService {
       totalCompanies,
       totalCities,
     };
+  }
+
+  async updateProfilePhoto(userId: string, photoUrl: string) {
+    const user = await prisma.user.findUnique({ where: { id: userId } });
+    if (user?.profilePhotoUrl) {
+      await deleteFromStorage(user.profilePhotoUrl);
+    }
+
+    return prisma.user.update({
+      where: { id: userId },
+      data: { profilePhotoUrl: photoUrl },
+    });
+  }
+
+  async updateCoverPhoto(userId: string, photoUrl: string) {
+    const user = await prisma.user.findUnique({ where: { id: userId } });
+    if (user?.coverPhotoUrl) {
+      await deleteFromStorage(user.coverPhotoUrl);
+    }
+
+    return prisma.user.update({
+      where: { id: userId },
+      data: { coverPhotoUrl: photoUrl },
+    });
   }
 }
 

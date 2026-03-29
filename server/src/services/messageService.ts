@@ -2,6 +2,8 @@ import prisma from '../config/database';
 import { AppError } from '../middleware/errorHandler';
 import { paginationHelper, buildPaginationResponse } from '../utils/helpers';
 import { networkService } from './networkService';
+import { notificationService } from './notificationService';
+import { emitToUser } from '../utils/socket';
 
 interface SendMessageInput {
   content: string;
@@ -193,20 +195,22 @@ export class MessageService {
       },
     });
 
+    // Emit real-time message
+    emitToUser(receiverId, 'new_message', message);
+
     // Create notification
     const sender = await prisma.user.findUnique({
       where: { id: senderId },
       select: { fullName: true },
     });
 
-    await prisma.notification.create({
-      data: {
-        userId: receiverId,
-        type: 'MESSAGE_RECEIVED',
-        title: isRequest ? 'New Message Request' : 'New Message',
-        message: `${sender?.fullName} sent you a message`,
-        link: `/messages/${senderId}`,
-      },
+    await notificationService.createNotification({
+      userId: receiverId,
+      type: 'MESSAGE_RECEIVED',
+      title: isRequest ? 'New Message Request' : 'New Message',
+      message: `${sender?.fullName} sent you a message`,
+      link: `/messages/${senderId}`,
+      metadata: { messageId: message.id, senderId },
     });
 
     return message;
@@ -233,6 +237,22 @@ export class MessageService {
       where: { id: messageId },
       data: { requestStatus: accept ? 'ACCEPTED' : 'DECLINED' },
     });
+
+    // Notify the sender about the response
+    const receiver = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { fullName: true },
+    });
+
+    if (accept) {
+      await notificationService.createNotification({
+        userId: message.senderId,
+        type: 'CONNECTION_ACCEPTED', // Or a more specific type if available
+        title: 'Message Request Accepted',
+        message: `${receiver?.fullName} accepted your message request`,
+        link: `/messages/${userId}`,
+      });
+    }
 
     return { message: accept ? 'Message request accepted' : 'Message request declined' };
   }

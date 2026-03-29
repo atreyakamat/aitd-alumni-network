@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import { postService } from '../services/postService';
+import { uploadToStorage } from '../utils/storage';
 
 export class PostController {
   async getFeed(req: Request, res: Response, next: NextFunction) {
@@ -81,6 +82,22 @@ export class PostController {
       const isAdmin = ['ADMIN', 'SUPER_ADMIN'].includes(req.user!.userRole);
       const result = await postService.deleteComment(req.user!.id, id, isAdmin);
       res.json({ success: true, data: result });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async uploadMedia(req: Request, res: Response, next: NextFunction) {
+    try {
+      if (!req.files || (req.files as Express.Multer.File[]).length === 0) {
+        return res.status(400).json({ success: false, message: 'No files uploaded' });
+      }
+
+      const files = req.files as Express.Multer.File[];
+      const uploadPromises = files.map(file => uploadToStorage(file, 'posts'));
+      const urls = await Promise.all(uploadPromises);
+
+      res.json({ success: true, data: { urls } });
     } catch (error) {
       next(error);
     }

@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import { userService } from '../services/userService';
+import { uploadToStorage } from '../utils/storage';
 
 export class UserController {
   async getProfile(req: Request, res: Response, next: NextFunction) {
@@ -16,6 +17,36 @@ export class UserController {
   async updateProfile(req: Request, res: Response, next: NextFunction) {
     try {
       const result = await userService.updateProfile(req.user!.id, req.body);
+      res.json({ success: true, data: result });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async updateProfilePhoto(req: Request, res: Response, next: NextFunction) {
+    try {
+      if (!req.file) {
+        return res.status(400).json({ success: false, message: 'No file uploaded' });
+      }
+      
+      const photoUrl = await uploadToStorage(req.file, 'profiles');
+      const result = await userService.updateProfilePhoto(req.user!.id, photoUrl);
+      
+      res.json({ success: true, data: result });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async updateCoverPhoto(req: Request, res: Response, next: NextFunction) {
+    try {
+      if (!req.file) {
+        return res.status(400).json({ success: false, message: 'No file uploaded' });
+      }
+      
+      const photoUrl = await uploadToStorage(req.file, 'covers');
+      const result = await userService.updateCoverPhoto(req.user!.id, photoUrl);
+      
       res.json({ success: true, data: result });
     } catch (error) {
       next(error);

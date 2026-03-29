@@ -9,6 +9,7 @@ import { galleryController, newsController, chapterController, marketplaceContro
 import { membershipController, donationController } from '../controllers/paymentController';
 import { authenticate, optionalAuth, isAdmin, isSuperAdmin } from '../middleware/auth';
 import { validate } from '../middleware/validate';
+import { upload } from '../utils/storage';
 import {
   registerSchema,
   loginSchema,
@@ -41,6 +42,8 @@ router.get('/users/yearbook/:year', authenticate, userController.getYearbook);
 router.get('/users/locations', authenticate, userController.getAlumniLocations);
 router.get('/users/:id', optionalAuth, userController.getProfile);
 router.patch('/users/profile', authenticate, validate(updateProfileSchema), userController.updateProfile);
+router.patch('/users/profile-photo', authenticate, upload.single('photo'), userController.updateProfilePhoto);
+router.patch('/users/cover-photo', authenticate, upload.single('photo'), userController.updateCoverPhoto);
 
 // Work Experience
 router.post('/users/work-experience', authenticate, userController.addWorkExperience);
@@ -59,6 +62,7 @@ router.put('/users/skills', authenticate, userController.updateSkills);
 router.get('/posts', optionalAuth, postController.getFeed);
 router.get('/posts/:id', optionalAuth, postController.getPost);
 router.post('/posts', authenticate, validate(createPostSchema), postController.createPost);
+router.post('/posts/media', authenticate, upload.array('media', 5), postController.uploadMedia);
 router.patch('/posts/:id', authenticate, postController.updatePost);
 router.delete('/posts/:id', authenticate, postController.deletePost);
 router.post('/posts/:id/like', authenticate, postController.likePost);

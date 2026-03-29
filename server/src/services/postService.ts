@@ -2,6 +2,7 @@ import prisma from '../config/database';
 import { AppError } from '../middleware/errorHandler';
 import { paginationHelper, buildPaginationResponse } from '../utils/helpers';
 import { PostType, Prisma } from '@prisma/client';
+import { notificationService } from './notificationService';
 
 interface CreatePostInput {
   type?: PostType;
@@ -262,14 +263,13 @@ export class PostService {
         select: { fullName: true },
       });
 
-      await prisma.notification.create({
-        data: {
-          userId: post.userId,
-          type: 'POST_LIKED',
-          title: 'New Like',
-          message: `${liker?.fullName} liked your post`,
-          link: `/posts/${postId}`,
-        },
+      await notificationService.createNotification({
+        userId: post.userId,
+        type: 'POST_LIKED',
+        title: 'New Like',
+        message: `${liker?.fullName} liked your post`,
+        link: `/posts/${postId}`,
+        metadata: { postId, likerId: userId },
       });
     }
 
@@ -325,14 +325,13 @@ export class PostService {
         select: { fullName: true },
       });
 
-      await prisma.notification.create({
-        data: {
-          userId: post.userId,
-          type: 'POST_COMMENTED',
-          title: 'New Comment',
-          message: `${commenter?.fullName} commented on your post`,
-          link: `/posts/${postId}`,
-        },
+      await notificationService.createNotification({
+        userId: post.userId,
+        type: 'POST_COMMENTED',
+        title: 'New Comment',
+        message: `${commenter?.fullName} commented on your post`,
+        link: `/posts/${postId}`,
+        metadata: { postId, commenterId: userId, commentId: comment.id },
       });
     }
 
