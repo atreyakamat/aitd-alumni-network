@@ -2,6 +2,7 @@ import prisma from '../config/database';
 import { AppError } from '../middleware/errorHandler';
 import { paginationHelper, buildPaginationResponse } from '../utils/helpers';
 import { JobType, WorkplaceType, JobStatus, Prisma } from '@prisma/client';
+import { notificationService } from './notificationService';
 
 interface CreateJobInput {
   title: string;
@@ -200,14 +201,13 @@ export class JobService {
     });
 
     // Notify the poster
-    await prisma.notification.create({
-      data: {
-        userId: job.postedById,
-        type: 'ADMIN_ANNOUNCEMENT',
-        title: 'Job Approved',
-        message: `Your job posting "${job.title}" has been approved and is now live.`,
-        link: `/jobs/${job.id}`,
-      },
+    await notificationService.createNotification({
+      userId: job.postedById,
+      type: 'JOB_MATCH', // Or a more specific type if available
+      title: 'Job Approved',
+      message: `Your job posting "${job.title}" has been approved and is now live.`,
+      link: `/jobs/${job.id}`,
+      metadata: { jobId: job.id },
     });
 
     return job;
@@ -220,14 +220,13 @@ export class JobService {
     });
 
     // Notify the poster
-    await prisma.notification.create({
-      data: {
-        userId: job.postedById,
-        type: 'ADMIN_ANNOUNCEMENT',
-        title: 'Job Not Approved',
-        message: reason || `Your job posting "${job.title}" was not approved.`,
-        link: `/jobs/${job.id}`,
-      },
+    await notificationService.createNotification({
+      userId: job.postedById,
+      type: 'ADMIN_ANNOUNCEMENT',
+      title: 'Job Not Approved',
+      message: reason || `Your job posting "${job.title}" was not approved.`,
+      link: `/jobs/${job.id}`,
+      metadata: { jobId: job.id, reason },
     });
 
     return job;

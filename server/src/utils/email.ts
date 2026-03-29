@@ -1,15 +1,20 @@
 import nodemailer from 'nodemailer';
 import { config } from '../config';
 
-const transporter = nodemailer.createTransport({
-  host: config.email.smtp.host,
-  port: config.email.smtp.port,
-  secure: config.email.smtp.port === 465,
-  auth: {
-    user: config.email.smtp.user,
-    pass: config.email.smtp.pass,
-  },
-});
+// Create transporter only if SMTP config is available
+const hasSmtpConfig = config.email.smtp.user && config.email.smtp.pass;
+
+const transporter = hasSmtpConfig 
+  ? nodemailer.createTransport({
+      host: config.email.smtp.host,
+      port: config.email.smtp.port,
+      secure: config.email.smtp.port === 465,
+      auth: {
+        user: config.email.smtp.user,
+        pass: config.email.smtp.pass,
+      },
+    })
+  : null;
 
 interface EmailOptions {
   to: string;
@@ -19,6 +24,17 @@ interface EmailOptions {
 }
 
 export const sendEmail = async (options: EmailOptions): Promise<void> => {
+  if (!transporter) {
+    console.log('--------------------------------------------------');
+    console.log('📧 DEVELOPMENT EMAIL LOG');
+    console.log(`To: ${options.to}`);
+    console.log(`Subject: ${options.subject}`);
+    console.log('Content (HTML):');
+    console.log(options.html);
+    console.log('--------------------------------------------------');
+    return;
+  }
+
   try {
     await transporter.sendMail({
       from: config.email.from,
@@ -30,7 +46,10 @@ export const sendEmail = async (options: EmailOptions): Promise<void> => {
     console.log(`Email sent to ${options.to}`);
   } catch (error) {
     console.error('Error sending email:', error);
-    throw error;
+    // Don't throw error in development to avoid crashing the flow
+    if (config.nodeEnv === 'production') {
+      throw error;
+    }
   }
 };
 

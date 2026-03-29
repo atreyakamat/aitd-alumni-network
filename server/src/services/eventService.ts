@@ -2,6 +2,7 @@ import prisma from '../config/database';
 import { AppError } from '../middleware/errorHandler';
 import { paginationHelper, buildPaginationResponse } from '../utils/helpers';
 import { EventType, EventStatus, Prisma } from '@prisma/client';
+import { notificationService } from './notificationService';
 
 interface CreateEventInput {
   title: string;
@@ -250,14 +251,13 @@ export class EventService {
         select: { fullName: true },
       });
 
-      await prisma.notification.create({
-        data: {
-          userId: event.createdById,
-          type: 'EVENT_RSVP',
-          title: 'New RSVP',
-          message: `${rsvpUser?.fullName} is attending "${event.title}"`,
-          link: `/events/${eventId}`,
-        },
+      await notificationService.createNotification({
+        userId: event.createdById,
+        type: 'EVENT_RSVP',
+        title: 'New RSVP',
+        message: `${rsvpUser?.fullName} is attending "${event.title}"`,
+        link: `/events/${eventId}`,
+        metadata: { eventId, rsvpUserId: userId },
       });
     }
 

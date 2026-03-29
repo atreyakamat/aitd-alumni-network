@@ -13,7 +13,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useAuth } from '@/context/auth-context';
 import { useToast } from '@/hooks/use-toast';
-import { Eye, EyeOff, Loader2 } from 'lucide-react';
+import { Eye, EyeOff, Loader2, ShieldCheck } from 'lucide-react';
+import { api } from '@/lib/api';
 
 const loginSchema = z.object({
   email: z.string().email('Please enter a valid email'),
@@ -25,7 +26,11 @@ type LoginFormData = z.infer<typeof loginSchema>;
 export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const { login } = useAuth();
+  const [requires2FA, setRequires2FA] = useState(false);
+  const [userId, setUserId] = useState<string | null>(null);
+  const [otpCode, setOtpCode] = useState('');
+  const [isVerifying2FA, setIsVerifying2FA] = useState(false);
+  const { login, setAuthData } = useAuth();
   const { toast } = useToast();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -42,11 +47,24 @@ export default function LoginPage() {
   const onSubmit = async (data: LoginFormData) => {
     setIsLoading(true);
     try {
-      await login(data.email, data.password);
-      toast({
-        title: 'Welcome back!',
-        description: 'You have successfully logged in.',
-      });
+      const response = await api.post('/auth/login', data);
+      const result = response.data.data;
+
+      if (result.requires2FA) {
+        setRequires2FA(true);
+        setUserId(result.userId);
+        toast({
+          title: 'Verification Required',
+          description: 'A verification code has been sent to your email.',
+        });
+      } else {
+        setAuthData(result);
+        toast({
+          title: 'Welcome back!',
+          description: 'You have successfully logged in.',
+        });
+        router.push('/dashboard');
+      }
     } catch (error: any) {
       toast({
         variant: 'destructive',
@@ -57,6 +75,159 @@ export default function LoginPage() {
       setIsLoading(false);
     }
   };
+
+  const verify2FA = async () => {
+    if (!otpCode || otpCode.length !== 6) {
+      toast({
+        variant: 'destructive',
+        title: 'Invalid Code',
+        description: 'Please enter a 6-digit verification code.',
+      });
+      return;
+    }
+
+    setIsVerifying2FA(true);
+    try {
+      const response = await api.post('/auth/verify-2fa', { userId, otp: otpCode });
+      const result = response.data.data;
+      setAuthData(result);
+      toast({
+        title: 'Welcome back!',
+        description: 'You have successfully logged in.',
+      });
+      router.push('/dashboard');
+    } catch (error: any) {
+      toast({
+        variant: 'destructive',
+        title: 'Verification Failed',
+        description: error.response?.data?.error || 'Invalid or expired code. Please try again.',
+      });
+    } finally {
+      setIsVerifying2FA(false);
+    }
+  };
+
+  const resend2FA = async () => {
+    try {
+      await api.post('/auth/resend-2fa', { userId });
+      toast({
+        title: 'Code Sent',
+        description: 'A new verification code has been sent to your email.',
+      });
+    } catch (error: any) {
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: 'Failed to resend code. Please try again.',
+      });
+    }
+  };
+
+  // 2FA Verification UI
+  if (requires2FA) {
+    return (
+      <div className="relative flex min-h-screen">
+        {/* Left Panel - Branding */}
+        <div className="relative hidden w-1/2 lg:block">
+          <Image
+            src="https://lh3.googleusercontent.com/aida-public/AB6AXuCRJLheGW1Jq6n3IMGtta80GBzk0IbB5NQMrbmKTCBCk_kVXPufjO894SK8YfCuz3tx6grTBQTA7gFog7d1AfuPuT5qRbqB-j3EkDqIF8eVStgvdlGAMcg4heMjtdvcj_XrXJJ3hXs2-kl_0Ho7V09OozP-A_D3F8_N-ZhIKQbiXTpyaCAxNrfoGtQX67NVatG_6bTmLXXaIhiBL_42OwBIjWLNIJYRlSXRujV9OlsVF5ixuswtyhC1QUX30-c-cwnAnhD1BZbD8qD6"
+            alt="University Campus"
+            fill
+            priority
+            className="object-cover"
+            sizes="50vw"
+          />
+          <div className="absolute inset-0 bg-gradient-to-br from-[#002045]/90 via-[#1a365d]/80 to-transparent" />
+          <div className="relative z-10 flex h-full flex-col justify-between p-12">
+            <Link href="/" className="font-headline text-3xl italic text-white">
+              Alumni Connect
+            </Link>
+            <div className="max-w-md space-y-6">
+              <h1 className="font-headline text-5xl leading-tight text-white">
+                Secure <span className="italic text-amber-400">Verification</span>
+              </h1>
+              <p className="text-lg leading-relaxed text-white/80 font-body">
+                Enter the verification code sent to your email to complete sign-in.
+              </p>
+            </div>
+            <p className="text-sm text-white/60 font-label">© {new Date().getFullYear()} Alumni Connect</p>
+          </div>
+        </div>
+
+        {/* Right Panel - 2FA Form */}
+        <div className="flex w-full flex-col items-center justify-center bg-slate-50 px-6 py-12 lg:w-1/2">
+          <div className="w-full max-w-md">
+            <Card className="border-slate-200 shadow-xl shadow-primary/5">
+              <CardHeader className="text-center">
+                <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-primary/10">
+                  <ShieldCheck className="h-8 w-8 text-primary" />
+                </div>
+                <CardTitle className="font-headline text-2xl text-primary">Two-Factor Authentication</CardTitle>
+                <CardDescription className="font-body">
+                  Enter the 6-digit code sent to your email
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="otp">Verification Code</Label>
+                  <Input
+                    id="otp"
+                    type="text"
+                    placeholder="000000"
+                    value={otpCode}
+                    onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                    maxLength={6}
+                    className="text-center text-2xl tracking-widest"
+                    disabled={isVerifying2FA}
+                  />
+                </div>
+
+                <Button
+                  onClick={verify2FA}
+                  className="w-full"
+                  disabled={isVerifying2FA || otpCode.length !== 6}
+                >
+                  {isVerifying2FA ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Verifying...
+                    </>
+                  ) : (
+                    'Verify Code'
+                  )}
+                </Button>
+
+                <div className="text-center">
+                  <button
+                    type="button"
+                    onClick={resend2FA}
+                    className="text-sm text-primary hover:underline"
+                    disabled={isVerifying2FA}
+                  >
+                    Didn&apos;t receive the code? Resend
+                  </button>
+                </div>
+
+                <div className="text-center">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setRequires2FA(false);
+                      setUserId(null);
+                      setOtpCode('');
+                    }}
+                    className="text-sm text-muted-foreground hover:underline"
+                  >
+                    ← Back to login
+                  </button>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="relative flex min-h-screen">
@@ -173,7 +344,11 @@ export default function LoginPage() {
             </div>
 
             <div className="grid grid-cols-2 gap-4">
-              <Button variant="outline" disabled={isLoading}>
+              <Button 
+                variant="outline" 
+                disabled={isLoading}
+                onClick={() => window.location.href = `${process.env.NEXT_PUBLIC_API_URL}/auth/google`}
+              >
                 <svg className="mr-2 h-4 w-4" viewBox="0 0 24 24">
                   <path
                     fill="currentColor"
@@ -194,7 +369,11 @@ export default function LoginPage() {
                 </svg>
                 Google
               </Button>
-              <Button variant="outline" disabled={isLoading}>
+              <Button 
+                variant="outline" 
+                disabled={isLoading}
+                onClick={() => window.location.href = `${process.env.NEXT_PUBLIC_API_URL}/auth/linkedin`}
+              >
                 <svg className="mr-2 h-4 w-4" viewBox="0 0 24 24" fill="currentColor">
                   <path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433c-1.144 0-2.063-.926-2.063-2.065 0-1.138.92-2.063 2.063-2.063 1.14 0 2.064.925 2.064 2.063 0 1.139-.925 2.065-2.064 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z" />
                 </svg>

@@ -26,6 +26,7 @@ interface AuthContextType {
   register: (data: RegisterData) => Promise<void>;
   logout: () => Promise<void>;
   refreshUser: () => Promise<void>;
+  setAuthData: (data: { accessToken: string; refreshToken: string; user: User }) => void;
 }
 
 interface RegisterData {
@@ -99,6 +100,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  const setAuthData = (data: { accessToken: string; refreshToken: string; user: User }) => {
+    localStorage.setItem('accessToken', data.accessToken);
+    localStorage.setItem('refreshToken', data.refreshToken);
+    setUser(data.user);
+  };
+
   const value = {
     user,
     isLoading,
@@ -107,6 +114,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     register,
     logout,
     refreshUser,
+    setAuthData,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

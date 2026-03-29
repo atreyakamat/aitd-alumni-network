@@ -35,11 +35,18 @@ router.post('/auth/refresh-token', validate(refreshTokenSchema), authController.
 router.post('/auth/logout', authenticate, authController.logout);
 router.get('/auth/me', authenticate, authController.me);
 
+// 2FA Routes
+router.post('/auth/verify-2fa', authController.verify2FA);
+router.post('/auth/resend-2fa', authController.resend2FA);
+router.post('/auth/2fa/enable', authenticate, authController.enable2FA);
+router.post('/auth/2fa/disable', authenticate, authController.disable2FA);
+
 // ============== USER ROUTES ==============
 router.get('/users/stats', userController.getPublicStats);
 router.get('/users/directory', authenticate, userController.searchDirectory);
 router.get('/users/yearbook/:year', authenticate, userController.getYearbook);
 router.get('/users/locations', authenticate, userController.getAlumniLocations);
+router.get('/users/nearby', authenticate, userController.getNearbyAlumni);
 router.get('/users/:id', optionalAuth, userController.getProfile);
 router.patch('/users/profile', authenticate, validate(updateProfileSchema), userController.updateProfile);
 router.patch('/users/profile-photo', authenticate, upload.single('photo'), userController.updateProfilePhoto);
@@ -173,5 +180,38 @@ router.get('/donations/stats', donationController.getStats);
 router.get('/donations/my', authenticate, donationController.getMyDonations);
 router.post('/donations/order', optionalAuth, donationController.createOrder);
 router.post('/donations/verify', optionalAuth, donationController.verifyPayment);
+
+// ============== INVITE ROUTES ==============
+import { inviteController } from '../controllers/inviteController';
+router.get('/invites/verify/:token', inviteController.verifyInvite);
+router.get('/invites/sent', authenticate, inviteController.getSentInvites);
+router.get('/invites/stats', authenticate, inviteController.getInviteStats);
+router.post('/invites/send', authenticate, inviteController.sendInvite);
+router.post('/invites/bulk', authenticate, inviteController.sendBulkInvites);
+router.post('/invites/generate-link', authenticate, inviteController.generateShareableLink);
+router.post('/invites/:token/accept', authenticate, inviteController.acceptInvite);
+
+// ============== MENTORSHIP ROUTES ==============
+import { mentorshipController } from '../controllers/mentorshipController';
+
+// Mentor profiles
+router.get('/mentorship/mentors', authenticate, mentorshipController.getMentors);
+router.get('/mentorship/profile', authenticate, mentorshipController.getMyMentorProfile);
+router.get('/mentorship/profile/:userId', authenticate, mentorshipController.getMentorProfile);
+router.post('/mentorship/profile', authenticate, mentorshipController.createMentorProfile);
+router.patch('/mentorship/profile', authenticate, mentorshipController.updateMentorProfile);
+router.delete('/mentorship/profile', authenticate, mentorshipController.deleteMentorProfile);
+
+// Mentorship requests
+router.get('/mentorship/requests/mentor', authenticate, mentorshipController.getMyMentorRequests);
+router.get('/mentorship/requests/mentee', authenticate, mentorshipController.getMyMenteeRequests);
+router.post('/mentorship/request/:mentorId', authenticate, mentorshipController.requestMentorship);
+router.post('/mentorship/request/:requestId/respond', authenticate, mentorshipController.respondToRequest);
+router.post('/mentorship/request/:requestId/end', authenticate, mentorshipController.endMentorship);
+
+// Mentorship sessions
+router.get('/mentorship/request/:requestId/sessions', authenticate, mentorshipController.getSessions);
+router.post('/mentorship/request/:requestId/sessions', authenticate, mentorshipController.scheduleSession);
+router.post('/mentorship/sessions/:sessionId/complete', authenticate, mentorshipController.completeSession);
 
 export default router;

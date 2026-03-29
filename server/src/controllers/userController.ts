@@ -162,6 +162,28 @@ export class UserController {
     }
   }
 
+  // Nearby Alumni with geospatial filtering
+  async getNearbyAlumni(req: Request, res: Response, next: NextFunction) {
+    try {
+      const lat = parseFloat(req.query.lat as string);
+      const lng = parseFloat(req.query.lng as string);
+      const radius = req.query.radius ? parseFloat(req.query.radius as string) : 50;
+      const limit = req.query.limit ? parseInt(req.query.limit as string) : 100;
+
+      if (isNaN(lat) || isNaN(lng)) {
+        return res.status(400).json({
+          success: false,
+          message: 'Valid lat and lng query parameters are required',
+        });
+      }
+
+      const result = await userService.getNearbyAlumni(lat, lng, radius, limit);
+      res.json({ success: true, data: result });
+    } catch (error) {
+      next(error);
+    }
+  }
+
   // Public Stats
   async getPublicStats(req: Request, res: Response, next: NextFunction) {
     try {

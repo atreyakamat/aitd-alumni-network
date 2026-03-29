@@ -119,6 +119,10 @@ enum NotificationType {
   JOB_MATCH
   ADMIN_ANNOUNCEMENT
   MENTION
+  MENTORSHIP_REQUEST
+  MENTORSHIP_ACCEPTED
+  MENTORSHIP_DECLINED
+  MENTORSHIP_SESSION
 }
 
 enum TransactionType {
@@ -176,6 +180,7 @@ model User {
   emailVerifiedAt   DateTime?
   profileCompleteness Int     @default(0)
   lastLoginAt       DateTime?
+  twoFactorEnabled  Boolean   @default(false)
   
   // Membership
   membershipTierId  String?
@@ -212,6 +217,7 @@ model User {
   transactions      Transaction[]
   invitesSent       Invite[]
   refreshTokens     RefreshToken[]
+  verificationTokens VerificationToken[]
   
   @@index([email])
   @@index([batchYear])
@@ -219,6 +225,22 @@ model User {
   @@index([city])
   @@index([isActive])
   @@index([fullName])
+}
+
+// Verification tokens for 2FA, email verification, password reset
+model VerificationToken {
+  id          String    @id @default(uuid())
+  token       String
+  type        String    // EMAIL_VERIFY, PASSWORD_RESET, TWO_FACTOR
+  userId      String
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt   DateTime
+  isUsed      Boolean   @default(false)
+  createdAt   DateTime  @default(now())
+  
+  @@index([userId])
+  @@index([token])
+  @@index([type])
 }
 
 model RefreshToken {
@@ -754,20 +776,22 @@ model Transaction {
 model Invite {
   id          String    @id @default(uuid())
   email       String
-  fullName    String?
+  name        String?
   batchYear   Int?
   roleType    RoleType  @default(ALUMNI)
-  invitedById String
-  invitedBy   User      @relation(fields: [invitedById], references: [id], onDelete: Cascade)
+  inviterId   String?
+  inviter     User?     @relation(fields: [inviterId], references: [id], onDelete: SetNull)
   token       String    @unique
-  status      String    @default("PENDING") // PENDING, ACCEPTED, EXPIRED
+  status      String    @default("PENDING") // PENDING, SENT, ACCEPTED, EXPIRED
   expiresAt   DateTime
   acceptedAt  DateTime?
+  isShareable Boolean   @default(false)
+  metadata    Json?     // Custom message, batch year, etc.
   createdAt   DateTime  @default(now())
   
   @@index([email])
   @@index([token])
-  @@index([invitedById])
+  @@index([inviterId])
   @@index([status])
 }
 

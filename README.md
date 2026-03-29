@@ -9,17 +9,25 @@ A comprehensive alumni network platform built with Next.js and Express.js, desig
 - **Social Feed** - Share updates, achievements, and announcements
 - **Job Board** - Post and discover career opportunities
 - **Events** - Organize and RSVP to reunions, workshops, and meetups
-- **Messaging** - Direct messaging between connected alumni
-- **Notifications** - Stay updated on network activity
+- **Messaging** - Real-time direct messaging with Socket.io
+- **Notifications** - Real-time notification badges and updates
 
 ### Additional Features
+- **Alumni Nearby Map** - Interactive map with clustering to find alumni near you
 - **Photo Gallery** - Browse event photos and memories
 - **News & Stories** - Alumni spotlights and college updates
-- **Chapters** - Regional alumni groups
+- **Chapters** - Regional alumni groups with donation tracking
 - **Marketplace** - Buy/sell items within the network
-- **Donations** - Support your alma mater
+- **Donations** - Support your alma mater with leaderboards and impact tracking
 - **Memberships** - Premium membership tiers with Razorpay integration
 - **Mentorship** - Connect mentors with mentees
+- **Invite Batchmates** - Bulk CSV invite with branded email templates
+- **Admin Analytics** - Dashboard with user growth, revenue, and engagement charts
+
+### Security Features
+- **Two-Factor Authentication (2FA)** - Email-based OTP verification
+- **OAuth Login** - Google and LinkedIn authentication
+- **JWT Authentication** - Access and refresh token management
 
 ## 🛠️ Tech Stack
 
@@ -163,7 +171,11 @@ npm run db:studio        # Open Prisma Studio
 
 ### Authentication
 - `POST /api/auth/register` - Register new user
-- `POST /api/auth/login` - Login
+- `POST /api/auth/login` - Login (returns 2FA prompt if enabled)
+- `POST /api/auth/verify-2fa` - Verify 2FA OTP code
+- `POST /api/auth/resend-2fa` - Resend 2FA OTP code
+- `POST /api/auth/2fa/enable` - Enable 2FA for account
+- `POST /api/auth/2fa/disable` - Disable 2FA for account
 - `POST /api/auth/logout` - Logout
 - `POST /api/auth/refresh-token` - Refresh access token
 - `POST /api/auth/verify-email` - Verify email
@@ -175,6 +187,16 @@ npm run db:studio        # Open Prisma Studio
 - `GET /api/users/:id` - Get user profile
 - `PATCH /api/users/profile` - Update own profile
 - `GET /api/users/yearbook/:year` - Get yearbook by batch
+- `GET /api/users/nearby` - Get alumni near a location
+
+### Invites
+- `POST /api/invites/send` - Send single invite
+- `POST /api/invites/bulk` - Send bulk invites via CSV
+- `POST /api/invites/generate-link` - Generate shareable invite link
+- `GET /api/invites/sent` - Get sent invites
+- `GET /api/invites/stats` - Get invite statistics
+- `GET /api/invites/verify/:token` - Verify invite token
+- `POST /api/invites/:token/accept` - Accept invite
 
 ### Posts
 - `GET /api/posts` - Get feed
@@ -231,6 +253,78 @@ The UI follows a LinkedIn-inspired design system:
 ## 📄 License
 
 This project is proprietary software for AITD Alumni Association.
+
+## 🐳 Docker Deployment
+
+### Quick Start with Docker Compose
+
+```bash
+# Copy environment variables
+cp .env.example .env
+# Edit .env with your configuration
+
+# Build and start all services
+docker-compose up -d
+
+# View logs
+docker-compose logs -f
+
+# Stop services
+docker-compose down
+```
+
+This starts:
+- **MySQL** - Database on port 3306
+- **Redis** - Cache on port 6379
+- **API** - Backend on port 5000
+- **Web** - Frontend on port 3000
+
+### Production Deployment
+
+```bash
+# Build images
+docker-compose build
+
+# Run with production profile (includes Nginx)
+docker-compose --profile production up -d
+```
+
+### Individual Docker Builds
+
+```bash
+# Build server
+cd server && docker build -t alumni-connect-api .
+
+# Build client
+cd client && docker build -t alumni-connect-web --build-arg NEXT_PUBLIC_API_URL=https://api.yourdomain.com/api .
+```
+
+## 🔄 CI/CD
+
+The project includes GitHub Actions workflows for:
+
+- **Backend CI** - Linting, testing, and building the Express server
+- **Frontend CI** - Linting and building the Next.js app
+- **Docker Build** - Building and pushing Docker images on main branch
+
+See `.github/workflows/ci.yml` for the full configuration.
+
+### Required GitHub Secrets
+- `DOCKER_USERNAME` - Docker Hub username
+- `DOCKER_PASSWORD` - Docker Hub password/access token
+
+## 🧪 Testing
+
+```bash
+# Run backend tests
+cd server && npm test
+
+# Run with coverage
+cd server && npm run test:coverage
+
+# Watch mode
+cd server && npm run test:watch
+```
 
 ## 👥 Contributors
 

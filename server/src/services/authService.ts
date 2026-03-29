@@ -93,6 +93,18 @@ export class AuthService {
       throw new AppError('Account is deactivated', 401, 'ACCOUNT_DEACTIVATED');
     }
 
+    // Check if 2FA is enabled - don't issue tokens yet
+    if (user.twoFactorEnabled) {
+      return {
+        user: {
+          id: user.id,
+          email: user.email,
+          fullName: user.fullName,
+          twoFactorEnabled: true,
+        },
+      };
+    }
+
     // Update last login
     await prisma.user.update({
       where: { id: user.id },
@@ -123,6 +135,7 @@ export class AuthService {
         isVerified: user.isVerified,
         membershipTier: user.membershipTier,
         profileCompleteness: user.profileCompleteness,
+        twoFactorEnabled: false,
       },
     };
   }
@@ -300,6 +313,56 @@ export class AuthService {
 
     const { passwordHash, ...userWithoutPassword } = user;
     return userWithoutPassword;
+  }
+
+  async completeLoginAfter2FA(userId: string) {
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      include: {
+        membershipTier: true,
+      },
+    });
+
+    if (!user) {
+      throw new AppError('User not found', 404, 'USER_NOT_FOUND');
+    }
+
+    if (!user.isActive) {
+      throw new AppError('Account is deactivated', 401, 'ACCOUNT_DEACTIVATED');
+    }
+
+    // Update last login
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { lastLoginAt: new Date() },
+    });
+
+    const accessToken = generateAccessToken(user.id, user.email, user.userRole);
+    const refreshToken = generateRefreshToken(user.id);
+
+    // Store refresh token
+    await prisma.refreshToken.create({
+      data: {
+        userId: user.id,
+        token: refreshToken,
+        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
+      },
+    });
+
+    return {
+      accessToken,
+      refreshToken,
+      user: {
+        id: user.id,
+        email: user.email,
+        fullName: user.fullName,
+        profilePhotoUrl: user.profilePhotoUrl,
+        userRole: user.userRole,
+        isVerified: user.isVerified,
+        membershipTier: user.membershipTier,
+        profileCompleteness: user.profileCompleteness,
+      },
+    };
   }
 }
 

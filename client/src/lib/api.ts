@@ -30,6 +30,31 @@ api.interceptors.response.use(
   async (error) => {
     const originalRequest = error.config;
 
+    // Handle network errors
+    if (!error.response) {
+      console.error('Network error:', error.message);
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('api:network_error', { 
+          detail: { message: 'Network error. Please check your connection.' } 
+        }));
+      }
+      return Promise.reject(error);
+    }
+
+    // Handle 500 server errors
+    if (error.response?.status >= 500) {
+      console.error('Server error:', error.response.data);
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('api:server_error', { 
+          detail: { 
+            message: error.response.data?.error || 'Server error. Please try again later.',
+            status: error.response.status 
+          } 
+        }));
+      }
+      return Promise.reject(error);
+    }
+
     // If error is 401 and we haven't tried to refresh yet
     if (error.response?.status === 401 && !originalRequest._retry) {
       originalRequest._retry = true;
@@ -54,8 +79,20 @@ api.interceptors.response.use(
         localStorage.removeItem('accessToken');
         localStorage.removeItem('refreshToken');
         if (typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('api:session_expired', { 
+            detail: { message: 'Your session has expired. Please log in again.' } 
+          }));
           window.location.href = '/login';
         }
+      }
+    }
+
+    // Handle 403 Forbidden
+    if (error.response?.status === 403) {
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('api:forbidden', { 
+          detail: { message: 'You do not have permission to perform this action.' } 
+        }));
       }
     }
 
@@ -92,26 +129,120 @@ export const authApi = {
   me: () => api.get('/auth/me'),
 };
 
+// Type definitions for API requests
+interface UserProfile {
+  headline?: string;
+  bio?: string;
+  phone?: string;
+  linkedinUrl?: string;
+  websiteUrl?: string;
+  locationCity?: string;
+  locationCountry?: string;
+  latitude?: number;
+  longitude?: number;
+  isPublicProfile?: boolean;
+  showEmail?: boolean;
+  showPhone?: boolean;
+}
+
+interface WorkExperience {
+  companyName: string;
+  title: string;
+  employmentType?: string;
+  location?: string;
+  startDate: string;
+  endDate?: string;
+  isCurrent?: boolean;
+  description?: string;
+}
+
+interface Education {
+  institution: string;
+  degree: string;
+  fieldOfStudy: string;
+  startYear: number;
+  endYear?: number;
+  grade?: string;
+  activities?: string;
+  description?: string;
+}
+
+interface Post {
+  content: string;
+  visibility?: string;
+  mediaUrls?: string[];
+}
+
+interface Job {
+  title: string;
+  company: string;
+  location: string;
+  type: string;
+  experienceLevel?: string;
+  salary?: string;
+  description: string;
+  requirements?: string;
+  applicationUrl?: string;
+  applicationEmail?: string;
+  deadline?: string;
+}
+
+interface Event {
+  title: string;
+  description: string;
+  startDate: string;
+  endDate: string;
+  location?: string;
+  isVirtual?: boolean;
+  virtualLink?: string;
+  maxAttendees?: number;
+  coverImageUrl?: string;
+}
+
+interface MarketplaceListing {
+  title: string;
+  description: string;
+  price: number;
+  category: string;
+  condition?: string;
+  imageUrls?: string[];
+  contactEmail?: string;
+  contactPhone?: string;
+}
+
+interface DonationOrder {
+  amount: number;
+  currency?: string;
+  donorName?: string;
+  donorEmail?: string;
+  message?: string;
+  isAnonymous?: boolean;
+  chapterId?: string;
+}
+
 // User API
 export const userApi = {
   getProfile: (id: string) => api.get(`/users/${id}`),
-  updateProfile: (data: any) => api.patch('/users/profile', data),
-  getDirectory: (params?: any) => api.get('/users/directory', { params }),
+  updateProfile: (data: UserProfile) => api.patch('/users/profile', data),
+  getDirectory: (params?: { page?: number; limit?: number; search?: string; batchYear?: number; department?: string }) => 
+    api.get('/users/directory', { params }),
   getYearbook: (year: number, department?: string) =>
     api.get(`/users/yearbook/${year}`, { params: { department } }),
   getStats: () => api.get('/users/stats'),
   getLocations: () => api.get('/users/locations'),
+  getNearby: (lat: number, lng: number, radius?: number) =>
+    api.get('/users/nearby', { params: { lat, lng, radius } }),
 
   // Work experience
-  addWorkExperience: (data: any) => api.post('/users/work-experience', data),
-  updateWorkExperience: (id: string, data: any) =>
+  addWorkExperience: (data: WorkExperience) => api.post('/users/work-experience', data),
+  updateWorkExperience: (id: string, data: Partial<WorkExperience>) =>
     api.patch(`/users/work-experience/${id}`, data),
   deleteWorkExperience: (id: string) =>
     api.delete(`/users/work-experience/${id}`),
 
   // Education
-  addEducation: (data: any) => api.post('/users/education', data),
-  updateEducation: (id: string, data: any) =>
+  addEducation: (data: Education) => api.post('/users/education', data),
+  updateEducation: (id: string, data: Partial<Education>) =>
     api.patch(`/users/education/${id}`, data),
   deleteEducation: (id: string) => api.delete(`/users/education/${id}`),
 
@@ -124,8 +255,8 @@ export const postApi = {
   getFeed: (page?: number, limit?: number) =>
     api.get('/posts', { params: { page, limit } }),
   getPost: (id: string) => api.get(`/posts/${id}`),
-  createPost: (data: any) => api.post('/posts', data),
-  updatePost: (id: string, data: any) => api.patch(`/posts/${id}`, data),
+  createPost: (data: Post) => api.post('/posts', data),
+  updatePost: (id: string, data: Partial<Post>) => api.patch(`/posts/${id}`, data),
   deletePost: (id: string) => api.delete(`/posts/${id}`),
   likePost: (id: string) => api.post(`/posts/${id}/like`),
   addComment: (postId: string, content: string, parentId?: string) =>
@@ -135,10 +266,11 @@ export const postApi = {
 
 // Job API
 export const jobApi = {
-  getJobs: (params?: any) => api.get('/jobs', { params }),
+  getJobs: (params?: { page?: number; limit?: number; type?: string; location?: string; search?: string }) => 
+    api.get('/jobs', { params }),
   getJob: (id: string) => api.get(`/jobs/${id}`),
-  createJob: (data: any) => api.post('/jobs', data),
-  updateJob: (id: string, data: any) => api.patch(`/jobs/${id}`, data),
+  createJob: (data: Job) => api.post('/jobs', data),
+  updateJob: (id: string, data: Partial<Job>) => api.patch(`/jobs/${id}`, data),
   deleteJob: (id: string) => api.delete(`/jobs/${id}`),
   getMyJobs: (page?: number, limit?: number) =>
     api.get('/jobs/my', { params: { page, limit } }),
@@ -146,12 +278,13 @@ export const jobApi = {
 
 // Event API
 export const eventApi = {
-  getEvents: (params?: any) => api.get('/events', { params }),
+  getEvents: (params?: { page?: number; limit?: number; type?: string; upcoming?: boolean }) => 
+    api.get('/events', { params }),
   getEvent: (id: string) => api.get(`/events/${id}`),
   getUpcoming: (limit?: number) =>
     api.get('/events/upcoming', { params: { limit } }),
-  createEvent: (data: any) => api.post('/events', data),
-  updateEvent: (id: string, data: any) => api.patch(`/events/${id}`, data),
+  createEvent: (data: Event) => api.post('/events', data),
+  updateEvent: (id: string, data: Partial<Event>) => api.patch(`/events/${id}`, data),
   deleteEvent: (id: string) => api.delete(`/events/${id}`),
   rsvpEvent: (id: string) => api.post(`/events/${id}/rsvp`),
   getAttendees: (id: string) => api.get(`/events/${id}/attendees`),
@@ -222,12 +355,13 @@ export const chapterApi = {
 
 // Marketplace API
 export const marketplaceApi = {
-  getListings: (params?: any) => api.get('/marketplace', { params }),
+  getListings: (params?: { page?: number; limit?: number; category?: string; search?: string }) => 
+    api.get('/marketplace', { params }),
   getListing: (id: string) => api.get(`/marketplace/${id}`),
   getCategories: () => api.get('/marketplace/categories'),
   getMyListings: () => api.get('/marketplace/my'),
-  createListing: (data: any) => api.post('/marketplace', data),
-  updateListing: (id: string, data: any) =>
+  createListing: (data: MarketplaceListing) => api.post('/marketplace', data),
+  updateListing: (id: string, data: Partial<MarketplaceListing>) =>
     api.patch(`/marketplace/${id}`, data),
   deleteListing: (id: string) => api.delete(`/marketplace/${id}`),
 };
@@ -240,7 +374,8 @@ export const membershipApi = {
   getHistory: () => api.get('/memberships/history'),
   createOrder: (tierId: string) =>
     api.post('/memberships/order', { tierId }),
-  verifyPayment: (data: any) => api.post('/memberships/verify', data),
+  verifyPayment: (data: { razorpayOrderId: string; razorpayPaymentId: string; razorpaySignature: string }) => 
+    api.post('/memberships/verify', data),
 };
 
 // Donation API
@@ -251,8 +386,67 @@ export const donationApi = {
   getChapterDonations: () => api.get('/donations/chapters'),
   getStats: () => api.get('/donations/stats'),
   getMyDonations: () => api.get('/donations/my'),
-  createOrder: (data: any) => api.post('/donations/order', data),
-  verifyPayment: (data: any) => api.post('/donations/verify', data),
+  createOrder: (data: DonationOrder) => api.post('/donations/order', data),
+  verifyPayment: (data: { razorpayOrderId: string; razorpayPaymentId: string; razorpaySignature: string }) => 
+    api.post('/donations/verify', data),
+};
+
+// Invite API
+export const inviteApi = {
+  sendInvite: (data: { email: string; name?: string; batchYear?: number; message?: string }) =>
+    api.post('/invites/send', data),
+  sendBulkInvites: (data: { invites: Array<{ email: string; name?: string; batchYear?: number }>; message?: string }) =>
+    api.post('/invites/bulk', data),
+  generateShareableLink: (batchYear?: number) =>
+    api.post('/invites/generate-link', { batchYear }),
+  getSentInvites: (page?: number, limit?: number) =>
+    api.get('/invites/sent', { params: { page, limit } }),
+  getStats: () => api.get('/invites/stats'),
+  verifyInvite: (token: string) => api.get(`/invites/verify/${token}`),
+  acceptInvite: (token: string) => api.post(`/invites/${token}/accept`),
+};
+
+// 2FA API
+export const twoFactorApi = {
+  verify2FA: (userId: string, otp: string) =>
+    api.post('/auth/verify-2fa', { userId, otp }),
+  resend2FA: (userId: string) =>
+    api.post('/auth/resend-2fa', { userId }),
+  enable2FA: () => api.post('/auth/2fa/enable'),
+  disable2FA: () => api.post('/auth/2fa/disable'),
+};
+
+// Mentorship API
+export const mentorshipApi = {
+  // Mentor profiles
+  getMentors: (params?: { page?: number; limit?: number; focusArea?: string; search?: string; available?: boolean }) =>
+    api.get('/mentorship/mentors', { params }),
+  getMentorProfile: (userId: string) => api.get(`/mentorship/profile/${userId}`),
+  getMyMentorProfile: () => api.get('/mentorship/profile'),
+  createMentorProfile: (data: { focusAreas: string[]; availability?: string; bio?: string; maxMentees?: number }) =>
+    api.post('/mentorship/profile', data),
+  updateMentorProfile: (data: { focusAreas?: string[]; availability?: string; bio?: string; maxMentees?: number; isActive?: boolean }) =>
+    api.patch('/mentorship/profile', data),
+  deleteMentorProfile: () => api.delete('/mentorship/profile'),
+  
+  // Mentorship requests
+  requestMentorship: (mentorId: string, message?: string) =>
+    api.post(`/mentorship/request/${mentorId}`, { message }),
+  respondToRequest: (requestId: string, accept: boolean) =>
+    api.post(`/mentorship/request/${requestId}/respond`, { accept }),
+  getMyMentorRequests: (status?: string) =>
+    api.get('/mentorship/requests/mentor', { params: { status } }),
+  getMyMenteeRequests: (status?: string) =>
+    api.get('/mentorship/requests/mentee', { params: { status } }),
+  endMentorship: (requestId: string) =>
+    api.post(`/mentorship/request/${requestId}/end`),
+  
+  // Sessions
+  getSessions: (requestId: string) => api.get(`/mentorship/request/${requestId}/sessions`),
+  scheduleSession: (requestId: string, data: { scheduledAt: Date; notes?: string }) =>
+    api.post(`/mentorship/request/${requestId}/sessions`, data),
+  completeSession: (sessionId: string, outcomes?: string) =>
+    api.post(`/mentorship/sessions/${sessionId}/complete`, { outcomes }),
 };
 
 export default api;

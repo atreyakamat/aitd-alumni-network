@@ -2,6 +2,7 @@ import prisma from '../config/database';
 import { AppError } from '../middleware/errorHandler';
 import { paginationHelper, buildPaginationResponse } from '../utils/helpers';
 import { ConnectionStatus } from '@prisma/client';
+import { notificationService } from './notificationService';
 
 export class NetworkService {
   async getConnections(userId: string, page: number = 1, limit: number = 20) {
@@ -158,14 +159,13 @@ export class NetworkService {
       select: { fullName: true },
     });
 
-    await prisma.notification.create({
-      data: {
-        userId: addresseeId,
-        type: 'CONNECTION_REQUEST',
-        title: 'New Connection Request',
-        message: `${requester?.fullName} wants to connect with you`,
-        link: `/network/requests`,
-      },
+    await notificationService.createNotification({
+      userId: addresseeId,
+      type: 'CONNECTION_REQUEST',
+      title: 'New Connection Request',
+      message: `${requester?.fullName} wants to connect with you`,
+      link: `/network/requests`,
+      metadata: { requesterId, connectionId: connection.id },
     });
 
     return { message: 'Connection request sent', connectionId: connection.id };
@@ -200,14 +200,13 @@ export class NetworkService {
         select: { fullName: true },
       });
 
-      await prisma.notification.create({
-        data: {
-          userId: connection.requesterId,
-          type: 'CONNECTION_ACCEPTED',
-          title: 'Connection Accepted',
-          message: `${addressee?.fullName} accepted your connection request`,
-          link: `/profile/${userId}`,
-        },
+      await notificationService.createNotification({
+        userId: connection.requesterId,
+        type: 'CONNECTION_ACCEPTED',
+        title: 'Connection Accepted',
+        message: `${addressee?.fullName} accepted your connection request`,
+        link: `/profile/${userId}`,
+        metadata: { addresseeId: userId, connectionId: connection.id },
       });
     }
 

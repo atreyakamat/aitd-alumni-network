@@ -410,6 +410,82 @@ export class UserService {
     }));
   }
 
+  // Alumni Nearby with geospatial filtering
+  async getNearbyAlumni(
+    centerLat: number,
+    centerLng: number,
+    radiusKm: number = 50,
+    limit: number = 100
+  ) {
+    // Get all alumni with locations first
+    const allAlumni = await prisma.user.findMany({
+      where: {
+        isActive: true,
+        isVerified: true,
+        isLocationPublic: true,
+        locationLat: { not: null },
+        locationLng: { not: null },
+      },
+      select: {
+        id: true,
+        fullName: true,
+        profilePhotoUrl: true,
+        batchYear: true,
+        city: true,
+        locationLat: true,
+        locationLng: true,
+        currentDesignation: true,
+        workExperiences: {
+          where: { isCurrent: true },
+          take: 1,
+          select: { company: true },
+        },
+      },
+    });
+
+    // Calculate distances using Haversine formula
+    const nearbyAlumni = allAlumni
+      .map(alumni => {
+        const lat = alumni.locationLat?.toNumber() || 0;
+        const lng = alumni.locationLng?.toNumber() || 0;
+        const distance = this.calculateDistance(centerLat, centerLng, lat, lng);
+        return {
+          ...alumni,
+          locationLat: lat,
+          locationLng: lng,
+          distanceKm: Math.round(distance * 10) / 10, // Round to 1 decimal
+        };
+      })
+      .filter(a => a.distanceKm <= radiusKm)
+      .sort((a, b) => a.distanceKm - b.distanceKm)
+      .slice(0, limit);
+
+    return {
+      count: nearbyAlumni.length,
+      centerLat,
+      centerLng,
+      radiusKm,
+      alumni: nearbyAlumni,
+    };
+  }
+
+  // Haversine formula to calculate distance between two coordinates
+  private calculateDistance(lat1: number, lng1: number, lat2: number, lng2: number): number {
+    const R = 6371; // Earth's radius in kilometers
+    const dLat = this.toRad(lat2 - lat1);
+    const dLng = this.toRad(lng2 - lng1);
+    const a =
+      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos(this.toRad(lat1)) * Math.cos(this.toRad(lat2)) *
+      Math.sin(dLng / 2) * Math.sin(dLng / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return R * c;
+  }
+
+  private toRad(deg: number): number {
+    return deg * (Math.PI / 180);
+  }
+
   // Stats for landing page
   async getPublicStats() {
     const [
