@@ -287,7 +287,7 @@
 >
 > Phase 1 (Launch):
 >
-> PostgreSQL full-text search (FTS) for alumnidirectory andjobs Custom
+> MySQL full-text search (FTS) for alumnidirectory andjobs Custom
 > indexes on full_name, company, skills_json
 >
 > Phase 2 (Post-Launch):
@@ -553,7 +553,7 @@
 >
 > This modern, scalable techstack balances rapidfeature development with
 > long-term maintainability. The choice of JavaScript full-stack
-> withPostgreSQL, Redis, and cloud-native deployment provides:
+> withMySQL, Redis, and cloud-native deployment provides:
 >
 > ✅ Fast Development: One language, familiar frameworks ✅ Scalability:
 > Stateless services, horizontal scaling

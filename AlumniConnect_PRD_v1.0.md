@@ -309,7 +309,7 @@ system is composed of the following primary layers:
 -   Backend API Server: Node.js / Django REST framework handling
     business logic
 
--   Database: PostgreSQL (relational data) + Redis (caching/sessions)
+-   Database: MySQL (relational data) + Redis (caching/sessions)
 
 -   File Storage: AWS S3 / Cloudflare R2 for images, gallery media,
     documents
@@ -321,7 +321,7 @@ system is composed of the following primary layers:
 -   Email Service: SendGrid / AWS SES for transactional and invite
     emails
 
--   Search: Elasticsearch or PostgreSQL full-text search for directory
+-   Search: Elasticsearch or MySQL full-text search for directory
     and jobs
 
 -   Authentication: JWT-based with optional Google / LinkedIn OAuth
@@ -1148,13 +1148,13 @@ intra-alumni commerce and collaboration.
                   NestJS                ecosystem, REST + WebSocket
                                         support
 
-  Database        PostgreSQL            Relational integrity for alumni
+  Database        MySQL            Relational integrity for alumni
                                         data, strong query support
 
   Cache           Redis                 Session storage, API response
                                         caching, real-time feed counters
 
-  Search          PostgreSQL FTS /      Alumni directory and job search
+  Search          MySQL FTS /      Alumni directory and job search
                   Elasticsearch         with filters
 
   File Storage    AWS S3 / Cloudflare   Scalable media storage for
