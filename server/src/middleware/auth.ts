@@ -13,13 +13,17 @@ export interface JwtPayload {
 
 declare global {
   namespace Express {
+    // Combined User type for both JWT auth middleware and Passport OAuth
+    interface User {
+      id: string;
+      email: string;
+      fullName: string;
+      userRole?: UserRole;
+      profilePhotoUrl?: string;
+      isNewUser?: boolean;
+    }
     interface Request {
-      user?: {
-        id: string;
-        email: string;
-        userRole: UserRole;
-        fullName: string;
-      };
+      user?: User;
     }
   }
 }

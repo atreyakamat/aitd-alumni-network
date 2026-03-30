@@ -26,7 +26,8 @@ interface AuthContextType {
   register: (data: RegisterData) => Promise<void>;
   logout: () => Promise<void>;
   refreshUser: () => Promise<void>;
-  setAuthData: (data: { accessToken: string; refreshToken: string; user: User }) => void;
+  setAuthData: (data: { accessToken: string; refreshToken: string; user?: User }) => void;
+  setOAuthTokens: (accessToken: string, refreshToken: string) => Promise<void>;
 }
 
 interface RegisterData {
@@ -100,10 +101,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const setAuthData = (data: { accessToken: string; refreshToken: string; user: User }) => {
+  const setAuthData = (data: { accessToken: string; refreshToken: string; user?: User }) => {
     localStorage.setItem('accessToken', data.accessToken);
     localStorage.setItem('refreshToken', data.refreshToken);
-    setUser(data.user);
+    if (data.user) {
+      setUser(data.user);
+    }
+  };
+
+  // For OAuth login - store tokens and fetch user from API
+  const setOAuthTokens = async (accessToken: string, refreshToken: string) => {
+    localStorage.setItem('accessToken', accessToken);
+    localStorage.setItem('refreshToken', refreshToken);
+    await refreshUser();
   };
 
   const value = {
@@ -115,6 +125,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     logout,
     refreshUser,
     setAuthData,
+    setOAuthTokens,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import Image from 'next/image';
-import { useState, Suspense } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -30,11 +30,54 @@ function LoginContent() {
   const [userId, setUserId] = useState<string | null>(null);
   const [otpCode, setOtpCode] = useState('');
   const [isVerifying2FA, setIsVerifying2FA] = useState(false);
-  const { setAuthData } = useAuth();
+  const { setOAuthTokens, setAuthData } = useAuth();
   const { toast } = useToast();
   const router = useRouter();
   const searchParams = useSearchParams();
   const registered = searchParams.get('registered');
+  const oauthError = searchParams.get('error');
+  const accessToken = searchParams.get('accessToken');
+  const refreshToken = searchParams.get('refreshToken');
+  const oauthProvider = searchParams.get('oauth');
+  const isNewUser = searchParams.get('newUser');
+
+  // Handle OAuth callback tokens
+  useEffect(() => {
+    const handleOAuthCallback = async () => {
+      if (accessToken && refreshToken) {
+        try {
+          // OAuth login successful - store tokens and fetch user
+          await setOAuthTokens(accessToken, refreshToken);
+          
+          const message = isNewUser === 'true' 
+            ? `Account created with ${oauthProvider || 'OAuth'}! Please complete your profile.`
+            : `Welcome back! Logged in via ${oauthProvider || 'OAuth'}.`;
+          
+          toast({
+            title: isNewUser === 'true' ? 'Welcome!' : 'Welcome back!',
+            description: message,
+          });
+          
+          // Remove OAuth params from URL and redirect
+          router.replace('/dashboard');
+        } catch (error) {
+          toast({
+            variant: 'destructive',
+            title: 'Login Failed',
+            description: 'Unable to complete authentication. Please try again.',
+          });
+        }
+      } else if (oauthError) {
+        toast({
+          variant: 'destructive',
+          title: 'OAuth Login Failed',
+          description: 'Unable to authenticate with the selected provider. Please try again.',
+        });
+      }
+    };
+    
+    handleOAuthCallback();
+  }, [accessToken, refreshToken, oauthProvider, isNewUser, oauthError, setOAuthTokens, toast, router]);
 
   const {
     register,

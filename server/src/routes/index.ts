@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import passport from '../config/passport';
 import { authController } from '../controllers/authController';
 import { userController } from '../controllers/userController';
 import { postController } from '../controllers/postController';
@@ -40,6 +41,18 @@ router.post('/auth/verify-2fa', authController.verify2FA);
 router.post('/auth/resend-2fa', authController.resend2FA);
 router.post('/auth/2fa/enable', authenticate, authController.enable2FA);
 router.post('/auth/2fa/disable', authenticate, authController.disable2FA);
+
+// OAuth Routes
+router.get('/auth/google', passport.authenticate('google', { scope: ['profile', 'email'], session: false }));
+router.get('/auth/google/callback', 
+  passport.authenticate('google', { session: false, failureRedirect: '/login?error=oauth_failed' }),
+  authController.googleCallback
+);
+router.get('/auth/linkedin', passport.authenticate('linkedin', { session: false }));
+router.get('/auth/linkedin/callback',
+  passport.authenticate('linkedin', { session: false, failureRedirect: '/login?error=oauth_failed' }),
+  authController.linkedinCallback
+);
 
 // ============== USER ROUTES ==============
 router.get('/users/stats', userController.getPublicStats);
@@ -216,6 +229,10 @@ router.post('/mentorship/request/:requestId/end', authenticate, mentorshipContro
 router.get('/mentorship/request/:requestId/sessions', authenticate, mentorshipController.getSessions);
 router.post('/mentorship/request/:requestId/sessions', authenticate, mentorshipController.scheduleSession);
 router.post('/mentorship/sessions/:sessionId/complete', authenticate, mentorshipController.completeSession);
+
+// ============== ADMIN ROUTES ==============
+import { adminController } from '../controllers/adminController';
+router.get('/admin/stats', authenticate, isAdmin, adminController.getStats);
 
 // ============== ADMIN AUDIT ROUTES ==============
 router.get('/admin/audit', authenticate, isAdmin, auditController.getLogs);

@@ -364,6 +364,44 @@ export class AuthService {
       },
     };
   }
+
+  // Generate tokens for OAuth login (no password needed)
+  async generateOAuthTokens(userId: string) {
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+    });
+
+    if (!user) {
+      throw new AppError('User not found', 404, 'USER_NOT_FOUND');
+    }
+
+    if (!user.isActive) {
+      throw new AppError('Account is deactivated', 401, 'ACCOUNT_DEACTIVATED');
+    }
+
+    // Update last login
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { lastLoginAt: new Date() },
+    });
+
+    const accessToken = generateAccessToken(user.id, user.email, user.userRole);
+    const refreshToken = generateRefreshToken(user.id);
+
+    // Store refresh token
+    await prisma.refreshToken.create({
+      data: {
+        userId: user.id,
+        token: refreshToken,
+        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
+      },
+    });
+
+    return {
+      accessToken,
+      refreshToken,
+    };
+  }
 }
 
 export const authService = new AuthService();

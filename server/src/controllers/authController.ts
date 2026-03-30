@@ -1,6 +1,8 @@
 import { Request, Response, NextFunction } from 'express';
 import { authService } from '../services/authService';
 import { twoFactorService } from '../services/twoFactorService';
+import config from '../config';
+import type { OAuthUser } from '../config/passport';
 
 export class AuthController {
   async register(req: Request, res: Response, next: NextFunction) {
@@ -168,6 +170,62 @@ export class AuthController {
       res.json({ success: true, data: result });
     } catch (error) {
       next(error);
+    }
+  }
+
+  // OAuth callback handler for Google
+  async googleCallback(req: Request, res: Response, next: NextFunction) {
+    try {
+      const oauthUser = req.user as OAuthUser;
+      
+      if (!oauthUser) {
+        return res.redirect(`${config.frontendUrl}/login?error=oauth_failed`);
+      }
+
+      // Generate tokens for the OAuth user
+      const tokens = await authService.generateOAuthTokens(oauthUser.id);
+
+      // Redirect to frontend with tokens in URL params
+      const redirectUrl = new URL(`${config.frontendUrl}/login`);
+      redirectUrl.searchParams.set('accessToken', tokens.accessToken);
+      redirectUrl.searchParams.set('refreshToken', tokens.refreshToken);
+      redirectUrl.searchParams.set('oauth', 'google');
+      if (oauthUser.isNewUser) {
+        redirectUrl.searchParams.set('newUser', 'true');
+      }
+
+      res.redirect(redirectUrl.toString());
+    } catch (error) {
+      console.error('Google OAuth callback error:', error);
+      res.redirect(`${config.frontendUrl}/login?error=oauth_failed`);
+    }
+  }
+
+  // OAuth callback handler for LinkedIn
+  async linkedinCallback(req: Request, res: Response, next: NextFunction) {
+    try {
+      const oauthUser = req.user as OAuthUser;
+      
+      if (!oauthUser) {
+        return res.redirect(`${config.frontendUrl}/login?error=oauth_failed`);
+      }
+
+      // Generate tokens for the OAuth user
+      const tokens = await authService.generateOAuthTokens(oauthUser.id);
+
+      // Redirect to frontend with tokens in URL params
+      const redirectUrl = new URL(`${config.frontendUrl}/login`);
+      redirectUrl.searchParams.set('accessToken', tokens.accessToken);
+      redirectUrl.searchParams.set('refreshToken', tokens.refreshToken);
+      redirectUrl.searchParams.set('oauth', 'linkedin');
+      if (oauthUser.isNewUser) {
+        redirectUrl.searchParams.set('newUser', 'true');
+      }
+
+      res.redirect(redirectUrl.toString());
+    } catch (error) {
+      console.error('LinkedIn OAuth callback error:', error);
+      res.redirect(`${config.frontendUrl}/login?error=oauth_failed`);
     }
   }
 }

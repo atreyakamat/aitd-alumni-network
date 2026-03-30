@@ -3,12 +3,14 @@ import cors from 'cors';
 import helmet from 'helmet';
 import dotenv from 'dotenv';
 import path from 'path';
+import passport from 'passport';
 import { createServer } from 'http';
 import { rateLimit } from 'express-rate-limit';
 import routes from './routes';
 import { errorHandler } from './middleware/errorHandler';
 import { notFoundHandler } from './middleware/notFoundHandler';
 import { initSocket } from './utils/socket';
+import './config/passport'; // Initialize passport strategies
 
 dotenv.config();
 
@@ -27,6 +29,9 @@ app.use(cors({
   origin: process.env.FRONTEND_URL || 'http://localhost:3000',
   credentials: true,
 }));
+
+// Initialize Passport
+app.use(passport.initialize());
 
 // Rate limiting
 const limiter = rateLimit({
