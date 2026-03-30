@@ -1,16 +1,21 @@
 import request from 'supertest';
-import express from 'express';
-import { errorHandler } from '../../src/middleware/errorHandler';
-// We will import the actual app once we verify the main index.ts structure
-// For now, this is a placeholder to verify the testing environment setup.
+import app from '../../src/index';
 
-describe('Authentication Flow', () => {
-  it('should verify the testing environment is working', () => {
-    expect(true).toBe(true);
+describe('System Health & Setup', () => {
+  it('should return 200 OK from the health check endpoint', async () => {
+    const res = await request(app).get('/health');
+    expect(res.status).toBe(200);
+    expect(res.body.status).toBe('ok');
+    expect(res.body).toHaveProperty('timestamp');
   });
 
-  // Future tests will include:
-  // - POST /api/auth/register
-  // - POST /api/auth/login
-  // - GET /api/auth/me (with JWT)
+  it('should have rate limiting configured', async () => {
+    // Make 101 requests to trigger rate limit (max is 100)
+    let res;
+    for (let i = 0; i < 101; i++) {
+      res = await request(app).get('/api/users/stats');
+    }
+    expect(res!.status).toBe(429);
+    expect(res!.body.error).toBe('Too many requests, please try again later.');
+  });
 });

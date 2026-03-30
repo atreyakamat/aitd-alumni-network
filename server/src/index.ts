@@ -65,11 +65,13 @@ app.use('/api', routes);
 app.use(notFoundHandler);
 app.use(errorHandler);
 
-server.listen(PORT, () => {
-  console.log(`🚀 Server running on http://localhost:${PORT}`);
-  console.log(`📝 Health check: http://localhost:${PORT}/health`);
-  console.log(`📁 Uploads: http://localhost:${PORT}/uploads`);
-});
+if (process.env.NODE_ENV !== 'test') {
+  server.listen(PORT, () => {
+    console.log(`🚀 Server running on http://localhost:${PORT}`);
+    console.log(`📝 Health check: http://localhost:${PORT}/health`);
+    console.log(`📁 Uploads: http://localhost:${PORT}/uploads`);
+  });
+}
 
 export default app;
 
