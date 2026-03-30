@@ -1,4 +1,4 @@
-import { paginationHelper, buildPaginationResponse, generateSlug, formatCurrency } from '../utils/helpers';
+import { paginationHelper, buildPaginationResponse, slugify } from '../utils/helpers';
 
 describe('Helpers', () => {
   describe('paginationHelper', () => {
@@ -20,9 +20,12 @@ describe('Helpers', () => {
       expect(result.take).toBe(25);
     });
 
-    it('should default to page 1 if invalid', () => {
-      const result = paginationHelper(0, 10);
+    it('should use default values', () => {
+      const result = paginationHelper();
       expect(result.skip).toBe(0);
+      expect(result.take).toBe(12);
+      expect(result.page).toBe(1);
+      expect(result.limit).toBe(12);
     });
   });
 
@@ -52,37 +55,20 @@ describe('Helpers', () => {
     });
   });
 
-  describe('generateSlug', () => {
+  describe('slugify', () => {
     it('should generate slug from title', () => {
-      const slug = generateSlug('Hello World Article');
-      expect(slug).toMatch(/^hello-world-article-[a-z0-9]+$/);
+      const slug = slugify('Hello World Article');
+      expect(slug).toBe('hello-world-article');
     });
 
     it('should handle special characters', () => {
-      const slug = generateSlug('Test & Demo: Example!');
-      expect(slug).toMatch(/^test-demo-example-[a-z0-9]+$/);
+      const slug = slugify('Test & Demo: Example!');
+      expect(slug).toBe('test-demo-example');
     });
 
     it('should handle multiple spaces', () => {
-      const slug = generateSlug('Multiple   Spaces   Here');
-      expect(slug).toMatch(/^multiple-spaces-here-[a-z0-9]+$/);
-    });
-  });
-
-  describe('formatCurrency', () => {
-    it('should format INR currency', () => {
-      const formatted = formatCurrency(1234.56);
-      expect(formatted).toContain('1,234.56');
-    });
-
-    it('should format USD currency', () => {
-      const formatted = formatCurrency(1234.56, 'USD');
-      expect(formatted).toContain('1,234.56');
-    });
-
-    it('should handle zero', () => {
-      const formatted = formatCurrency(0);
-      expect(formatted).toContain('0');
+      const slug = slugify('Multiple   Spaces   Here');
+      expect(slug).toBe('multiple-spaces-here');
     });
   });
 });

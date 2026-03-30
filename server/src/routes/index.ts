@@ -191,6 +191,9 @@ router.post('/invites/bulk', authenticate, inviteController.sendBulkInvites);
 router.post('/invites/generate-link', authenticate, inviteController.generateShareableLink);
 router.post('/invites/:token/accept', authenticate, inviteController.acceptInvite);
 
+// ============== AUDIT ROUTES ==============
+import { auditController } from '../controllers/auditController';
+
 // ============== MENTORSHIP ROUTES ==============
 import { mentorshipController } from '../controllers/mentorshipController';
 
@@ -213,5 +216,11 @@ router.post('/mentorship/request/:requestId/end', authenticate, mentorshipContro
 router.get('/mentorship/request/:requestId/sessions', authenticate, mentorshipController.getSessions);
 router.post('/mentorship/request/:requestId/sessions', authenticate, mentorshipController.scheduleSession);
 router.post('/mentorship/sessions/:sessionId/complete', authenticate, mentorshipController.completeSession);
+
+// ============== ADMIN AUDIT ROUTES ==============
+router.get('/admin/audit', authenticate, isAdmin, auditController.getLogs);
+router.get('/admin/audit/activity', authenticate, isAdmin, auditController.getRecentActivity);
+router.get('/admin/audit/:entityType/:entityId', authenticate, isAdmin, auditController.getEntityHistory);
+router.post('/admin/audit/cleanup', authenticate, isSuperAdmin, auditController.cleanupOldLogs);
 
 export default router;

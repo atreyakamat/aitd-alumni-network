@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import { jobService } from '../services/jobService';
+import { logAuditAction } from '../services/auditService';
 
 export class JobController {
   async getJobs(req: Request, res: Response, next: NextFunction) {
@@ -61,6 +62,18 @@ export class JobController {
     try {
       const { id } = req.params;
       const result = await jobService.approveJob(id);
+      
+      // Audit log
+      await logAuditAction({
+        userId: req.user!.id,
+        action: 'APPROVE',
+        entityType: 'JOB',
+        entityId: id,
+        newValues: { status: 'APPROVED' },
+        ipAddress: req.ip,
+        userAgent: req.headers['user-agent'],
+      });
+      
       res.json({ success: true, data: result });
     } catch (error) {
       next(error);
@@ -72,6 +85,18 @@ export class JobController {
       const { id } = req.params;
       const { reason } = req.body;
       const result = await jobService.rejectJob(id, reason);
+      
+      // Audit log
+      await logAuditAction({
+        userId: req.user!.id,
+        action: 'REJECT',
+        entityType: 'JOB',
+        entityId: id,
+        newValues: { status: 'REJECTED', reason },
+        ipAddress: req.ip,
+        userAgent: req.headers['user-agent'],
+      });
+      
       res.json({ success: true, data: result });
     } catch (error) {
       next(error);

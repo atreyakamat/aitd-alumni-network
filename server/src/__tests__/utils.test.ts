@@ -1,5 +1,6 @@
 import { hashPassword, comparePassword } from '../utils/password';
 import { generateAccessToken, generateRefreshToken, verifyAccessToken, verifyRefreshToken } from '../utils/jwt';
+import { UserRole } from '@prisma/client';
 
 describe('Password Utils', () => {
   describe('hashPassword', () => {
@@ -43,7 +44,7 @@ describe('Password Utils', () => {
 describe('JWT Utils', () => {
   const mockUserId = 'test-user-123';
   const mockEmail = 'test@example.com';
-  const mockRole = 'ALUMNI';
+  const mockRole: UserRole = 'MEMBER';
 
   describe('generateAccessToken', () => {
     it('should generate a valid access token', () => {
@@ -72,7 +73,7 @@ describe('JWT Utils', () => {
       
       expect(decoded.userId).toBe(mockUserId);
       expect(decoded.email).toBe(mockEmail);
-      expect(decoded.role).toBe(mockRole);
+      expect(decoded.userRole).toBe(mockRole);
     });
 
     it('should throw for invalid token', () => {

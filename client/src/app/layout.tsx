@@ -1,8 +1,8 @@
 import type { Metadata } from 'next';
 import { Inter, Public_Sans } from 'next/font/google';
 import './globals.css';
-// import { Providers } from '@/context/providers';
-// import { Toaster } from '@/components/ui/toaster';
+import { Providers } from '@/context/providers';
+import { Toaster } from '@/components/ui/toaster';
 
 const bodyFont = Inter({
   subsets: ['latin'],
@@ -30,7 +30,10 @@ export default function RootLayout({
       <body
         className={`${bodyFont.className} ${bodyFont.variable} ${labelFont.variable}`}
       >
-        {children}
+        <Providers>
+          {children}
+          <Toaster />
+        </Providers>
       </body>
     </html>
   );
