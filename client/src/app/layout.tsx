@@ -1,19 +1,12 @@
 import type { Metadata } from 'next';
-import { Inter, Newsreader, Public_Sans } from 'next/font/google';
+import { Inter, Public_Sans } from 'next/font/google';
 import './globals.css';
-import { Providers } from '@/context/providers';
-import { Toaster } from '@/components/ui/toaster';
+// import { Providers } from '@/context/providers';
+// import { Toaster } from '@/components/ui/toaster';
 
 const bodyFont = Inter({
   subsets: ['latin'],
   variable: '--font-body',
-});
-
-const headlineFont = Newsreader({
-  subsets: ['latin'],
-  style: ['normal', 'italic'],
-  weight: ['400', '700'],
-  variable: '--font-headline',
 });
 
 const labelFont = Public_Sans({
@@ -35,12 +28,9 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body
-        className={`${bodyFont.className} ${bodyFont.variable} ${headlineFont.variable} ${labelFont.variable}`}
+        className={`${bodyFont.className} ${bodyFont.variable} ${labelFont.variable}`}
       >
-        <Providers>
-          {children}
-          <Toaster />
-        </Providers>
+        {children}
       </body>
     </html>
   );
