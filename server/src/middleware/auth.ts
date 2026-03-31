@@ -12,6 +12,7 @@ export interface JwtPayload {
 }
 
 declare global {
+  // eslint-disable-next-line @typescript-eslint/no-namespace
   namespace Express {
     // Combined User type for both JWT auth middleware and Passport OAuth
     interface User {

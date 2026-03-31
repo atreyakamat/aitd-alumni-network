@@ -63,8 +63,8 @@ export class JobController {
       const { id } = req.params;
       const result = await jobService.approveJob(id);
       
-      // Audit log
-      await logAuditAction({
+      // Audit log (non-blocking - don't fail request if audit fails)
+      logAuditAction({
         userId: req.user!.id,
         action: 'APPROVE',
         entityType: 'JOB',
@@ -72,7 +72,7 @@ export class JobController {
         newValues: { status: 'APPROVED' },
         ipAddress: req.ip,
         userAgent: req.headers['user-agent'],
-      });
+      }).catch(err => console.error('Audit log failed:', err));
       
       res.json({ success: true, data: result });
     } catch (error) {
@@ -86,8 +86,8 @@ export class JobController {
       const { reason } = req.body;
       const result = await jobService.rejectJob(id, reason);
       
-      // Audit log
-      await logAuditAction({
+      // Audit log (non-blocking - don't fail request if audit fails)
+      logAuditAction({
         userId: req.user!.id,
         action: 'REJECT',
         entityType: 'JOB',
@@ -95,7 +95,7 @@ export class JobController {
         newValues: { status: 'REJECTED', reason },
         ipAddress: req.ip,
         userAgent: req.headers['user-agent'],
-      });
+      }).catch(err => console.error('Audit log failed:', err));
       
       res.json({ success: true, data: result });
     } catch (error) {
