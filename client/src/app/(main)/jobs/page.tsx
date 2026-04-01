@@ -6,6 +6,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { useAuth } from '@/context/auth-context';
+import Link from 'next/link';
 import {
   Select,
   SelectContent,
@@ -109,8 +111,11 @@ const jobTypeColors: Record<string, string> = {
 };
 
 export default function JobsPage() {
+  const { user } = useAuth();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedType, setSelectedType] = useState('All Types');
+
+  const canPostJob = user?.role === 'ADMIN' || user?.role === 'SUPERADMIN' || user?.role === 'ALUMNI';
 
   const filteredJobs = jobs.filter((job) => {
     const matchesSearch =
@@ -131,10 +136,12 @@ export default function JobsPage() {
             Explore jobs and internships posted by alumni
           </p>
         </div>
-        <Button>
-          <Plus className="h-4 w-4 mr-2" />
-          Post a Job
-        </Button>
+        {canPostJob && (
+          <Button>
+            <Plus className="h-4 w-4 mr-2" />
+            Post a Job
+          </Button>
+        )}
       </div>
 
       {/* Filters */}
@@ -265,9 +272,11 @@ export default function JobsPage() {
                       </div>
                     </div>
                     <div className="flex gap-2">
-                      <Button variant="outline" size="sm">
-                        View Details
-                      </Button>
+                      <Link href={`/jobs/${job.id}`}>
+                        <Button variant="outline" size="sm">
+                          View Details
+                        </Button>
+                      </Link>
                       <Button size="sm">
                         Apply Now
                         <ExternalLink className="ml-2 h-4 w-4" />

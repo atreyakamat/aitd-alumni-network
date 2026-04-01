@@ -64,7 +64,9 @@ export const searchController = {
             OR: [
               { title: { contains: query } },
               { description: { contains: query } },
-              { location: { contains: query } },
+              { venue: { contains: query } },
+              { address: { contains: query } },
+              { city: { contains: query } },
             ],
             startDate: { gte: new Date() },
           },

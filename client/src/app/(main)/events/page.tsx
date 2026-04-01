@@ -7,6 +7,8 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { useAuth } from '@/context/auth-context';
+import Link from 'next/link';
 import {
   Select,
   SelectContent,
@@ -99,8 +101,11 @@ const eventTypeColors: Record<string, string> = {
 };
 
 export default function EventsPage() {
+  const { user } = useAuth();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedType, setSelectedType] = useState('All Events');
+
+  const canCreateEvent = user?.role === 'ADMIN' || user?.role === 'SUPERADMIN' || user?.role === 'ALUMNI';
 
   const now = new Date();
   const upcomingEvents = events.filter((e) => new Date(e.startDate) > now);
@@ -175,9 +180,11 @@ export default function EventsPage() {
         </div>
 
         <div className="flex gap-2 mt-4">
-          <Button variant="outline" className="flex-1">
-            View Details
-          </Button>
+          <Link href={`/events/${event.id}`} className="flex-1">
+            <Button variant="outline" className="w-full">
+              View Details
+            </Button>
+          </Link>
           {event.isUserRSVPed ? (
             event.isVirtual ? (
               <Button className="flex-1">
@@ -206,10 +213,12 @@ export default function EventsPage() {
             Discover reunions, workshops, and networking events
           </p>
         </div>
-        <Button>
-          <Plus className="h-4 w-4 mr-2" />
-          Create Event
-        </Button>
+        {canCreateEvent && (
+          <Button>
+            <Plus className="h-4 w-4 mr-2" />
+            Create Event
+          </Button>
+        )}
       </div>
 
       {/* Filters */}

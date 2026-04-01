@@ -33,25 +33,26 @@ import {
   MapPin,
   Store,
   Search,
+  Shield,
 } from 'lucide-react';
 import { getInitials } from '@/lib/utils';
 import { useState } from 'react';
 
 const navItems = [
   { href: '/dashboard', label: 'Home', icon: Home },
-  { href: '/dashboard/network', label: 'Network', icon: Users },
-  { href: '/dashboard/jobs', label: 'Jobs', icon: Briefcase },
-  { href: '/dashboard/events', label: 'Events', icon: CalendarDays },
-  { href: '/dashboard/messages', label: 'Messages', icon: MessageSquare },
+  { href: '/network', label: 'Network', icon: Users },
+  { href: '/jobs', label: 'Jobs', icon: Briefcase },
+  { href: '/events', label: 'Events', icon: CalendarDays },
+  { href: '/messages', label: 'Messages', icon: MessageSquare },
 ];
 
 const moreItems = [
-  { href: '/dashboard/directory', label: 'Directory', icon: Users },
-  { href: '/dashboard/gallery', label: 'Gallery', icon: Image },
-  { href: '/dashboard/news', label: 'News', icon: Newspaper },
-  { href: '/dashboard/donate', label: 'Donate', icon: Heart },
-  { href: '/dashboard/chapters', label: 'Chapters', icon: MapPin },
-  { href: '/dashboard/marketplace', label: 'Marketplace', icon: Store },
+  { href: '/directory', label: 'Directory', icon: Users },
+  { href: '/gallery', label: 'Gallery', icon: Image },
+  { href: '/news', label: 'News', icon: Newspaper },
+  { href: '/donations', label: 'Donate', icon: Heart },
+  { href: '/chapters', label: 'Chapters', icon: MapPin },
+  { href: '/marketplace', label: 'Marketplace', icon: Store },
 ];
 
 export function MainNav() {
@@ -59,6 +60,8 @@ export function MainNav() {
   const router = useRouter();
   const { user, logout } = useAuth();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  const isAdmin = user?.role === 'ADMIN' || user?.role === 'SUPERADMIN';
 
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
@@ -109,6 +112,21 @@ export function MainNav() {
             </Link>
           ))}
 
+          {isAdmin && (
+            <Link href="/admin">
+              <Button
+                variant="ghost"
+                className={cn(
+                  'flex flex-col items-center gap-1 h-14 px-4',
+                  pathname === '/admin' && 'text-primary border-b-2 border-primary rounded-none'
+                )}
+              >
+                <Shield className="h-5 w-5" />
+                <span className="text-xs">Admin</span>
+              </Button>
+            </Link>
+          )}
+
           {/* More dropdown */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -154,7 +172,7 @@ export function MainNav() {
                 </div>
               </DropdownMenuLabel>
               <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={() => router.push(`/dashboard/profile/${user?.id}`)}>
+              <DropdownMenuItem onClick={() => router.push(`/profile/${user?.id}`)}>
                 <User className="mr-2 h-4 w-4" />
                 My Profile
               </DropdownMenuItem>

@@ -4,6 +4,7 @@ import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/auth-context';
 import { MainNav } from '@/components/layout/MainNav';
+import { ChatDrawer } from '@/components/layout/ChatDrawer';
 import { FullPageLoader } from '@/components/ui/loading';
 
 export default function MainLayout({
@@ -29,9 +30,10 @@ export default function MainLayout({
   }
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background relative">
       <MainNav />
       <main className="container py-6">{children}</main>
+      <ChatDrawer />
     </div>
   );
 }
