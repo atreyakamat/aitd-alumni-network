@@ -177,6 +177,7 @@ model User {
   userRole          UserRole  @default(MEMBER)
   isActive          Boolean   @default(true)
   isVerified        Boolean   @default(false)
+  isNotable         Boolean   @default(false)
   emailVerifiedAt   DateTime?
   profileCompleteness Int     @default(0)
   lastLoginAt       DateTime?

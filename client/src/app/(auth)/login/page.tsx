@@ -36,18 +36,20 @@ function LoginContent() {
   const searchParams = useSearchParams();
   const registered = searchParams.get('registered');
   const oauthError = searchParams.get('error');
-  const accessToken = searchParams.get('accessToken');
-  const refreshToken = searchParams.get('refreshToken');
+  const code = searchParams.get('code');
   const oauthProvider = searchParams.get('oauth');
   const isNewUser = searchParams.get('newUser');
 
   // Handle OAuth callback tokens
   useEffect(() => {
     const handleOAuthCallback = async () => {
-      if (accessToken && refreshToken) {
+      if (code) {
         try {
-          // OAuth login successful - store tokens and fetch user
-          await setOAuthTokens(accessToken, refreshToken);
+          // OAuth login successful - exchange code for tokens
+          const response = await api.post('/auth/oauth/exchange', { code });
+          const result = response.data.data;
+          
+          setAuthData(result);
           
           const message = isNewUser === 'true' 
             ? `Account created with ${oauthProvider || 'OAuth'}! Please complete your profile.`
@@ -77,7 +79,8 @@ function LoginContent() {
     };
     
     handleOAuthCallback();
-  }, [accessToken, refreshToken, oauthProvider, isNewUser, oauthError, setOAuthTokens, toast, router]);
+    }, [code, oauthProvider, isNewUser, oauthError, setAuthData, toast, router]);
+
 
   const {
     register,

@@ -365,15 +365,45 @@ export class AuthService {
     };
   }
 
-  // Generate tokens for OAuth login (no password needed)
-  async generateOAuthTokens(userId: string) {
-    const user = await prisma.user.findUnique({
-      where: { id: userId },
+  // Generate a one-time code for OAuth exchange (Security improvement)
+  async createOAuthExchangeCode(userId: string) {
+    const exchangeCode = generateToken();
+    
+    await prisma.verificationToken.create({
+      data: {
+        userId,
+        token: exchangeCode,
+        type: 'OAUTH_EXCHANGE',
+        expiresAt: new Date(Date.now() + 5 * 60 * 1000), // 5 minutes
+      },
     });
 
-    if (!user) {
-      throw new AppError('User not found', 404, 'USER_NOT_FOUND');
+    return exchangeCode;
+  }
+
+  // Exchange the one-time code for real JWT tokens
+  async exchangeOAuthCode(code: string) {
+    const tokenRecord = await prisma.verificationToken.findFirst({
+      where: { 
+        token: code,
+        type: 'OAUTH_EXCHANGE',
+        isUsed: false,
+        expiresAt: { gte: new Date() }
+      },
+      include: { user: true }
+    });
+
+    if (!tokenRecord) {
+      throw new AppError('Invalid or expired exchange code', 400, 'INVALID_CODE');
     }
+
+    // Mark as used
+    await prisma.verificationToken.update({
+      where: { id: tokenRecord.id },
+      data: { isUsed: true }
+    });
+
+    const user = tokenRecord.user;
 
     if (!user.isActive) {
       throw new AppError('Account is deactivated', 401, 'ACCOUNT_DEACTIVATED');
@@ -393,13 +423,22 @@ export class AuthService {
       data: {
         userId: user.id,
         token: refreshToken,
-        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
+        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
       },
     });
 
     return {
       accessToken,
       refreshToken,
+      user: {
+        id: user.id,
+        email: user.email,
+        fullName: user.fullName,
+        profilePhotoUrl: user.profilePhotoUrl,
+        userRole: user.userRole,
+        isVerified: user.isVerified,
+        profileCompleteness: user.profileCompleteness,
+      },
     };
   }
 }

@@ -173,6 +173,20 @@ export class AuthController {
     }
   }
 
+  // Exchange one-time code for JWT tokens (Security fix)
+  async exchangeOAuthCode(req: Request, res: Response, next: NextFunction) {
+    try {
+      const { code } = req.body;
+      if (!code) {
+        return res.status(400).json({ success: false, error: 'Exchange code is required' });
+      }
+      const result = await authService.exchangeOAuthCode(code);
+      res.json({ success: true, data: result });
+    } catch (error) {
+      next(error);
+    }
+  }
+
   // OAuth callback handler for Google
   async googleCallback(req: Request, res: Response, next: NextFunction) {
     try {
@@ -182,13 +196,12 @@ export class AuthController {
         return res.redirect(`${config.frontendUrl}/login?error=oauth_failed`);
       }
 
-      // Generate tokens for the OAuth user
-      const tokens = await authService.generateOAuthTokens(oauthUser.id);
+      // Generate a one-time exchange code instead of passing JWTs in URL
+      const code = await authService.createOAuthExchangeCode(oauthUser.id);
 
-      // Redirect to frontend with tokens in URL params
+      // Redirect to frontend with code in URL params
       const redirectUrl = new URL(`${config.frontendUrl}/login`);
-      redirectUrl.searchParams.set('accessToken', tokens.accessToken);
-      redirectUrl.searchParams.set('refreshToken', tokens.refreshToken);
+      redirectUrl.searchParams.set('code', code);
       redirectUrl.searchParams.set('oauth', 'google');
       if (oauthUser.isNewUser) {
         redirectUrl.searchParams.set('newUser', 'true');
@@ -210,13 +223,12 @@ export class AuthController {
         return res.redirect(`${config.frontendUrl}/login?error=oauth_failed`);
       }
 
-      // Generate tokens for the OAuth user
-      const tokens = await authService.generateOAuthTokens(oauthUser.id);
+      // Generate a one-time exchange code
+      const code = await authService.createOAuthExchangeCode(oauthUser.id);
 
-      // Redirect to frontend with tokens in URL params
+      // Redirect to frontend with code in URL params
       const redirectUrl = new URL(`${config.frontendUrl}/login`);
-      redirectUrl.searchParams.set('accessToken', tokens.accessToken);
-      redirectUrl.searchParams.set('refreshToken', tokens.refreshToken);
+      redirectUrl.searchParams.set('code', code);
       redirectUrl.searchParams.set('oauth', 'linkedin');
       if (oauthUser.isNewUser) {
         redirectUrl.searchParams.set('newUser', 'true');

@@ -193,6 +193,17 @@ export class UserController {
       next(error);
     }
   }
+
+  // Notable Alumni
+  async getNotableAlumni(req: Request, res: Response, next: NextFunction) {
+    try {
+      const limit = req.query.limit ? parseInt(req.query.limit as string) : 6;
+      const result = await userService.getNotableAlumni(limit);
+      res.json({ success: true, data: result });
+    } catch (error) {
+      next(error);
+    }
+  }
 }
 
 export const userController = new UserController();

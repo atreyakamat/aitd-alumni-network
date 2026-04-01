@@ -2,12 +2,13 @@ import { Router } from 'express';
 import passport from '../config/passport';
 import { authController } from '../controllers/authController';
 import { userController } from '../controllers/userController';
+import { searchController } from '../controllers/searchController';
 import { postController } from '../controllers/postController';
 import { jobController } from '../controllers/jobController';
 import { eventController } from '../controllers/eventController';
 import { networkController, messageController, notificationController } from '../controllers/socialController';
 import { galleryController, newsController, chapterController, marketplaceController } from '../controllers/contentController';
-import { membershipController, donationController } from '../controllers/paymentController';
+import { membershipController, donationController, transactionController } from '../controllers/paymentController';
 import { authenticate, optionalAuth, isAdmin, isSuperAdmin } from '../middleware/auth';
 import { validate } from '../middleware/validate';
 import { upload } from '../utils/storage';
@@ -43,6 +44,7 @@ router.post('/auth/2fa/enable', authenticate, authController.enable2FA);
 router.post('/auth/2fa/disable', authenticate, authController.disable2FA);
 
 // OAuth Routes
+router.post('/auth/oauth/exchange', authController.exchangeOAuthCode);
 router.get('/auth/google', passport.authenticate('google', { scope: ['profile', 'email'], session: false }));
 router.get('/auth/google/callback', 
   passport.authenticate('google', { session: false, failureRedirect: '/login?error=oauth_failed' }),
@@ -56,6 +58,7 @@ router.get('/auth/linkedin/callback',
 
 // ============== USER ROUTES ==============
 router.get('/users/stats', userController.getPublicStats);
+router.get('/users/notable', userController.getNotableAlumni);
 router.get('/users/directory', authenticate, userController.searchDirectory);
 router.get('/users/yearbook/:year', authenticate, userController.getYearbook);
 router.get('/users/locations', authenticate, userController.getAlumniLocations);
@@ -193,6 +196,9 @@ router.get('/donations/stats', donationController.getStats);
 router.get('/donations/my', authenticate, donationController.getMyDonations);
 router.post('/donations/order', optionalAuth, donationController.createOrder);
 router.post('/donations/verify', optionalAuth, donationController.verifyPayment);
+
+// ============== TRANSACTION ROUTES ==============
+router.get('/transactions/:id/receipt', authenticate, transactionController.getReceipt);
 
 // ============== INVITE ROUTES ==============
 import { inviteController } from '../controllers/inviteController';

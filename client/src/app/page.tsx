@@ -3,6 +3,7 @@ import { Button } from '@/components/ui/button';
 import { HeroSection } from '@/components/features/HeroSection';
 import { StatsSection } from '@/components/features/StatsSection';
 import { FeaturesSection } from '@/components/features/FeaturesSection';
+import { NotableAlumni } from '@/components/features/NotableAlumni';
 import { UpcomingEvents } from '@/components/features/UpcomingEvents';
 import { LatestNews } from '@/components/features/LatestNews';
 import { Footer } from '@/components/layout/Footer';
@@ -16,6 +17,7 @@ export default function HomePage() {
         <HeroSection />
         <StatsSection />
         <FeaturesSection />
+        <NotableAlumni />
         <UpcomingEvents />
         <LatestNews />
 

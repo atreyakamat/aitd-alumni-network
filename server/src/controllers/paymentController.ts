@@ -1,6 +1,9 @@
 import { Request, Response, NextFunction } from 'express';
 import { membershipService } from '../services/membershipService';
 import { donationService } from '../services/donationService';
+import prisma from '../config/database';
+import { AppError } from '../middleware/errorHandler';
+import { generateDonationReceipt, generateMembershipReceipt, generateReceiptNumber } from '../utils/pdfReceipt';
 
 // Membership Controller
 export class MembershipController {
@@ -172,5 +175,88 @@ export class DonationController {
   }
 }
 
+// Transaction Controller
+export class TransactionController {
+  async getReceipt(req: Request, res: Response, next: NextFunction) {
+    try {
+      const { id } = req.params;
+      const userId = req.user!.id;
+      const userRole = req.user!.userRole;
+
+      const transaction = await prisma.transaction.findUnique({
+        where: { id },
+        include: {
+          user: true,
+          donations: {
+            include: { chapter: true },
+          },
+          memberships: {
+            include: { tier: true },
+          },
+        },
+      });
+
+      if (!transaction) {
+        throw new AppError('Transaction not found', 404, 'NOT_FOUND');
+      }
+
+      // Check ownership (admins can access any receipt)
+      if (transaction.userId !== userId && userRole !== 'ADMIN' && userRole !== 'SUPER_ADMIN') {
+        throw new AppError('Unauthorized access to receipt', 403, 'FORBIDDEN');
+      }
+
+      if (transaction.status !== 'SUCCESS') {
+        throw new AppError('Receipt only available for successful transactions', 400, 'BAD_REQUEST');
+      }
+
+      let pdfBuffer: Buffer;
+
+      if (transaction.type === 'DONATION') {
+        const donation = transaction.donations[0];
+        if (!donation) {
+          throw new AppError('Donation details not found', 404, 'NOT_FOUND');
+        }
+
+        pdfBuffer = await generateDonationReceipt({
+          receiptNumber: generateReceiptNumber('DON'),
+          donorName: transaction.user.fullName,
+          donorEmail: transaction.user.email,
+          amount: Number(transaction.amount),
+          date: transaction.createdAt,
+          paymentId: transaction.gatewayPaymentId || transaction.id,
+          dedicatedTo: donation.dedicatedTo || undefined,
+          message: donation.message || undefined,
+          chapterName: donation.chapter?.name,
+        });
+      } else if (transaction.type === 'MEMBERSHIP') {
+        const membership = transaction.memberships[0];
+        if (!membership) {
+          throw new AppError('Membership details not found', 404, 'NOT_FOUND');
+        }
+
+        pdfBuffer = await generateMembershipReceipt({
+          receiptNumber: generateReceiptNumber('MEM'),
+          memberName: transaction.user.fullName,
+          memberEmail: transaction.user.email,
+          membershipTier: membership.tier.name,
+          amount: Number(transaction.amount),
+          startDate: membership.startDate,
+          endDate: membership.endDate || new Date(), // Fallback for lifetime
+          paymentId: transaction.gatewayPaymentId || transaction.id,
+        });
+      } else {
+        throw new AppError('Invalid transaction type for receipt', 400, 'BAD_REQUEST');
+      }
+
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', `attachment; filename="receipt_${id}.pdf"`);
+      res.send(pdfBuffer);
+    } catch (error) {
+      next(error);
+    }
+  }
+}
+
 export const membershipController = new MembershipController();
 export const donationController = new DonationController();
+export const transactionController = new TransactionController();

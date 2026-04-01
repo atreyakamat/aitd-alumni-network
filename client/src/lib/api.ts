@@ -229,6 +229,7 @@ export const userApi = {
   getYearbook: (year: number, department?: string) =>
     api.get(`/users/yearbook/${year}`, { params: { department } }),
   getStats: () => api.get('/users/stats'),
+  getNotable: (limit?: number) => api.get('/users/notable', { params: { limit } }),
   getLocations: () => api.get('/users/locations'),
   getNearby: (lat: number, lng: number, radius?: number) =>
     api.get('/users/nearby', { params: { lat, lng, radius } }),
@@ -447,6 +448,21 @@ export const mentorshipApi = {
     api.post(`/mentorship/request/${requestId}/sessions`, data),
   completeSession: (sessionId: string, outcomes?: string) =>
     api.post(`/mentorship/sessions/${sessionId}/complete`, { outcomes }),
+};
+
+// Search API
+export const searchApi = {
+  globalSearch: (query: string) => api.get('/search', { params: { q: query } }),
+};
+
+// Admin API
+export const adminApi = {
+  getStats: () => api.get('/admin/stats'),
+  updateSettings: (settings: any) => api.patch('/admin/settings', settings),
+  getAuditLogs: (params?: any) => api.get('/admin/audit-logs', { params }),
+  getUsers: (params?: any) => api.get('/admin/users', { params }),
+  updateUserStatus: (userId: string, status: string) => 
+    api.patch(`/admin/users/${userId}/status`, { status }),
 };
 
 export default api;

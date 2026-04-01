@@ -73,14 +73,23 @@ export function MainNav() {
 
         {/* Search Bar */}
         <div className="hidden md:flex flex-1 max-w-md mx-8">
-          <div className="relative w-full">
+          <form 
+            onSubmit={(e) => {
+              e.preventDefault();
+              const formData = new FormData(e.currentTarget);
+              const q = formData.get('q');
+              if (q) router.push(`/dashboard/search?q=${encodeURIComponent(q as string)}`);
+            }}
+            className="relative w-full"
+          >
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <input
+              name="q"
               type="text"
               placeholder="Search alumni, jobs, events..."
               className="w-full h-10 pl-10 pr-4 rounded-full bg-secondary border-0 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
             />
-          </div>
+          </form>
         </div>
 
         {/* Desktop Nav */}

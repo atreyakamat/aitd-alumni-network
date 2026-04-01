@@ -111,9 +111,11 @@ export const adminController = {
         ? ((newUsersThisMonth - newUsersLastMonth) / newUsersLastMonth * 100).toFixed(1)
         : newUsersThisMonth > 0 ? '100' : '0';
 
-      // Get monthly user registrations for the past 12 months
-      const monthlyUserGrowth = await getMonthlyStats(prisma, 'user', 12);
-      const monthlyDonations = await getMonthlyDonationStats(prisma, 12);
+      // Parallelize monthly stats fetches
+      const [monthlyUserGrowth, monthlyDonations] = await Promise.all([
+        getMonthlyStats(prisma, 'user', 12),
+        getMonthlyDonationStats(prisma, 12)
+      ]);
 
       res.json({
         success: true,
@@ -184,10 +186,10 @@ export const adminController = {
 
 // Helper function to get monthly registration stats
 async function getMonthlyStats(prisma: any, model: string, months: number) {
-  const results = [];
   const now = new Date();
+  const ranges = Array.from({ length: months }, (_, i) => months - 1 - i);
   
-  for (let i = months - 1; i >= 0; i--) {
+  return Promise.all(ranges.map(async (i) => {
     const startDate = new Date(now.getFullYear(), now.getMonth() - i, 1);
     const endDate = new Date(now.getFullYear(), now.getMonth() - i + 1, 1);
     
@@ -197,48 +199,45 @@ async function getMonthlyStats(prisma: any, model: string, months: number) {
       },
     });
     
-    results.push({
+    return {
       month: startDate.toLocaleDateString('en-US', { month: 'short', year: '2-digit' }),
       count,
-    });
-  }
-  
-  return results;
+    };
+  }));
 }
 
 // Helper function to get monthly donation stats
 async function getMonthlyDonationStats(prisma: any, months: number) {
-  const results = [];
   const now = new Date();
+  const ranges = Array.from({ length: months }, (_, i) => months - 1 - i);
   
-  for (let i = months - 1; i >= 0; i--) {
+  return Promise.all(ranges.map(async (i) => {
     const startDate = new Date(now.getFullYear(), now.getMonth() - i, 1);
     const endDate = new Date(now.getFullYear(), now.getMonth() - i + 1, 1);
     
-    const donationSum = await prisma.transaction.aggregate({
-      where: {
-        status: 'SUCCESS',
-        type: 'DONATION',
-        createdAt: { gte: startDate, lt: endDate },
-      },
-      _sum: { amount: true },
-    });
+    const [donationSum, membershipSum] = await Promise.all([
+      prisma.transaction.aggregate({
+        where: {
+          status: 'SUCCESS',
+          type: 'DONATION',
+          createdAt: { gte: startDate, lt: endDate },
+        },
+        _sum: { amount: true },
+      }),
+      prisma.transaction.aggregate({
+        where: {
+          status: 'SUCCESS',
+          type: 'MEMBERSHIP',
+          createdAt: { gte: startDate, lt: endDate },
+        },
+        _sum: { amount: true },
+      })
+    ]);
     
-    const membershipSum = await prisma.transaction.aggregate({
-      where: {
-        status: 'SUCCESS',
-        type: 'MEMBERSHIP',
-        createdAt: { gte: startDate, lt: endDate },
-      },
-      _sum: { amount: true },
-    });
-    
-    results.push({
+    return {
       month: startDate.toLocaleDateString('en-US', { month: 'short', year: '2-digit' }),
       donations: donationSum._sum.amount || 0,
       memberships: membershipSum._sum.amount || 0,
-    });
-  }
-  
-  return results;
+    };
+  }));
 }

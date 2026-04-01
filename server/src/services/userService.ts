@@ -508,6 +508,99 @@ export class UserService {
     };
   }
 
+  async getNotableAlumni(limit: number = 6) {
+    try {
+      const notableAlumni = await prisma.user.findMany({
+        where: {
+          isNotable: true,
+          isActive: true,
+          isVerified: true,
+        },
+        select: {
+          id: true,
+          fullName: true,
+          profilePhotoUrl: true,
+          batchYear: true,
+          department: true,
+          degree: true,
+          currentDesignation: true,
+          shortBio: true,
+          city: true,
+          workExperiences: {
+            where: { isCurrent: true },
+            take: 1,
+            select: { company: true, role: true },
+          },
+        },
+        take: limit,
+      });
+
+      // If no notable alumni found, return top users by profile completeness as fallback
+      if (notableAlumni.length === 0) {
+        return prisma.user.findMany({
+          where: {
+            isActive: true,
+            isVerified: true,
+            profilePhotoUrl: { not: null },
+          },
+          select: {
+            id: true,
+            fullName: true,
+            profilePhotoUrl: true,
+            batchYear: true,
+            department: true,
+            degree: true,
+            currentDesignation: true,
+            shortBio: true,
+            city: true,
+            workExperiences: {
+              where: { isCurrent: true },
+              take: 1,
+              select: { company: true, role: true },
+            },
+          },
+          orderBy: [
+            { profileCompleteness: 'desc' },
+            { createdAt: 'desc' },
+          ],
+          take: limit,
+        });
+      }
+
+      return notableAlumni;
+    } catch (error) {
+      // Fallback for any database errors (like missing columns)
+      return prisma.user.findMany({
+        where: {
+          isActive: true,
+          isVerified: true,
+          profilePhotoUrl: { not: null },
+        },
+        select: {
+          id: true,
+          fullName: true,
+          profilePhotoUrl: true,
+          batchYear: true,
+          department: true,
+          degree: true,
+          currentDesignation: true,
+          shortBio: true,
+          city: true,
+          workExperiences: {
+            where: { isCurrent: true },
+            take: 1,
+            select: { company: true, role: true },
+          },
+        },
+        orderBy: [
+          { profileCompleteness: 'desc' },
+          { createdAt: 'desc' },
+        ],
+        take: limit,
+      });
+    }
+  }
+
   async updateProfilePhoto(userId: string, photoUrl: string) {
     const user = await prisma.user.findUnique({ where: { id: userId } });
     if (user?.profilePhotoUrl) {
