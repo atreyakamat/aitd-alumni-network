@@ -18,7 +18,8 @@ import {
   Video, 
   Image as ImageIcon,
   Loader2,
-  ChevronLeft
+  ChevronLeft,
+  MessageSquare
 } from 'lucide-react';
 import { getInitials, cn } from '@/lib/utils';
 import { formatDistanceToNow } from 'date-fns';

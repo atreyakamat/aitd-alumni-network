@@ -43,7 +43,7 @@ export default function DashboardPage() {
       const [postsRes, sugRes, eventsRes] = await Promise.all([
         postApi.getFeed(),
         networkApi.getSuggestions(3),
-        eventApi.getUpcomingEvents(2)
+        eventApi.getUpcoming(2)
       ]);
       setPosts(postsRes.data.data || []);
       setSuggestions(sugRes.data.data || []);
