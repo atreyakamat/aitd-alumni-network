@@ -127,7 +127,7 @@ async function main() {
   const adminPassword = await bcrypt.hash('Admin@123', 12);
   const adminUser = await prisma.user.create({
     data: {
-      email: 'admin@alumniconnect.edu',
+      email: 'admin@aitdconnection.edu',
       passwordHash: adminPassword,
       fullName: 'System Administrator',
       batchYear: 2020,
@@ -139,12 +139,12 @@ async function main() {
       emailVerifiedAt: new Date(),
       profileCompleteness: 50,
       currentDesignation: 'Platform Administrator',
-      shortBio: 'Managing the Alumni Connect platform',
+      shortBio: 'Managing the AITD Connection platform',
       membershipTierId: patronTier.id,
     },
   });
 
-  console.log('✅ Created admin user (admin@alumniconnect.edu / Admin@123)');
+  console.log('✅ Created admin user (admin@aitdconnection.edu / Admin@123)');
 
   // Create sample users
   const samplePassword = await bcrypt.hash('User@123', 12);
@@ -231,9 +231,9 @@ async function main() {
   // Create sample news articles
   const newsData = [
     {
-      title: 'Alumni Connect Platform Launches',
+      title: 'AITD Connection Platform Launches',
       slug: 'alumni-connect-platform-launches',
-      content: 'We are excited to announce the launch of our new Alumni Connect platform...',
+      content: 'We are excited to announce the launch of our new AITD Connection platform...',
       excerpt: 'The new platform brings modern features for better networking.',
       category: 'INSTITUTE_UPDATE' as const,
       authorId: adminUser.id,

@@ -1,4 +1,4 @@
-**ALUMNI CONNECT**
+**AITD Connection**
 
 College Alumni Network Platform
 
@@ -26,7 +26,7 @@ Date: 27 March 2026
 
 This Product Requirements Document (PRD) defines the full scope,
 features, functional requirements, and technical specifications for the
-Alumni Connect platform --- a comprehensive digital ecosystem for
+AITD Connection platform --- a comprehensive digital ecosystem for
 engineering college alumni. It is intended to align stakeholders, guide
 the development team, and serve as the single source of truth throughout
 the project lifecycle.
@@ -103,7 +103,7 @@ the project lifecycle.
 
 **1. Executive Summary**
 
-Alumni Connect is a full-featured, web-based alumni network platform
+AITD Connection is a full-featured, web-based alumni network platform
 designed specifically for engineering colleges. It aims to bridge the
 gap between current students, recent graduates, and seasoned alumni by
 providing an integrated suite of networking, career, and community tools
@@ -115,7 +115,7 @@ alumni and students who access the full social and professional
 networking suite; and platform administrators who manage content,
 memberships, and user data.
 
-Alumni Connect directly competes with --- and significantly improves
+AITD Connection directly competes with --- and significantly improves
 upon --- existing alumni platforms by incorporating real-time geospatial
 alumni mapping, AI-powered mentorship matching, advanced career
 filtering, multi-tier paid memberships, a live social feed, and an
@@ -126,7 +126,7 @@ alumni services marketplace.
 **2.1 Background**
 
 The institution currently has an existing alumni network platform.
-Alumni Connect is designed to replicate and significantly surpass its
+AITD Connection is designed to replicate and significantly surpass its
 functionality, delivering a more modern, dynamic, and scalable
 experience. The platform will act as the primary digital home for the
 institution\'s alumni community --- spanning all graduating batches,
@@ -299,7 +299,7 @@ departments, and geographies.
 
 **5.1 High-Level Architecture**
 
-Alumni Connect follows a client-server architecture with a decoupled
+AITD Connection follows a client-server architecture with a decoupled
 frontend and backend, communicating via RESTful APIs (or GraphQL). The
 system is composed of the following primary layers:
 
@@ -1381,4 +1381,4 @@ intra-alumni commerce and collaboration.
 
 *--- End of Document ---*
 
-Alumni Connect PRD v1.0 \| Confidential \| 2026
+AITD Connection PRD v1.0 \| Confidential \| 2026

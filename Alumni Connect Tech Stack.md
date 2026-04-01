@@ -1,10 +1,10 @@
-> Alumni Connect: Detailed Tech Stack Document
+> AITD Connection: Detailed Tech Stack Document
 >
 > Version: 1.0
 >
 > Date: 27 March 2026
 >
-> Project: AlumniConnect - College AlumniNetwork Platform Classi cation:
+> Project: AITD Connection - College AlumniNetwork Platform Classi cation:
 > Technical Reference
 >
 > Table of Contents
@@ -24,7 +24,7 @@
 >
 > 1\. Executive Overview
 >
-> Alumni Connect is built on a modern, cloud-native, full-stack
+> AITD Connection is built on a modern, cloud-native, full-stack
 > JavaScript architecture optimizedfor performance, scalability, and
 > rapidfeature deployment. The tech stack prioritizes:
 >

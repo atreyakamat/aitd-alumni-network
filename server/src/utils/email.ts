@@ -62,10 +62,10 @@ export const sendVerificationEmail = async (
   
   await sendEmail({
     to: email,
-    subject: 'Verify your Alumni Connect account',
+    subject: 'Verify your AITD Connection account',
     html: `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-        <h1 style="color: #0A66C2;">Welcome to Alumni Connect!</h1>
+        <h1 style="color: #0A66C2;">Welcome to AITD Connection!</h1>
         <p>Hi ${name},</p>
         <p>Thank you for registering. Please verify your email address by clicking the button below:</p>
         <a href="${verificationUrl}" 
@@ -94,7 +94,7 @@ export const sendPasswordResetEmail = async (
   
   await sendEmail({
     to: email,
-    subject: 'Reset your Alumni Connect password',
+    subject: 'Reset your AITD Connection password',
     html: `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
         <h1 style="color: #0A66C2;">Password Reset</h1>
@@ -123,10 +123,10 @@ export const sendWelcomeEmail = async (
 ): Promise<void> => {
   await sendEmail({
     to: email,
-    subject: 'Welcome to Alumni Connect!',
+    subject: 'Welcome to AITD Connection!',
     html: `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-        <h1 style="color: #0A66C2;">Welcome to Alumni Connect!</h1>
+        <h1 style="color: #0A66C2;">Welcome to AITD Connection!</h1>
         <p>Hi ${name},</p>
         <p>Your email has been verified and your account is now active.</p>
         <p>Here's what you can do:</p>
@@ -144,7 +144,7 @@ export const sendWelcomeEmail = async (
         </a>
         <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;" />
         <p style="color: #999; font-size: 12px;">
-          © Alumni Connect. All rights reserved.
+          © AITD Connection. All rights reserved.
         </p>
       </div>
     `,
@@ -160,11 +160,11 @@ export const sendInviteEmail = async (
   
   await sendEmail({
     to: email,
-    subject: `${inviterName} invited you to join Alumni Connect`,
+    subject: `${inviterName} invited you to join AITD Connection`,
     html: `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
         <h1 style="color: #0A66C2;">You're Invited!</h1>
-        <p>${inviterName} has invited you to join the Alumni Connect network.</p>
+        <p>${inviterName} has invited you to join the AITD Connection network.</p>
         <p>Connect with fellow alumni, explore career opportunities, and stay updated with events.</p>
         <a href="${inviteUrl}" 
            style="display: inline-block; background-color: #0A66C2; color: white; padding: 12px 24px; 

@@ -15,7 +15,7 @@ export default function CookiePolicyPage() {
         <section>
           <h2 className="font-headline text-2xl font-semibold mb-4">2. How We Use Cookies</h2>
           <p className="text-muted-foreground leading-relaxed mb-4">
-            Alumni Connect uses cookies and similar technologies for various purposes:
+            AITD Connection uses cookies and similar technologies for various purposes:
           </p>
           
           <h3 className="font-headline text-xl font-medium mb-3">Essential Cookies</h3>
@@ -105,7 +105,7 @@ export default function CookiePolicyPage() {
             <li>Our cookie consent banner when you first visit</li>
           </ul>
           <p className="text-muted-foreground leading-relaxed">
-            Please note that disabling certain cookies may affect the functionality of Alumni Connect and your user experience.
+            Please note that disabling certain cookies may affect the functionality of AITD Connection and your user experience.
           </p>
         </section>
 
@@ -133,7 +133,7 @@ export default function CookiePolicyPage() {
           </p>
           <div className="bg-muted p-4 rounded-lg mt-4">
             <p className="text-muted-foreground">
-              <strong>Email:</strong> privacy@alumniconnect.edu<br />
+              <strong>Email:</strong> privacy@aitdconnection.edu<br />
               <strong>Address:</strong> Alumni Office, Engineering College Campus<br />
               <strong>Phone:</strong> +91-XX-XXXX-XXXX
             </p>

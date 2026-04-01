@@ -1,5 +1,5 @@
 1. Document Overview
-This Design Document specifies the system architecture, module decomposition, data design, and UI/UX guidelines for the Alumni Connect platform, based on the approved PRD v1.0. It is intended for engineers, designers, and stakeholders as the authoritative reference for how the platform will be built and experienced.
+This Design Document specifies the system architecture, module decomposition, data design, and UI/UX guidelines for the AITD Connection platform, based on the approved PRD v1.0. It is intended for engineers, designers, and stakeholders as the authoritative reference for how the platform will be built and experienced.
 ​
 
 2. Visual & Brand Design

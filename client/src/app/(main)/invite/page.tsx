@@ -38,11 +38,11 @@ interface InviteEntry {
 
 const INVITE_TEMPLATE = `Hi {{name}},
 
-I hope this message finds you well! I wanted to reach out and invite you to join our Alumni Connect platform - a dedicated space for our AITD alumni community.
+I hope this message finds you well! I wanted to reach out and invite you to join our AITD Connection platform - a dedicated space for our AITD alumni community.
 
 As a fellow graduate from the Class of {{batchYear}}, I thought you'd be interested in reconnecting with classmates, exploring career opportunities, and staying updated on events and news from our alma mater.
 
-Here's what you can do on Alumni Connect:
+Here's what you can do on AITD Connection:
 • Find and reconnect with batchmates and other alumni
 • Access exclusive job postings and mentorship opportunities
 • Stay updated on events, reunions, and news

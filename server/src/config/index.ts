@@ -8,7 +8,7 @@ export const config = {
     refreshExpiresIn: process.env.JWT_REFRESH_EXPIRES_IN || '7d',
   },
   email: {
-    from: process.env.EMAIL_FROM || 'noreply@alumniconnect.edu',
+    from: process.env.EMAIL_FROM || 'noreply@aitdconnection.edu',
     smtp: {
       host: process.env.SMTP_HOST || 'smtp.gmail.com',
       port: parseInt(process.env.SMTP_PORT || '587'),
@@ -25,7 +25,7 @@ export const config = {
     accessKeyId: process.env.AWS_ACCESS_KEY_ID || '',
     secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY || '',
     region: process.env.AWS_REGION || 'ap-south-1',
-    s3Bucket: process.env.AWS_S3_BUCKET || 'alumni-connect-uploads',
+    s3Bucket: process.env.AWS_S3_BUCKET || 'aitd-connection-uploads',
   },
   google: {
     clientId: process.env.GOOGLE_CLIENT_ID || '',

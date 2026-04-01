@@ -1,4 +1,4 @@
-// Prisma Schema for Alumni Connect Platform
+// Prisma Schema for AITD Connection Platform
 // This schema defines all database models for the alumni network
 
 generator client {

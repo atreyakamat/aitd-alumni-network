@@ -1,4 +1,4 @@
-# Alumni Connect
+# AITD Connection
 
 A comprehensive alumni network platform built with Next.js and Express.js, designed to connect graduates, facilitate networking, and foster a thriving alumni community.
 

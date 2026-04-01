@@ -8,7 +8,7 @@ export function Footer() {
     <footer className="mt-20 w-full border-t border-slate-200 bg-slate-100">
       <div className="grid grid-cols-1 gap-8 px-8 py-16 md:grid-cols-3 lg:px-12">
         <div className="space-y-6">
-          <div className="font-headline text-lg font-bold text-blue-900">Alumni Connect</div>
+          <div className="font-headline text-lg font-bold text-blue-900">AITD Connection</div>
           <p className="max-w-xs text-sm tracking-wide text-slate-500 font-body">
             Connecting past excellence with future potential through a global network of scholarly leaders.
           </p>
@@ -57,7 +57,7 @@ export function Footer() {
 
       <div className="flex flex-col items-center justify-between gap-4 bg-slate-200/50 px-8 py-8 md:flex-row lg:px-12">
         <span className="text-xs tracking-wide text-slate-500 font-body">
-          © {new Date().getFullYear()} Alumni Connect. All rights reserved.
+          © {new Date().getFullYear()} AITD Connection. All rights reserved.
         </span>
         <div className="flex space-x-4">
           <Button variant="ghost" size="icon" className="text-slate-400 hover:text-primary">

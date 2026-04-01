@@ -12,7 +12,7 @@ export default function LegalLayout({
         <div className="container mx-auto px-6 py-4">
           <div className="flex items-center justify-between">
             <Link href="/" className="text-xl font-bold text-[#002045]">
-              Alumni Connect
+              AITD Connection
             </Link>
             <nav className="flex items-center gap-6">
               <Link
@@ -52,7 +52,7 @@ export default function LegalLayout({
             <Link href="/terms" className="hover:text-[#002045]">
               Terms of Service
             </Link>
-            <a href="mailto:contact@alumniconnect.aitd.edu" className="hover:text-[#002045]">
+            <a href="mailto:contact@aitdconnection.aitd.edu" className="hover:text-[#002045]">
               Contact Us
             </a>
           </div>

@@ -1,7 +1,7 @@
 {
-  "name": "aitd-alumni-network",
+  "name": "aitd-connection",
   "version": "1.0.0",
-  "description": "Alumni Connect - College Alumni Network Platform",
+  "description": "AITD Connection - College Alumni Network Platform",
   "private": true,
   "workspaces": [
     "client",

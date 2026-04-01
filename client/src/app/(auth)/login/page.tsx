@@ -186,7 +186,7 @@ function LoginContent() {
           <div className="absolute inset-0 bg-gradient-to-br from-[#002045]/90 via-[#1a365d]/80 to-transparent" />
           <div className="relative z-10 flex h-full flex-col justify-between p-12">
             <Link href="/" className="font-headline text-3xl italic text-white">
-              Alumni Connect
+              AITD Connection
             </Link>
             <div className="max-w-md space-y-6">
               <h1 className="font-headline text-5xl leading-tight text-white">
@@ -196,7 +196,7 @@ function LoginContent() {
                 Enter the verification code sent to your email to complete sign-in.
               </p>
             </div>
-            <p className="text-sm text-white/60 font-label">© {new Date().getFullYear()} Alumni Connect</p>
+            <p className="text-sm text-white/60 font-label">© {new Date().getFullYear()} AITD Connection</p>
           </div>
         </div>
 
@@ -290,7 +290,7 @@ function LoginContent() {
         <div className="absolute inset-0 bg-gradient-to-br from-[#002045]/90 via-[#1a365d]/80 to-transparent" />
         <div className="relative z-10 flex h-full flex-col justify-between p-12">
           <Link href="/" className="font-headline text-3xl italic text-white">
-            Alumni Connect
+            AITD Connection
           </Link>
           <div className="max-w-md space-y-6">
             <h1 className="font-headline text-5xl leading-tight text-white">
@@ -300,7 +300,7 @@ function LoginContent() {
               Sign in to reconnect with fellow scholars, explore opportunities, and shape the future of our community.
             </p>
           </div>
-          <p className="text-sm text-white/60 font-label">© {new Date().getFullYear()} Alumni Connect</p>
+          <p className="text-sm text-white/60 font-label">© {new Date().getFullYear()} AITD Connection</p>
         </div>
       </div>
 
@@ -309,7 +309,7 @@ function LoginContent() {
         <div className="w-full max-w-md">
           <div className="mb-8 text-center lg:hidden">
             <Link href="/" className="font-headline text-2xl italic text-primary">
-              Alumni Connect
+              AITD Connection
             </Link>
           </div>
 

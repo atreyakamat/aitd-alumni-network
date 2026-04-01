@@ -1,8 +1,8 @@
 import { Metadata } from 'next';
 
 export const metadata: Metadata = {
-  title: 'Terms of Service | Alumni Connect',
-  description: 'Terms of Service for the AITD Alumni Connect platform',
+  title: 'Terms of Service | AITD Connection',
+  description: 'Terms of Service for the AITD AITD Connection platform',
 };
 
 export default function TermsOfServicePage() {
@@ -23,7 +23,7 @@ export default function TermsOfServicePage() {
             <section className="mb-8">
               <h2>1. Agreement to Terms</h2>
               <p>
-                By accessing or using the Alumni Connect platform ("Platform"), you agree to be bound 
+                By accessing or using the AITD Connection platform ("Platform"), you agree to be bound 
                 by these Terms of Service ("Terms"). If you do not agree to these Terms, please do not 
                 use the Platform.
               </p>
@@ -172,7 +172,7 @@ export default function TermsOfServicePage() {
 
               <h3>8.2 Trademarks</h3>
               <p>
-                "Alumni Connect," "AITD," and related logos are trademarks of the AITD Alumni 
+                "AITD Connection," "AITD," and related logos are trademarks of the AITD Alumni 
                 Association. You may not use these trademarks without our prior written consent.
               </p>
             </section>
@@ -296,7 +296,7 @@ export default function TermsOfServicePage() {
                 If you have questions about these Terms, please contact us:
               </p>
               <ul>
-                <li><strong>Email:</strong> legal@alumniconnect.aitd.edu</li>
+                <li><strong>Email:</strong> legal@aitdconnection.aitd.edu</li>
                 <li><strong>Address:</strong> AITD Alumni Association, [College Address]</li>
                 <li><strong>Phone:</strong> +91-XXXX-XXXXXX</li>
               </ul>

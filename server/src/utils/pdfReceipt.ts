@@ -61,7 +61,7 @@ export class PDFReceiptGenerator {
       .fontSize(24)
       .fillColor(this.primaryColor)
       .font('Helvetica-Bold')
-      .text('Alumni Connect', 50, 50);
+      .text('AITD Connection', 50, 50);
 
     this.doc
       .fontSize(10)

@@ -1,4 +1,4 @@
-# Alumni Connect - Feature Implementation Status
+# AITD Connection - Feature Implementation Status
 
 This document tracks the implementation status of all features defined in the PRD.
 

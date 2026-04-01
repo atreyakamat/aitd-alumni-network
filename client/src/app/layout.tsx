@@ -16,7 +16,7 @@ const labelFont = Public_Sans({
 });
 
 export const metadata: Metadata = {
-  title: 'Alumni Connect - College Alumni Network',
+  title: 'AITD Connection - College Alumni Network',
   description: 'Connect with fellow alumni, explore career opportunities, and stay updated with events.',
 };
 

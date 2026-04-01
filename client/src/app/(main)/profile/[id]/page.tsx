@@ -25,14 +25,14 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const profile = await getProfile(params.id);
   
   if (!profile) {
-    return { title: 'Profile | Alumni Connect' };
+    return { title: 'Profile | AITD Connection' };
   }
 
   return {
-    title: `${profile.fullName} | Alumni Connect`,
+    title: `${profile.fullName} | AITD Connection`,
     description: profile.headline || `Alumni profile of ${profile.fullName} from ${profile.department} department.`,
     openGraph: {
-      title: `${profile.fullName} on Alumni Connect`,
+      title: `${profile.fullName} on AITD Connection`,
       description: profile.bio || profile.headline,
       images: profile.profilePhotoUrl ? [profile.profilePhotoUrl] : [],
       type: 'profile',

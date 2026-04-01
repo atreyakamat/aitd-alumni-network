@@ -144,7 +144,7 @@ export default function DonationsPage() {
           key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
           amount: orderAmount,
           currency,
-          name: 'Alumni Connect',
+          name: 'AITD Connection',
           description: 'Donation to Alumni Network',
           order_id: orderId,
           handler: async function (response: any) {

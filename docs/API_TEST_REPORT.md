@@ -1,4 +1,4 @@
-# Alumni Connect - API Testing Report
+# AITD Connection - API Testing Report
 
 **Date:** January 2025  
 **Environment:** Development (Windows)  

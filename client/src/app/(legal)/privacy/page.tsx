@@ -1,8 +1,8 @@
 import { Metadata } from 'next';
 
 export const metadata: Metadata = {
-  title: 'Privacy Policy | Alumni Connect',
-  description: 'Privacy Policy for the AITD Alumni Connect platform',
+  title: 'Privacy Policy | AITD Connection',
+  description: 'Privacy Policy for the AITD AITD Connection platform',
 };
 
 export default function PrivacyPolicyPage() {
@@ -23,7 +23,7 @@ export default function PrivacyPolicyPage() {
             <section className="mb-8">
               <h2>1. Introduction</h2>
               <p>
-                Welcome to Alumni Connect ("we," "our," or "us"). We are committed to protecting your 
+                Welcome to AITD Connection ("we," "our," or "us"). We are committed to protecting your 
                 personal information and your right to privacy. This Privacy Policy explains how we 
                 collect, use, disclose, and safeguard your information when you use our alumni networking 
                 platform.
@@ -147,7 +147,7 @@ export default function PrivacyPolicyPage() {
                 <li><strong>Withdraw Consent:</strong> Withdraw consent where processing is based on consent</li>
               </ul>
               <p>
-                To exercise any of these rights, please contact us at privacy@alumniconnect.aitd.edu 
+                To exercise any of these rights, please contact us at privacy@aitdconnection.aitd.edu 
                 or through your account settings.
               </p>
             </section>
@@ -219,7 +219,7 @@ export default function PrivacyPolicyPage() {
                 contact us:
               </p>
               <ul>
-                <li><strong>Email:</strong> privacy@alumniconnect.aitd.edu</li>
+                <li><strong>Email:</strong> privacy@aitdconnection.aitd.edu</li>
                 <li><strong>Address:</strong> AITD Alumni Association, [College Address]</li>
                 <li><strong>Phone:</strong> +91-XXXX-XXXXXX</li>
               </ul>

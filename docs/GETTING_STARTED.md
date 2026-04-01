@@ -1,6 +1,6 @@
-# Getting Started with Alumni Connect
+# Getting Started with AITD Connection
 
-This guide will walk you through setting up the Alumni Connect platform on your local development environment.
+This guide will walk you through setting up the AITD Connection platform on your local development environment.
 
 ## Prerequisites
 
@@ -89,7 +89,7 @@ SMTP_HOST="smtp.gmail.com"
 SMTP_PORT=587
 SMTP_USER="your-email@gmail.com"
 SMTP_PASS="your-app-password"
-EMAIL_FROM="noreply@alumniconnect.edu"
+EMAIL_FROM="noreply@aitdconnection.edu"
 
 # Optional: Razorpay (for payments)
 RAZORPAY_KEY_ID="rzp_test_xxx"

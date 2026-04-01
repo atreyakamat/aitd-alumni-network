@@ -1,4 +1,4 @@
-# Alumni Connect - Project Documentation
+# AITD Connection - Project Documentation
 
 A comprehensive alumni network platform for engineering colleges.
 
@@ -298,7 +298,7 @@ SMTP_PASS="pass"
 | [GETTING_STARTED.md](./GETTING_STARTED.md) | Detailed setup guide |
 | [FEATURE_STATUS.md](./FEATURE_STATUS.md) | PRD implementation status |
 | [API_TEST_REPORT.md](./API_TEST_REPORT.md) | API testing results |
-| [AlumniConnect_PRD_v1.0.md](../AlumniConnect_PRD_v1.0.md) | Product Requirements |
+| [AITD Connection_PRD_v1.0.md](../AITD Connection_PRD_v1.0.md) | Product Requirements |
 | [Design.md](../Design.md) | UI/UX design guidelines |
 | [Tech Stack.md](../Alumni%20Connect%20Tech%20Stack.md) | Technology choices |
 
