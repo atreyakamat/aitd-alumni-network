@@ -26,7 +26,8 @@ import { getInitials, formatDate, formatCurrency } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 
 export default function JobDetailsPage() {
-  const { id } = useParams();
+  const params = useParams();
+  const id = params?.id as string;
   const router = useRouter();
   const { user } = useAuth();
   const { toast } = useToast();

@@ -34,11 +34,12 @@ function LoginContent() {
   const { toast } = useToast();
   const router = useRouter();
   const searchParams = useSearchParams();
-  const registered = searchParams.get('registered');
-  const oauthError = searchParams.get('error');
-  const code = searchParams.get('code');
-  const oauthProvider = searchParams.get('oauth');
-  const isNewUser = searchParams.get('newUser');
+  
+  const registered = searchParams?.get('registered');
+  const oauthError = searchParams?.get('error');
+  const code = searchParams?.get('code');
+  const oauthProvider = searchParams?.get('oauth');
+  const isNewUser = searchParams?.get('newUser');
 
   // Handle OAuth callback tokens
   useEffect(() => {

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import Image from 'next/image';
 import { marketplaceApi } from '@/lib/api';
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -129,10 +130,12 @@ export default function MarketplacePage() {
                 <Card key={item.id} className="overflow-hidden group hover:shadow-md transition-shadow">
                   <div className="aspect-square relative bg-muted overflow-hidden">
                     {item.imageUrls?.[0] ? (
-                      <img 
+                      <Image 
                         src={item.imageUrls[0]} 
                         alt={item.title} 
-                        className="object-cover w-full h-full group-hover:scale-105 transition-transform duration-300"
+                        fill
+                        className="object-cover group-hover:scale-105 transition-transform duration-300"
+                        unoptimized
                       />
                     ) : (
                       <div className="w-full h-full flex items-center justify-center">

@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/context/auth-context';
 import { postApi, networkApi, eventApi } from '@/lib/api';
+import NextImage from 'next/image';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -186,7 +187,15 @@ export default function DashboardPage() {
                     {post.media && post.media.length > 0 && (
                       <div className="mt-3 grid gap-2">
                         {post.media.map((m: any) => (
-                          <img key={m.id} src={m.url} alt="Post media" className="rounded-lg max-h-96 object-cover w-full" />
+                          <NextImage 
+                            key={m.id} 
+                            src={m.url} 
+                            alt="Post media" 
+                            width={1000}
+                            height={400}
+                            className="rounded-lg max-h-96 object-cover w-full" 
+                            unoptimized
+                          />
                         ))}
                       </div>
                     )}

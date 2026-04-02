@@ -25,7 +25,7 @@ import { getInitials } from '@/lib/utils';
 function SearchResults() {
   const searchParams = useSearchParams();
   const router = useRouter();
-  const query = searchParams.get('q') || '';
+  const query = searchParams?.get('q') || '';
   
   const [searchInput, setSearchInput] = useState(query);
   const [results, setResults] = useState<any>(null);

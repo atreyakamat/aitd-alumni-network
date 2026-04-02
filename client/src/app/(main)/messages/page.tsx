@@ -24,10 +24,11 @@ import {
 import { getInitials, cn } from '@/lib/utils';
 import { formatDistanceToNow } from 'date-fns';
 
-function MessagesContent() {
+function ChatContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
-  const targetUserId = searchParams.get('u');
+  const targetUserId = searchParams?.get('u');
+
   const { user: currentUser } = useAuth();
   const { isConnected } = useSocketContext();
   
@@ -300,7 +301,7 @@ function MessagesContent() {
 export default function MessagesPage() {
   return (
     <Suspense fallback={<div className="flex h-screen items-center justify-center"><Loader2 className="animate-spin" /></div>}>
-      <MessagesContent />
+      <ChatContent />
     </Suspense>
   );
 }

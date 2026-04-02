@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import Image from 'next/image';
 import { galleryApi } from '@/lib/api';
 import { Card, CardContent, CardFooter } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -96,10 +97,12 @@ export default function GalleryPage() {
               <Card key={album.id} className="overflow-hidden group cursor-pointer hover:shadow-lg transition-all border-none shadow-md">
                 <div className="aspect-[4/3] relative overflow-hidden bg-muted">
                   {album.coverImageUrl ? (
-                    <img 
+                    <Image 
                       src={album.coverImageUrl} 
                       alt={album.title} 
-                      className="object-cover w-full h-full group-hover:scale-110 transition-transform duration-500"
+                      fill
+                      className="object-cover group-hover:scale-110 transition-transform duration-500"
+                      unoptimized
                     />
                   ) : (
                     <div className="w-full h-full flex items-center justify-center">
@@ -149,10 +152,13 @@ export default function GalleryPage() {
               <Dialog key={photo.id}>
                 <DialogTrigger asChild>
                   <div className="relative group cursor-zoom-in break-inside-avoid">
-                    <img 
+                    <Image 
                       src={photo.url} 
                       alt={photo.caption || 'Gallery photo'} 
+                      width={500}
+                      height={500}
                       className="rounded-xl w-full h-auto shadow-sm group-hover:shadow-md transition-shadow"
+                      unoptimized
                     />
                     <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity rounded-xl flex items-center justify-center">
                       <Maximize2 className="text-white h-6 w-6" />
@@ -161,11 +167,13 @@ export default function GalleryPage() {
                 </DialogTrigger>
                 <DialogContent className="max-w-4xl p-0 overflow-hidden bg-black/95 border-none">
                   <div className="flex flex-col md:flex-row h-full max-h-[90vh]">
-                    <div className="flex-1 flex items-center justify-center bg-black">
-                      <img 
+                    <div className="flex-1 flex items-center justify-center bg-black relative min-h-[300px]">
+                      <Image 
                         src={photo.url} 
-                        alt={photo.caption} 
-                        className="max-w-full max-h-full object-contain"
+                        alt={photo.caption || 'Gallery photo'} 
+                        fill
+                        className="object-contain"
+                        unoptimized
                       />
                     </div>
                     {photo.caption && (

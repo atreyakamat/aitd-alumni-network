@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import Image from 'next/image';
 import { useParams, useRouter } from 'next/navigation';
 import { eventApi } from '@/lib/api';
 import { useAuth } from '@/context/auth-context';
@@ -25,7 +26,8 @@ import { getInitials, formatDate } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 
 export default function EventDetailsPage() {
-  const { id } = useParams();
+  const params = useParams();
+  const id = params?.id as string;
   const router = useRouter();
   const { user } = useAuth();
   const { toast } = useToast();
@@ -113,7 +115,13 @@ export default function EventDetailsPage() {
           <Card className="overflow-hidden">
             <div className="h-64 bg-muted relative">
               {event.coverImageUrl ? (
-                <img src={event.coverImageUrl} alt={event.title} className="w-full h-full object-cover" />
+                <Image 
+                  src={event.coverImageUrl} 
+                  alt={event.title} 
+                  fill 
+                  className="object-cover" 
+                  unoptimized
+                />
               ) : (
                 <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-primary/20 to-primary/40">
                   <Calendar className="h-20 w-20 text-primary/40" />
