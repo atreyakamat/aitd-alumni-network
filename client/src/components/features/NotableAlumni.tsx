@@ -6,23 +6,65 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 
+const FALLBACK_ALUMNI = [
+  {
+    id: 'sanjana-yadav',
+    fullName: 'Sanjana Yadav',
+    currentDesignation: 'Senior Robotics Engineer',
+    department: 'Mechanical Engineering',
+    batchYear: 2018,
+    profilePhotoUrl: null,
+    shortBio: 'Pioneer in industrial automation and former Robowar champion.',
+    workExperiences: [{ company: 'Tesla' }]
+  },
+  {
+    id: 'elena-vance',
+    fullName: 'Dr. Elena Vance',
+    currentDesignation: 'Sustainability Consultant',
+    department: 'Civil Engineering',
+    batchYear: 2012,
+    profilePhotoUrl: null,
+    shortBio: 'Expert in renewable energy policy and global ethics.',
+    workExperiences: [{ company: 'United Nations' }]
+  },
+  {
+    id: 'rahul-sharma',
+    fullName: 'Rahul Sharma',
+    currentDesignation: 'Tech Entrepreneur',
+    department: 'Computer Engineering',
+    batchYear: 2015,
+    profilePhotoUrl: null,
+    shortBio: 'Founder of multiple successful AI startups in Silicon Valley.',
+    workExperiences: [{ company: 'Innovate AI' }]
+  }
+];
+
 export function NotableAlumni() {
   const [alumni, setAlumni] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Check if userApi.getNotable exists, if not fallback to empty
+    // Check if userApi.getNotable exists, if not fallback to static data
     if (typeof (userApi as any).getNotable === 'function') {
       (userApi as any).getNotable(3).then((res: any) => {
-        setAlumni(res.data?.data || []);
+        const data = res.data?.data || [];
+        if (data.length > 0) {
+          setAlumni(data);
+        } else {
+          setAlumni(FALLBACK_ALUMNI);
+        }
         setLoading(false);
-      }).catch(() => setLoading(false));
+      }).catch(() => {
+        setAlumni(FALLBACK_ALUMNI);
+        setLoading(false);
+      });
     } else {
+      setAlumni(FALLBACK_ALUMNI);
       setLoading(false);
     }
   }, []);
 
-  if (loading || alumni.length === 0) return null;
+  if (loading) return null;
 
   return (
     <section className="py-20 bg-muted/30">

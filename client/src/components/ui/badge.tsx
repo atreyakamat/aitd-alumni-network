@@ -5,9 +5,10 @@ const badgeVariants = {
   default: 'bg-primary text-primary-foreground hover:bg-primary/80',
   secondary: 'bg-secondary text-secondary-foreground hover:bg-secondary/80',
   destructive: 'bg-destructive text-destructive-foreground hover:bg-destructive/80',
-  outline: 'text-foreground border border-input',
+  outline: 'text-foreground border border-input hover:bg-accent hover:text-accent-foreground',
   success: 'bg-green-500 text-white hover:bg-green-600',
   warning: 'bg-amber-500 text-white hover:bg-amber-600',
+  neon: 'bg-red-600 text-white shadow-[0_0_10px_rgba(220,38,38,0.8)] animate-pulse border-red-400',
 };
 
 export interface BadgeProps extends React.HTMLAttributes<HTMLDivElement> {

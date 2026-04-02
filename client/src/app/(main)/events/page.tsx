@@ -26,13 +26,29 @@ import {
   Plus,
   Video,
   ExternalLink,
+  Trophy,
 } from 'lucide-react';
 import { formatDate, formatDateTime } from '@/lib/utils';
 
-const eventTypes = ['All Events', 'Reunion', 'Workshop', 'Webinar', 'Meetup', 'Conference'];
+const eventTypes = ['All Events', 'Robowar', 'Reunion', 'Workshop', 'Webinar', 'Meetup', 'Conference'];
 
 // Mock data
 const events = [
+  {
+    id: 'robowar-2026',
+    title: 'Robowar Championship 2026',
+    description: 'The ultimate battle of machines! Witness the most powerful robots compete for glory in our flagship technical event.',
+    coverImageUrl: null,
+    location: 'College Main Arena',
+    isVirtual: false,
+    startDate: '2026-04-15T10:00:00Z',
+    endDate: '2026-04-15T18:00:00Z',
+    maxAttendees: 1000,
+    attendeesCount: 450,
+    type: 'ROBOWAR',
+    isUserRSVPed: false,
+    tags: ['Flagship', 'Gold', 'Silver', 'Bronze'],
+  },
   {
     id: '1',
     title: 'Annual Alumni Reunion 2024',
@@ -93,6 +109,7 @@ const events = [
 ];
 
 const eventTypeColors: Record<string, string> = {
+  ROBOWAR: 'bg-red-100 text-red-700 border-red-200',
   REUNION: 'bg-purple-100 text-purple-700',
   WORKSHOP: 'bg-blue-100 text-blue-700',
   WEBINAR: 'bg-green-100 text-green-700',
@@ -126,7 +143,7 @@ export default function EventsPage() {
   const EventCard = ({ event }: { event: (typeof events)[0] }) => (
     <Card className="overflow-hidden hover:shadow-md transition-shadow">
       <div className="aspect-video bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center relative">
-        <Calendar className="h-12 w-12 text-primary/50" />
+        {event.type === 'ROBOWAR' ? <Trophy className="h-12 w-12 text-red-600/50" /> : <Calendar className="h-12 w-12 text-primary/50" />}
         <div className="absolute top-3 left-3 flex gap-2">
           <Badge className={eventTypeColors[event.type]}>{event.type}</Badge>
           {event.isVirtual && (
@@ -143,6 +160,17 @@ export default function EventsPage() {
         )}
       </div>
       <CardContent className="p-6">
+        <div className="flex flex-wrap gap-1 mb-3">
+          {event.tags?.map((tag) => (
+            <Badge 
+              key={tag} 
+              variant={tag === 'Flagship' ? 'neon' : tag === 'Gold' ? 'warning' : 'outline'}
+              className={tag === 'Silver' ? 'bg-slate-200' : tag === 'Bronze' ? 'bg-orange-200' : ''}
+            >
+              {tag}
+            </Badge>
+          ))}
+        </div>
         <h3 className="font-semibold text-lg mb-2">{event.title}</h3>
         <p className="text-sm text-muted-foreground line-clamp-2 mb-4">
           {event.description}
