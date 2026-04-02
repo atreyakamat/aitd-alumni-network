@@ -1,6 +1,7 @@
 [build]
-  command = "npm run build:client"
-  publish = "client/.next"
+  base = "client"
+  command = "npm run build"
+  publish = ".next"
 
 [[plugins]]
   package = "@netlify/plugin-nextjs"
