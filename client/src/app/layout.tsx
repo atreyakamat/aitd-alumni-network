@@ -1,8 +1,10 @@
 import type { Metadata } from 'next';
-import { Inter, Public_Sans, Newsreader } from 'next/font/google';
+import { Inter, Public_Sans, Playfair_Display } from 'next/font/google';
 import './globals.css';
 import { Providers } from '@/context/providers';
 import { Toaster } from '@/components/ui/toaster';
+
+export const dynamic = 'force-dynamic';
 
 const bodyFont = Inter({
   subsets: ['latin'],
@@ -15,7 +17,7 @@ const labelFont = Public_Sans({
   variable: '--font-label',
 });
 
-const headlineFont = Newsreader({
+const headlineFont = Playfair_Display({
   subsets: ['latin'],
   style: ['italic', 'normal'],
   variable: '--font-headline',
@@ -25,8 +27,6 @@ export const metadata: Metadata = {
   title: 'AITD Connection - College Alumni Network',
   description: 'Connect with fellow alumni, explore career opportunities, and stay updated with events.',
 };
-
-export const dynamic = 'force-dynamic';
 
 export default function RootLayout({
   children,
