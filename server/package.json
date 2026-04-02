@@ -5,7 +5,7 @@
   "main": "dist/index.js",
   "scripts": {
     "dev": "tsx watch src/index.ts",
-    "build": "tsc",
+    "build": "tsc && tsc-alias",
     "start": "node dist/index.js",
     "lint": "eslint src --ext .ts",
     "test": "jest --passWithNoTests",
@@ -37,6 +37,7 @@
     "pdfkit": "^0.18.0",
     "razorpay": "^2.9.2",
     "socket.io": "^4.8.3",
+    "tsconfig-paths": "^4.2.0",
     "uuid": "^9.0.1",
     "zod": "^3.22.4"
   },
@@ -61,6 +62,7 @@
     "prisma": "^5.8.0",
     "supertest": "^6.3.4",
     "ts-jest": "^29.4.6",
+    "tsc-alias": "^1.8.16",
     "tsx": "^4.7.0",
     "typescript": "^5.3.3"
   }

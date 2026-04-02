@@ -2,12 +2,16 @@
   base = "client"
   command = "npm run build"
   publish = ".next"
-  install = "npm install"
 
 [[plugins]]
   package = "@netlify/plugin-nextjs"
 
 [build.environment]
   NODE_VERSION = "20"
-  NEXT_USE_NETLIFY_EDGE = "true"
+  NEXT_USE_NETLIFY_EDGE = "false"
   NODE_ENV = "production"
+
+[[redirects]]
+  from = "/api/*"
+  to = "https://your-api-domain.com/api/:splat"
+  status = 200
