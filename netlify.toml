@@ -9,6 +9,8 @@
   NODE_VERSION = "20"
   NEXT_USE_NETLIFY_EDGE = "false"
   NODE_ENV = "production"
+  NPM_FLAGS = "--include=dev"
+  NEXT_PLUGIN_FORCE_RUN_IN_SUBDIR = "true"
 
 [[redirects]]
   from = "/api/*"
