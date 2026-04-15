@@ -458,7 +458,7 @@ export default function AdminAnalyticsPage() {
                       label={({ name, percent }) => `${name} (${((percent || 0) * 100).toFixed(0)}%)`}
                       labelLine={false}
                     >
-                      {membershipDistribution.map((entry, index) => (
+                      {membershipDistribution.map((entry: any, index: number) => (
                         <Cell key={`cell-${index}`} fill={entry.color} />
                       ))}
                     </Pie>
@@ -502,7 +502,7 @@ export default function AdminAnalyticsPage() {
                       }}
                     />
                     <Bar dataKey="value" fill={CHART_COLORS.primary} radius={[0, 4, 4, 0]}>
-                      {batchDistribution.map((entry, index) => (
+                      {batchDistribution.map((entry: any, index: number) => (
                         <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                       ))}
                     </Bar>
@@ -536,7 +536,7 @@ export default function AdminAnalyticsPage() {
                       }}
                     />
                     <Bar dataKey="users" fill={CHART_COLORS.primary} radius={[4, 4, 0, 0]}>
-                      {locationData.map((entry, index) => (
+                      {locationData.map((entry: any, index: number) => (
                         <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                       ))}
                     </Bar>

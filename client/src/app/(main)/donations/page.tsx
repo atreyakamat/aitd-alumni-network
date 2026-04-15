@@ -26,7 +26,7 @@ import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Progress } from '@/components/ui/progress';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { donationApi } from '@/lib/api';
+import { donationApi, api } from '@/lib/api';
 
 interface Donor {
   id: string;
