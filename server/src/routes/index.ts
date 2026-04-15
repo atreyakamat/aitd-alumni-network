@@ -193,6 +193,7 @@ router.get('/donations/wall', donationController.getDonorsWall);
 router.get('/donations/featured', donationController.getFeaturedDonors);
 router.get('/donations/chapters', donationController.getChapterDonations);
 router.get('/donations/stats', donationController.getStats);
+router.get('/donations/leaderboard', donationController.getLeaderboard);
 router.get('/donations/my', authenticate, donationController.getMyDonations);
 router.post('/donations/order', optionalAuth, donationController.createOrder);
 router.post('/donations/verify', optionalAuth, donationController.verifyPayment);

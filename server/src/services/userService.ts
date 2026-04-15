@@ -48,9 +48,16 @@ interface EducationInput {
 interface DirectoryFilters {
   name?: string;
   batchYear?: number;
+  batchYearStart?: number;
+  batchYearEnd?: number;
+  roleType?: string;
   department?: string;
   city?: string;
+  hometown?: string;
   company?: string;
+  industry?: string;
+  designation?: string;
+  chapterId?: string;
   skills?: string;
   page?: number;
   limit?: number;
@@ -274,6 +281,15 @@ export class UserService {
 
     if (filters.batchYear) {
       where.batchYear = filters.batchYear;
+    } else if (filters.batchYearStart || filters.batchYearEnd) {
+      where.batchYear = {
+        gte: filters.batchYearStart,
+        lte: filters.batchYearEnd,
+      };
+    }
+
+    if (filters.roleType) {
+      where.roleType = filters.roleType as any;
     }
 
     if (filters.department) {
@@ -284,10 +300,30 @@ export class UserService {
       where.city = { contains: filters.city };
     }
 
-    if (filters.company) {
+    if (filters.hometown) {
+      where.hometown = { contains: filters.hometown };
+    }
+
+    if (filters.designation) {
+      where.currentDesignation = { contains: filters.designation };
+    }
+
+    if (filters.chapterId) {
+      where.chapterMemberships = {
+        some: {
+          chapterId: filters.chapterId,
+        },
+      };
+    }
+
+    if (filters.company || filters.industry) {
       where.workExperiences = {
         some: {
-          company: { contains: filters.company },
+          OR: [
+            filters.company ? { company: { contains: filters.company } } : {},
+            filters.industry ? { description: { contains: filters.industry } } : {},
+            filters.industry ? { role: { contains: filters.industry } } : {},
+          ].filter(obj => Object.keys(obj).length > 0) as any,
         },
       };
     }
@@ -417,14 +453,39 @@ export class UserService {
     radiusKm: number = 50,
     limit: number = 100
   ) {
-    // Get all alumni with locations first
-    const allAlumni = await prisma.user.findMany({
+    // Use raw SQL for spatial query to find nearby users
+    // MySQL ST_Distance_Sphere returns distance in meters
+    const nearbyUsers = await prisma.$queryRaw<any[]>`
+      SELECT 
+        id, 
+        (ST_Distance_Sphere(point(locationLng, locationLat), point(${centerLng}, ${centerLat})) / 1000) AS distanceKm
+      FROM User
+      WHERE isActive = 1 
+        AND isVerified = 1 
+        AND isLocationPublic = 1
+        AND locationLat IS NOT NULL 
+        AND locationLng IS NOT NULL
+        AND ST_Distance_Sphere(point(locationLng, locationLat), point(${centerLng}, ${centerLat})) <= ${radiusKm * 1000}
+      ORDER BY distanceKm
+      LIMIT ${limit}
+    `;
+
+    if (nearbyUsers.length === 0) {
+      return {
+        count: 0,
+        centerLat,
+        centerLng,
+        radiusKm,
+        alumni: [],
+      };
+    }
+
+    const userIds = nearbyUsers.map(u => u.id);
+
+    // Fetch full user details for the found IDs
+    const alumni = await prisma.user.findMany({
       where: {
-        isActive: true,
-        isVerified: true,
-        isLocationPublic: true,
-        locationLat: { not: null },
-        locationLng: { not: null },
+        id: { in: userIds },
       },
       select: {
         id: true,
@@ -443,22 +504,16 @@ export class UserService {
       },
     });
 
-    // Calculate distances using Haversine formula
-    const nearbyAlumni = allAlumni
-      .map(alumni => {
-        const lat = alumni.locationLat?.toNumber() || 0;
-        const lng = alumni.locationLng?.toNumber() || 0;
-        const distance = this.calculateDistance(centerLat, centerLng, lat, lng);
-        return {
-          ...alumni,
-          locationLat: lat,
-          locationLng: lng,
-          distanceKm: Math.round(distance * 10) / 10, // Round to 1 decimal
-        };
-      })
-      .filter(a => a.distanceKm <= radiusKm)
-      .sort((a, b) => a.distanceKm - b.distanceKm)
-      .slice(0, limit);
+    // Combine with distance data and sort by distance
+    const nearbyAlumni = nearbyUsers.map(nu => {
+      const user = alumni.find(a => a.id === nu.id);
+      return {
+        ...user,
+        locationLat: user?.locationLat?.toNumber(),
+        locationLng: user?.locationLng?.toNumber(),
+        distanceKm: Math.round(nu.distanceKm * 10) / 10,
+      };
+    }).filter(a => a.id); // Filter out any null users just in case
 
     return {
       count: nearbyAlumni.length,

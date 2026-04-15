@@ -49,26 +49,18 @@ export class InviteController {
         throw new AppError('Maximum 500 invites per batch', 400, 'TOO_MANY_INVITES');
       }
 
-      // In a production environment, this should be sent to a background queue like BullMQ
-      // Here we process them concurrently with Promise.allSettled to avoid blocking indefinitely
-      const results = await Promise.allSettled(
-        invites.map((invite) => 
-          inviteService.sendInvite(req.user!.id, {
-            email: invite.email,
-            name: invite.name,
-            batchYear: invite.batchYear ? parseInt(invite.batchYear) : undefined,
-            message: invite.message
-          })
-        )
-      );
-
-      const successful = results.filter(r => r.status === 'fulfilled' && r.value.success).length;
-      const failed = results.length - successful;
+      // Use the service method which has built-in rate limiting (100ms delay)
+      const result = await inviteService.sendBulkInvites(req.user!.id, invites.map(invite => ({
+        email: invite.email,
+        name: invite.name,
+        batchYear: invite.batchYear ? parseInt(invite.batchYear) : undefined,
+        message: invite.message
+      })));
 
       res.status(200).json({
         success: true,
-        message: `Bulk invite processed. ${successful} successful, ${failed} failed.`,
-        data: { successful, failed }
+        message: `Bulk invite processed. ${result.sent} successful, ${result.failed} failed.`,
+        data: result
       });
     } catch (error) {
       next(error);

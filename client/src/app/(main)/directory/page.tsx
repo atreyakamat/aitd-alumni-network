@@ -1,12 +1,13 @@
 'use client';
 
 import { useState } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { useQuery } from '@tanstack/react-query';
+import { userApi } from '@/lib/api';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   Select,
   SelectContent,
@@ -18,13 +19,15 @@ import {
   Search,
   Filter,
   MapPin,
-  Briefcase,
   GraduationCap,
   Users,
   Grid3X3,
   List,
+  AlertCircle,
 } from 'lucide-react';
 import { getInitials } from '@/lib/utils';
+import { LoadingSpinner } from '@/components/ui/loading';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
 const departments = [
   'All Departments',
@@ -39,63 +42,36 @@ const departments = [
 const currentYear = new Date().getFullYear();
 const batchYears = ['All Years', ...Array.from({ length: 30 }, (_, i) => String(currentYear - i))];
 
-// Mock data
-const alumni = [
-  {
-    id: '1',
-    fullName: 'Priya Sharma',
-    avatarUrl: null,
-    headline: 'Senior Software Engineer at Google',
-    batchYear: 2018,
-    department: 'Computer Science',
-    currentCity: 'Bangalore',
-    currentCountry: 'India',
-    skills: ['React', 'Node.js', 'Python'],
-    connectionStatus: null,
-  },
-  {
-    id: '2',
-    fullName: 'Rahul Patel',
-    avatarUrl: null,
-    headline: 'Product Manager at Microsoft',
-    batchYear: 2017,
-    department: 'Information Technology',
-    currentCity: 'Hyderabad',
-    currentCountry: 'India',
-    skills: ['Product Strategy', 'Agile', 'Data Analysis'],
-    connectionStatus: 'connected',
-  },
-  {
-    id: '3',
-    fullName: 'Anita Desai',
-    avatarUrl: null,
-    headline: 'Data Scientist at Amazon',
-    batchYear: 2019,
-    department: 'Computer Science',
-    currentCity: 'Seattle',
-    currentCountry: 'USA',
-    skills: ['Machine Learning', 'Python', 'SQL'],
-    connectionStatus: 'pending',
-  },
-  // Add more mock alumni...
-];
-
 export default function DirectoryPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedDepartment, setSelectedDepartment] = useState('All Departments');
   const [selectedYear, setSelectedYear] = useState('All Years');
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+  const [page, setPage] = useState(1);
 
-  const filteredAlumni = alumni.filter((person) => {
-    const matchesSearch =
-      person.fullName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      person.headline?.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesDepartment =
-      selectedDepartment === 'All Departments' || person.department === selectedDepartment;
-    const matchesYear =
-      selectedYear === 'All Years' || person.batchYear === parseInt(selectedYear);
-    return matchesSearch && matchesDepartment && matchesYear;
+  const { data, isLoading, isError, error, refetch } = useQuery({
+    queryKey: ['directory', searchQuery, selectedDepartment, selectedYear, page],
+    queryFn: async () => {
+      const params: any = {
+        page,
+        limit: 12,
+        search: searchQuery || undefined,
+        batchYear: selectedYear !== 'All Years' ? parseInt(selectedYear) : undefined,
+        department: selectedDepartment !== 'All Departments' ? selectedDepartment : undefined,
+      };
+      const response = await userApi.getDirectory(params);
+      return response.data;
+    },
   });
+
+  const alumni = data?.data || [];
+  const pagination = data?.pagination || { total: 0, pages: 0 };
+
+  const handleSearch = (e: React.FormEvent) => {
+    e.preventDefault();
+    setPage(1);
+    refetch();
+  };
 
   return (
     <div className="space-y-6">
@@ -125,7 +101,7 @@ export default function DirectoryPage() {
       {/* Filters */}
       <Card>
         <CardContent className="pt-6">
-          <div className="flex flex-col md:flex-row gap-4">
+          <form onSubmit={handleSearch} className="flex flex-col md:flex-row gap-4">
             <div className="flex-1 relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
@@ -135,7 +111,13 @@ export default function DirectoryPage() {
                 className="pl-10"
               />
             </div>
-            <Select value={selectedDepartment} onValueChange={setSelectedDepartment}>
+            <Select 
+              value={selectedDepartment} 
+              onValueChange={(val) => {
+                setSelectedDepartment(val);
+                setPage(1);
+              }}
+            >
               <SelectTrigger className="w-full md:w-[200px]">
                 <SelectValue placeholder="Department" />
               </SelectTrigger>
@@ -147,7 +129,13 @@ export default function DirectoryPage() {
                 ))}
               </SelectContent>
             </Select>
-            <Select value={selectedYear} onValueChange={setSelectedYear}>
+            <Select 
+              value={selectedYear} 
+              onValueChange={(val) => {
+                setSelectedYear(val);
+                setPage(1);
+              }}
+            >
               <SelectTrigger className="w-full md:w-[150px]">
                 <SelectValue placeholder="Batch Year" />
               </SelectTrigger>
@@ -159,127 +147,177 @@ export default function DirectoryPage() {
                 ))}
               </SelectContent>
             </Select>
-            <Button variant="outline">
-              <Filter className="h-4 w-4 mr-2" />
-              More Filters
-            </Button>
-          </div>
+            <Button type="submit">Search</Button>
+          </form>
         </CardContent>
       </Card>
 
       {/* Results Count */}
-      <div className="flex items-center gap-2">
-        <Users className="h-4 w-4 text-muted-foreground" />
-        <span className="text-sm text-muted-foreground">
-          {filteredAlumni.length} alumni found
-        </span>
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <Users className="h-4 w-4 text-muted-foreground" />
+          <span className="text-sm text-muted-foreground">
+            {isLoading ? 'Searching...' : `${pagination.total} alumni found`}
+          </span>
+        </div>
       </div>
 
-      {/* Alumni Grid/List */}
-      {viewMode === 'grid' ? (
-        <div className="grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-          {filteredAlumni.map((person) => (
-            <Card key={person.id} className="hover:shadow-md transition-shadow">
-              <CardContent className="pt-6">
-                <div className="flex flex-col items-center text-center">
-                  <Avatar className="h-20 w-20 mb-3">
-                    <AvatarImage src={person.avatarUrl || undefined} alt={person.fullName} />
-                    <AvatarFallback className="text-xl">
-                      {getInitials(person.fullName)}
-                    </AvatarFallback>
-                  </Avatar>
-                  <h3 className="font-semibold">{person.fullName}</h3>
-                  <p className="text-sm text-muted-foreground line-clamp-2 mt-1">
-                    {person.headline}
-                  </p>
-                  <div className="flex items-center gap-1 mt-2 text-xs text-muted-foreground">
-                    <GraduationCap className="h-3 w-3" />
-                    <span>{person.department} • {person.batchYear}</span>
-                  </div>
-                  {person.currentCity && (
-                    <div className="flex items-center gap-1 mt-1 text-xs text-muted-foreground">
-                      <MapPin className="h-3 w-3" />
-                      <span>{person.currentCity}, {person.currentCountry}</span>
-                    </div>
-                  )}
-                  <div className="flex flex-wrap gap-1 mt-3 justify-center">
-                    {person.skills.slice(0, 2).map((skill) => (
-                      <Badge key={skill} variant="secondary" className="text-xs">
-                        {skill}
-                      </Badge>
-                    ))}
-                    {person.skills.length > 2 && (
-                      <Badge variant="secondary" className="text-xs">
-                        +{person.skills.length - 2}
-                      </Badge>
-                    )}
-                  </div>
-                  <Button
-                    className="w-full mt-4"
-                    variant={person.connectionStatus === 'connected' ? 'secondary' : 'default'}
-                    size="sm"
-                  >
-                    {person.connectionStatus === 'connected'
-                      ? 'Connected'
-                      : person.connectionStatus === 'pending'
-                      ? 'Pending'
-                      : 'Connect'}
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
+      {isLoading ? (
+        <div className="flex justify-center py-12">
+          <LoadingSpinner size="lg" />
+        </div>
+      ) : isError ? (
+        <Alert variant="destructive">
+          <AlertCircle className="h-4 w-4" />
+          <AlertTitle>Error</AlertTitle>
+          <AlertDescription>
+            {(error as any)?.response?.data?.error || 'Failed to load alumni directory. Please try again later.'}
+          </AlertDescription>
+        </Alert>
+      ) : alumni.length === 0 ? (
+        <div className="text-center py-12 border rounded-lg bg-muted/20">
+          <Users className="h-12 w-12 mx-auto text-muted-foreground mb-4 opacity-20" />
+          <h3 className="text-lg font-medium">No alumni found</h3>
+          <p className="text-muted-foreground">Try adjusting your search or filters</p>
         </div>
       ) : (
-        <div className="space-y-4">
-          {filteredAlumni.map((person) => (
-            <Card key={person.id} className="hover:shadow-md transition-shadow">
-              <CardContent className="py-4">
-                <div className="flex items-center gap-4">
-                  <Avatar className="h-16 w-16">
-                    <AvatarImage src={person.avatarUrl || undefined} alt={person.fullName} />
-                    <AvatarFallback className="text-lg">
-                      {getInitials(person.fullName)}
-                    </AvatarFallback>
-                  </Avatar>
-                  <div className="flex-1 min-w-0">
-                    <h3 className="font-semibold">{person.fullName}</h3>
-                    <p className="text-sm text-muted-foreground">{person.headline}</p>
-                    <div className="flex flex-wrap items-center gap-4 mt-2 text-xs text-muted-foreground">
-                      <div className="flex items-center gap-1">
+        <>
+          {viewMode === 'grid' ? (
+            <div className="grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+              {alumni.map((person: any) => (
+                <Card key={person.id} className="hover:shadow-md transition-shadow">
+                  <CardContent className="pt-6">
+                    <div className="flex flex-col items-center text-center">
+                      <Avatar className="h-20 w-20 mb-3">
+                        <AvatarImage src={person.avatarUrl || undefined} alt={person.fullName} />
+                        <AvatarFallback className="text-xl">
+                          {getInitials(person.fullName)}
+                        </AvatarFallback>
+                      </Avatar>
+                      <h3 className="font-semibold">{person.fullName}</h3>
+                      <p className="text-sm text-muted-foreground line-clamp-2 mt-1">
+                        {person.headline || 'No headline'}
+                      </p>
+                      <div className="flex items-center gap-1 mt-2 text-xs text-muted-foreground">
                         <GraduationCap className="h-3 w-3" />
                         <span>{person.department} • {person.batchYear}</span>
                       </div>
-                      {person.currentCity && (
-                        <div className="flex items-center gap-1">
+                      {(person.locationCity || person.locationCountry) && (
+                        <div className="flex items-center gap-1 mt-1 text-xs text-muted-foreground">
                           <MapPin className="h-3 w-3" />
-                          <span>{person.currentCity}, {person.currentCountry}</span>
+                          <span>
+                            {[person.locationCity, person.locationCountry].filter(Boolean).join(', ')}
+                          </span>
                         </div>
                       )}
+                      <div className="flex flex-wrap gap-1 mt-3 justify-center">
+                        {(person.skills || []).slice(0, 2).map((skill: string) => (
+                          <Badge key={skill} variant="secondary" className="text-xs">
+                            {skill}
+                          </Badge>
+                        ))}
+                        {(person.skills || []).length > 2 && (
+                          <Badge variant="secondary" className="text-xs">
+                            +{(person.skills || []).length - 2}
+                          </Badge>
+                        )}
+                      </div>
+                      <Button
+                        className="w-full mt-4"
+                        variant={person.connectionStatus === 'CONNECTED' ? 'secondary' : 'default'}
+                        size="sm"
+                      >
+                        {person.connectionStatus === 'CONNECTED'
+                          ? 'Connected'
+                          : person.connectionStatus === 'PENDING'
+                          ? 'Pending'
+                          : 'Connect'}
+                      </Button>
                     </div>
-                    <div className="flex flex-wrap gap-1 mt-2">
-                      {person.skills.map((skill) => (
-                        <Badge key={skill} variant="secondary" className="text-xs">
-                          {skill}
-                        </Badge>
-                      ))}
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {alumni.map((person: any) => (
+                <Card key={person.id} className="hover:shadow-md transition-shadow">
+                  <CardContent className="py-4">
+                    <div className="flex flex-col sm:flex-row items-center sm:items-start gap-4 text-center sm:text-left">
+                      <Avatar className="h-16 w-16">
+                        <AvatarImage src={person.avatarUrl || undefined} alt={person.fullName} />
+                        <AvatarFallback className="text-lg">
+                          {getInitials(person.fullName)}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div className="flex-1 min-w-0">
+                        <h3 className="font-semibold">{person.fullName}</h3>
+                        <p className="text-sm text-muted-foreground">{person.headline || 'No headline'}</p>
+                        <div className="flex flex-wrap items-center justify-center sm:justify-start gap-4 mt-2 text-xs text-muted-foreground">
+                          <div className="flex items-center gap-1">
+                            <GraduationCap className="h-3 w-3" />
+                            <span>{person.department} • {person.batchYear}</span>
+                          </div>
+                          {(person.locationCity || person.locationCountry) && (
+                            <div className="flex items-center gap-1">
+                              <MapPin className="h-3 w-3" />
+                              <span>
+                                {[person.locationCity, person.locationCountry].filter(Boolean).join(', ')}
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                        <div className="flex flex-wrap gap-1 mt-2 justify-center sm:justify-start">
+                          {(person.skills || []).map((skill: string) => (
+                            <Badge key={skill} variant="secondary" className="text-xs">
+                              {skill}
+                            </Badge>
+                          ))}
+                        </div>
+                      </div>
+                      <Button
+                        variant={person.connectionStatus === 'CONNECTED' ? 'secondary' : 'default'}
+                        size="sm"
+                        className="w-full sm:w-auto mt-2 sm:mt-0"
+                      >
+                        {person.connectionStatus === 'CONNECTED'
+                          ? 'Connected'
+                          : person.connectionStatus === 'PENDING'
+                          ? 'Pending'
+                          : 'Connect'}
+                      </Button>
                     </div>
-                  </div>
-                  <Button
-                    variant={person.connectionStatus === 'connected' ? 'secondary' : 'default'}
-                    size="sm"
-                  >
-                    {person.connectionStatus === 'connected'
-                      ? 'Connected'
-                      : person.connectionStatus === 'pending'
-                      ? 'Pending'
-                      : 'Connect'}
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
+
+          {/* Pagination */}
+          {pagination.pages > 1 && (
+            <div className="flex justify-center gap-2 mt-8">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                disabled={page === 1}
+              >
+                Previous
+              </Button>
+              <div className="flex items-center px-4 text-sm font-medium">
+                Page {page} of {pagination.pages}
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setPage((p) => Math.min(pagination.pages, p + 1))}
+                disabled={page === pagination.pages}
+              >
+                Next
+              </Button>
+            </div>
+          )}
+        </>
       )}
     </div>
   );

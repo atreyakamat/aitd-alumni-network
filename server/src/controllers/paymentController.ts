@@ -173,6 +173,16 @@ export class DonationController {
       next(error);
     }
   }
+
+  async getLeaderboard(req: Request, res: Response, next: NextFunction) {
+    try {
+      const limit = req.query.limit ? parseInt(req.query.limit as string) : 10;
+      const result = await donationService.getDonationLeaderboard(limit);
+      res.json({ success: true, data: result });
+    } catch (error) {
+      next(error);
+    }
+  }
 }
 
 // Transaction Controller

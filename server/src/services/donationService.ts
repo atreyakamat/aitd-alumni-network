@@ -237,6 +237,48 @@ export class DonationService {
       data: { isFeatured: featured },
     });
   }
+
+  async getDonationLeaderboard(limit: number = 10) {
+    const donors = await prisma.donation.groupBy({
+      by: ['userId'],
+      where: {
+        userId: { not: null },
+        isAnonymous: false,
+      },
+      _sum: {
+        amount: true,
+      },
+      orderBy: {
+        _sum: {
+          amount: 'desc',
+        },
+      },
+      take: limit,
+    });
+
+    const userIds = donors.map(d => d.userId as string);
+    const users = await prisma.user.findMany({
+      where: {
+        id: { in: userIds },
+      },
+      select: {
+        id: true,
+        fullName: true,
+        profilePhotoUrl: true,
+        batchYear: true,
+      },
+    });
+
+    const leaderboard = donors.map(d => {
+      const user = users.find(u => u.id === d.userId);
+      return {
+        user,
+        totalAmount: d._sum.amount,
+      };
+    });
+
+    return leaderboard;
+  }
 }
 
 export const donationService = new DonationService();
