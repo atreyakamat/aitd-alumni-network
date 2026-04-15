@@ -41,13 +41,6 @@ const nextConfig = {
   },
   // Enable compression
   compress: true,
-  // Performance hints
-  performanceHints: {
-    warnings: true,
-    thresholds: {
-      static: 100 * 1024, // 100KB
-    },
-  },
 };
 
 module.exports = nextConfig;

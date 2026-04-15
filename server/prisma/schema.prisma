@@ -7,7 +7,7 @@ generator client {
 
 datasource db {
   provider = "mysql"
-  url      = env("DATABASE_URL")
+  url      = "mysql://root:root@localhost:3306/alumni_network"
 }
 
 // ============== ENUMS ==============
@@ -226,6 +226,8 @@ model User {
   @@index([city])
   @@index([isActive])
   @@index([fullName])
+  @@index([locationLat])
+  @@index([locationLng])
 }
 
 // Verification tokens for 2FA, email verification, password reset
