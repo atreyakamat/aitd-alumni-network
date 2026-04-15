@@ -26,7 +26,7 @@ import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Progress } from '@/components/ui/progress';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { api } from '@/lib/api';
+import { donationApi } from '@/lib/api';
 
 interface Donor {
   id: string;
@@ -106,15 +106,15 @@ export default function DonationsPage() {
 
   const loadData = async () => {
     try {
-      const [wallRes, featuredRes, chaptersRes, statsRes] = await Promise.all([
-        api.get('/api/donations/wall'),
-        api.get('/api/donations/featured'),
-        api.get('/api/donations/chapters'),
-        api.get('/api/donations/stats'),
+      const [wallRes, leaderboardRes, chaptersRes, statsRes] = await Promise.all([
+        donationApi.getDonorsWall(),
+        donationApi.getLeaderboard(),
+        donationApi.getChapterDonations(),
+        donationApi.getStats(),
       ]);
       
       setDonations(wallRes.data?.data?.data || wallRes.data?.data || []);
-      setFeaturedDonors(featuredRes.data?.data || []);
+      setFeaturedDonors(leaderboardRes.data?.data || []);
       setChapterDonations(chaptersRes.data?.data || []);
       setStats(statsRes.data?.data || null);
     } catch (error) {

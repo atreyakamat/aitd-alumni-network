@@ -132,6 +132,13 @@ export class UserController {
         page: req.query.page ? parseInt(req.query.page as string) : 1,
         limit: req.query.limit ? parseInt(req.query.limit as string) : 12,
         batchYear: req.query.batchYear ? parseInt(req.query.batchYear as string) : undefined,
+        batchYearStart: req.query.batchYearStart ? parseInt(req.query.batchYearStart as string) : undefined,
+        batchYearEnd: req.query.batchYearEnd ? parseInt(req.query.batchYearEnd as string) : undefined,
+        roleType: req.query.roleType as string,
+        hometown: req.query.hometown as string,
+        industry: req.query.industry as string,
+        designation: req.query.designation as string,
+        chapterId: req.query.chapterId as string,
       };
       const result = await userService.searchDirectory(filters);
       res.json({ success: true, ...result });

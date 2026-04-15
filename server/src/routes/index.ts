@@ -9,6 +9,10 @@ import { eventController } from '../controllers/eventController';
 import { networkController, messageController, notificationController } from '../controllers/socialController';
 import { galleryController, newsController, chapterController, marketplaceController } from '../controllers/contentController';
 import { membershipController, donationController, transactionController } from '../controllers/paymentController';
+import { inviteController } from '../controllers/inviteController';
+import { auditController } from '../controllers/auditController';
+import { mentorshipController } from '../controllers/mentorshipController';
+import { adminController } from '../controllers/adminController';
 import { authenticate, optionalAuth, isAdmin, isSuperAdmin } from '../middleware/auth';
 import { validate } from '../middleware/validate';
 import { upload } from '../utils/storage';
@@ -202,7 +206,6 @@ router.post('/donations/verify', optionalAuth, donationController.verifyPayment)
 router.get('/transactions/:id/receipt', authenticate, transactionController.getReceipt);
 
 // ============== INVITE ROUTES ==============
-import { inviteController } from '../controllers/inviteController';
 router.get('/invites/verify/:token', inviteController.verifyInvite);
 router.get('/invites/sent', authenticate, inviteController.getSentInvites);
 router.get('/invites/stats', authenticate, inviteController.getInviteStats);
@@ -211,11 +214,7 @@ router.post('/invites/bulk', authenticate, inviteController.sendBulkInvites);
 router.post('/invites/generate-link', authenticate, inviteController.generateShareableLink);
 router.post('/invites/:token/accept', authenticate, inviteController.acceptInvite);
 
-// ============== AUDIT ROUTES ==============
-import { auditController } from '../controllers/auditController';
-
 // ============== MENTORSHIP ROUTES ==============
-import { mentorshipController } from '../controllers/mentorshipController';
 
 // Mentor profiles
 router.get('/mentorship/mentors', authenticate, mentorshipController.getMentors);
@@ -238,7 +237,6 @@ router.post('/mentorship/request/:requestId/sessions', authenticate, mentorshipC
 router.post('/mentorship/sessions/:sessionId/complete', authenticate, mentorshipController.completeSession);
 
 // ============== ADMIN ROUTES ==============
-import { adminController } from '../controllers/adminController';
 router.get('/admin/stats', authenticate, isAdmin, adminController.getStats);
 
 // ============== ADMIN AUDIT ROUTES ==============

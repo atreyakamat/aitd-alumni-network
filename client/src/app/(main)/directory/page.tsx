@@ -1,8 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { userApi } from '@/lib/api';
+import { userApi, networkApi } from '@/lib/api';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -17,17 +17,21 @@ import {
 } from '@/components/ui/select';
 import {
   Search,
-  Filter,
   MapPin,
   GraduationCap,
   Users,
   Grid3X3,
   List,
   AlertCircle,
+  Loader2,
+  UserPlus,
+  Send,
 } from 'lucide-react';
 import { getInitials } from '@/lib/utils';
 import { LoadingSpinner } from '@/components/ui/loading';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { useAuth } from '@/context/auth-context';
+import Link from 'next/link';
 
 const departments = [
   'All Departments',
@@ -43,11 +47,14 @@ const currentYear = new Date().getFullYear();
 const batchYears = ['All Years', ...Array.from({ length: 30 }, (_, i) => String(currentYear - i))];
 
 export default function DirectoryPage() {
+  const { user } = useAuth();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedDepartment, setSelectedDepartment] = useState('All Departments');
   const [selectedYear, setSelectedYear] = useState('All Years');
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [page, setPage] = useState(1);
+  const [connectingId, setConnectingId] = useState<string | null>(null);
+  const [connectionStatuses, setConnectionStatuses] = useState<Record<string, string>>({});
 
   const { data, isLoading, isError, error, refetch } = useQuery({
     queryKey: ['directory', searchQuery, selectedDepartment, selectedYear, page],
@@ -62,15 +69,54 @@ export default function DirectoryPage() {
       const response = await userApi.getDirectory(params);
       return response.data;
     },
+    enabled: !!user,
   });
 
-  const alumni = data?.data || [];
-  const pagination = data?.pagination || { total: 0, pages: 0 };
+  const { data: connectionsData } = useQuery({
+    queryKey: ['connections'],
+    queryFn: async () => {
+      const response = await networkApi.getConnections(1, 200);
+      return response.data;
+    },
+    enabled: !!user,
+  });
+
+  const alumni = data?.data?.items || [];
+  const pagination = data?.data || { total: 0, pages: 0, page: 1 };
+  const connections = connectionsData?.data?.items || [];
+
+  useEffect(() => {
+    if (!user || !connections.length) return;
+    const statuses: Record<string, string> = {};
+    connections.forEach((conn: any) => {
+      const otherUserId = conn.requesterId === user.id ? conn.addresseeId : conn.requesterId;
+      statuses[otherUserId] = conn.status;
+    });
+    setConnectionStatuses(statuses);
+  }, [user, connections]);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
     setPage(1);
     refetch();
+  };
+
+  const handleConnect = async (targetUserId: string) => {
+    if (!user || connectingId) return;
+    setConnectingId(targetUserId);
+    try {
+      await networkApi.sendRequest(targetUserId);
+      setConnectionStatuses(prev => ({ ...prev, [targetUserId]: 'PENDING' }));
+    } catch (error) {
+      console.error('Error sending connection request:', error);
+    } finally {
+      setConnectingId(null);
+    }
+  };
+
+  const getConnectionStatus = (personId: string) => {
+    if (personId === user?.id) return null;
+    return connectionStatuses[personId] || null;
   };
 
   return (
@@ -224,14 +270,23 @@ export default function DirectoryPage() {
                       </div>
                       <Button
                         className="w-full mt-4"
-                        variant={person.connectionStatus === 'CONNECTED' ? 'secondary' : 'default'}
+                        variant={getConnectionStatus(person.id) === 'CONNECTED' ? 'secondary' : 'default'}
                         size="sm"
+                        onClick={() => handleConnect(person.id)}
+                        disabled={connectingId === person.id || !!getConnectionStatus(person.id)}
                       >
-                        {person.connectionStatus === 'CONNECTED'
-                          ? 'Connected'
-                          : person.connectionStatus === 'PENDING'
-                          ? 'Pending'
-                          : 'Connect'}
+                        {connectingId === person.id ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : getConnectionStatus(person.id) === 'CONNECTED' ? (
+                          'Connected'
+                        ) : getConnectionStatus(person.id) === 'PENDING' ? (
+                          'Pending'
+                        ) : (
+                          <>
+                            <UserPlus className="h-4 w-4 mr-2" />
+                            Connect
+                          </>
+                        )}
                       </Button>
                     </div>
                   </CardContent>
@@ -276,15 +331,24 @@ export default function DirectoryPage() {
                         </div>
                       </div>
                       <Button
-                        variant={person.connectionStatus === 'CONNECTED' ? 'secondary' : 'default'}
+                        variant={getConnectionStatus(person.id) === 'CONNECTED' ? 'secondary' : 'default'}
                         size="sm"
                         className="w-full sm:w-auto mt-2 sm:mt-0"
+                        onClick={() => handleConnect(person.id)}
+                        disabled={connectingId === person.id || !!getConnectionStatus(person.id)}
                       >
-                        {person.connectionStatus === 'CONNECTED'
-                          ? 'Connected'
-                          : person.connectionStatus === 'PENDING'
-                          ? 'Pending'
-                          : 'Connect'}
+                        {connectingId === person.id ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : getConnectionStatus(person.id) === 'CONNECTED' ? (
+                          'Connected'
+                        ) : getConnectionStatus(person.id) === 'PENDING' ? (
+                          'Pending'
+                        ) : (
+                          <>
+                            <UserPlus className="h-4 w-4 mr-2" />
+                            Connect
+                          </>
+                        )}
                       </Button>
                     </div>
                   </CardContent>

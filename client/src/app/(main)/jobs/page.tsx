@@ -77,8 +77,8 @@ export default function JobsPage() {
     },
   });
 
-  const jobs = data?.data || [];
-  const pagination = data?.pagination || { total: 0, pages: 0 };
+  const jobs = data?.data?.items || [];
+  const pagination = data?.data || { total: 0, pages: 0, page: 1 };
 
   const canPostJob = user?.role === 'ADMIN' || user?.role === 'SUPERADMIN' || user?.role === 'ALUMNI';
 

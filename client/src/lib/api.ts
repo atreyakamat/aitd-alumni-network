@@ -383,6 +383,7 @@ export const membershipApi = {
 export const donationApi = {
   getDonorsWall: (page?: number, limit?: number) =>
     api.get('/donations/wall', { params: { page, limit } }),
+  getLeaderboard: () => api.get('/donations/leaderboard'),
   getFeaturedDonors: () => api.get('/donations/featured'),
   getChapterDonations: () => api.get('/donations/chapters'),
   getStats: () => api.get('/donations/stats'),

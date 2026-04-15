@@ -74,6 +74,43 @@ export const uploadToStorage = async (file: Express.Multer.File, folder: string 
 };
 
 /**
+ * Uploads a buffer to S3 or local storage
+ */
+export const uploadBufferToStorage = async (
+  buffer: Buffer,
+  filename: string,
+  mimetype: string,
+  folder: string = 'general'
+): Promise<string> => {
+  if (isS3Enabled) {
+    const key = `${folder}/${Date.now()}-${uuidv4()}-${filename}`;
+    
+    const command = new PutObjectCommand({
+      Bucket: config.aws.s3Bucket,
+      Key: key,
+      Body: buffer,
+      ContentType: mimetype,
+      ACL: 'public-read',
+    });
+
+    await s3Client.send(command);
+    return `https://${config.aws.s3Bucket}.s3.${config.aws.region}.amazonaws.com/${key}`;
+  }
+
+  // Local storage fallback
+  const uploadDir = path.join(process.cwd(), 'uploads', folder);
+  if (!fs.existsSync(uploadDir)) {
+    fs.mkdirSync(uploadDir, { recursive: true });
+  }
+
+  const uniqueFilename = `${Date.now()}-${uuidv4()}-${filename}`;
+  const filePath = path.join(uploadDir, uniqueFilename);
+  fs.writeFileSync(filePath, buffer);
+
+  return `/uploads/${folder}/${uniqueFilename}`;
+};
+
+/**
  * Deletes a file from S3 or Local
  */
 export const deleteFromStorage = async (fileUrl: string): Promise<void> => {

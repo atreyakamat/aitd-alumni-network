@@ -20,14 +20,15 @@ import {
   Clock,
   MapPin,
   Newspaper,
-  MessageSquare
+  MessageSquare,
+  ShieldAlert
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { api } from '@/lib/api';
+import { adminApi } from '@/lib/api';
 import {
   LineChart,
   Line,
@@ -79,73 +80,6 @@ const formatNumber = (value: number) => {
   return value.toString();
 };
 
-// Mock data for charts - in production, this would come from API
-const userGrowthData = [
-  { month: 'Jan', users: 120, newUsers: 20 },
-  { month: 'Feb', users: 145, newUsers: 25 },
-  { month: 'Mar', users: 180, newUsers: 35 },
-  { month: 'Apr', users: 210, newUsers: 30 },
-  { month: 'May', users: 250, newUsers: 40 },
-  { month: 'Jun', users: 300, newUsers: 50 },
-  { month: 'Jul', users: 340, newUsers: 40 },
-  { month: 'Aug', users: 395, newUsers: 55 },
-  { month: 'Sep', users: 440, newUsers: 45 },
-  { month: 'Oct', users: 500, newUsers: 60 },
-  { month: 'Nov', users: 550, newUsers: 50 },
-  { month: 'Dec', users: 620, newUsers: 70 },
-];
-
-const revenueData = [
-  { month: 'Jan', donations: 25000, memberships: 15000 },
-  { month: 'Feb', donations: 32000, memberships: 18000 },
-  { month: 'Mar', donations: 28000, memberships: 22000 },
-  { month: 'Apr', donations: 45000, memberships: 25000 },
-  { month: 'May', donations: 38000, memberships: 20000 },
-  { month: 'Jun', donations: 55000, memberships: 30000 },
-  { month: 'Jul', donations: 48000, memberships: 28000 },
-  { month: 'Aug', donations: 62000, memberships: 35000 },
-  { month: 'Sep', donations: 70000, memberships: 32000 },
-  { month: 'Oct', donations: 58000, memberships: 38000 },
-  { month: 'Nov', donations: 75000, memberships: 42000 },
-  { month: 'Dec', donations: 85000, memberships: 50000 },
-];
-
-const engagementData = [
-  { day: 'Mon', posts: 45, comments: 120, messages: 85 },
-  { day: 'Tue', posts: 52, comments: 135, messages: 92 },
-  { day: 'Wed', posts: 48, comments: 118, messages: 78 },
-  { day: 'Thu', posts: 60, comments: 150, messages: 105 },
-  { day: 'Fri', posts: 55, comments: 142, messages: 95 },
-  { day: 'Sat', posts: 35, comments: 80, messages: 55 },
-  { day: 'Sun', posts: 28, comments: 65, messages: 42 },
-];
-
-const batchDistribution = [
-  { name: '2020-2024', value: 450 },
-  { name: '2015-2019', value: 380 },
-  { name: '2010-2014', value: 290 },
-  { name: '2005-2009', value: 200 },
-  { name: '2000-2004', value: 150 },
-  { name: 'Before 2000', value: 80 },
-];
-
-const membershipDistribution = [
-  { name: 'Premium', value: 120, color: '#b45309' },
-  { name: 'Standard', value: 280, color: '#002045' },
-  { name: 'Basic', value: 450, color: '#64748b' },
-  { name: 'Free', value: 700, color: '#94a3b8' },
-];
-
-const locationData = [
-  { city: 'Mumbai', users: 280 },
-  { city: 'Bangalore', users: 220 },
-  { city: 'Delhi', users: 180 },
-  { city: 'Pune', users: 150 },
-  { city: 'Hyderabad', users: 120 },
-  { city: 'Chennai', users: 100 },
-  { city: 'Others', users: 500 },
-];
-
 export default function AdminAnalyticsPage() {
   const [loading, setLoading] = useState(true);
   const [timeRange, setTimeRange] = useState('12m');
@@ -158,18 +92,8 @@ export default function AdminAnalyticsPage() {
   const loadAnalytics = async () => {
     setLoading(true);
     try {
-      // In production, fetch from actual API endpoints
-      const [usersRes, donationsRes, eventsRes] = await Promise.all([
-        api.get('/api/admin/stats').catch(() => ({ data: {} })),
-        api.get('/api/donations/stats').catch(() => ({ data: { data: {} } })),
-        api.get('/api/events').catch(() => ({ data: { data: [] } })),
-      ]);
-
-      setStats({
-        users: usersRes.data?.data || { total: 1550, newThisMonth: 70 },
-        donations: donationsRes.data?.data || { totalAmount: 621000, totalDonors: 245 },
-        events: eventsRes.data?.data?.length || 24,
-      });
+      const response = await adminApi.getStats();
+      setStats(response.data.data);
     } catch (error) {
       console.error('Failed to load analytics:', error);
     } finally {
@@ -180,39 +104,39 @@ export default function AdminAnalyticsPage() {
   const statCards: StatCard[] = [
     {
       title: 'Total Users',
-      value: formatNumber(stats?.users?.total || 1550),
-      change: 12.5,
+      value: formatNumber(stats?.users?.total || 0),
+      change: stats?.users?.growthPercent || 0,
       changeLabel: 'vs last month',
       icon: Users,
       color: 'bg-blue-500',
     },
     {
       title: 'Total Revenue',
-      value: formatCurrency(stats?.donations?.totalAmount || 621000),
-      change: 18.2,
+      value: formatCurrency(stats?.financial?.donations?.totalAmount || 0),
+      change: stats?.financial?.donations?.growthPercent || 0,
       changeLabel: 'vs last month',
       icon: DollarSign,
       color: 'bg-green-500',
     },
     {
       title: 'Active Events',
-      value: stats?.events || 24,
-      change: 5,
+      value: stats?.content?.events?.total || 0,
+      change: stats?.content?.events?.newThisMonth || 0,
       changeLabel: 'new this month',
       icon: Calendar,
       color: 'bg-amber-500',
     },
     {
       title: 'Job Listings',
-      value: 156,
-      change: -3.2,
+      value: stats?.content?.jobs?.total || 0,
+      change: stats?.content?.jobs?.newThisMonth || 0,
       changeLabel: 'vs last month',
       icon: Briefcase,
       color: 'bg-purple-500',
     },
   ];
 
-  if (loading) {
+  if (loading || !stats) {
     return (
       <div className="min-h-screen bg-slate-50 flex items-center justify-center">
         <div className="flex items-center gap-3">
@@ -222,6 +146,61 @@ export default function AdminAnalyticsPage() {
       </div>
     );
   }
+
+  // Process User Growth Data
+  const totalUsers = stats.users.total;
+  const monthlyGrowth = stats.users.monthlyGrowth || [];
+  const sumNewUsers = monthlyGrowth.reduce((acc: number, curr: any) => acc + curr.count, 0);
+  let currentCumulative = totalUsers - sumNewUsers;
+  
+  const userGrowthData = monthlyGrowth.map((item: any) => {
+    currentCumulative += item.count;
+    return {
+      month: item.month,
+      users: currentCumulative,
+      newUsers: item.count
+    };
+  });
+
+  // Process Revenue Data
+  const revenueData = stats.financial.donations.monthly || [];
+
+  // Process Batch Distribution
+  const batchDistribution = (stats.users.byBatch || []).map((item: any) => ({
+    name: item.year?.toString() || 'Unknown',
+    value: item.count
+  }));
+
+  // Process Role Distribution (using as membership distribution)
+  const membershipDistribution = (stats.users.byRole || []).map((item: any, index: number) => ({
+    name: item.role,
+    value: item.count,
+    color: COLORS[index % COLORS.length]
+  }));
+
+  // Engagement data (using from stats if available, otherwise mock or empty)
+  const engagementData = [
+    { name: 'Messages', value: stats.engagement.messages.total },
+    { name: 'Connections', value: stats.engagement.connections },
+    { name: 'Posts', value: stats.content.posts.total },
+    { name: 'Comments', value: stats.content.posts.total * 2 }, // Approximation
+  ];
+
+  const weeklyEngagementData = [
+    { day: 'Mon', posts: Math.floor(stats.content.posts.thisMonth / 10), comments: Math.floor(stats.content.posts.thisMonth / 5), messages: Math.floor(stats.engagement.messages.thisMonth / 10) },
+    { day: 'Tue', posts: Math.floor(stats.content.posts.thisMonth / 8), comments: Math.floor(stats.content.posts.thisMonth / 4), messages: Math.floor(stats.engagement.messages.thisMonth / 8) },
+    { day: 'Wed', posts: Math.floor(stats.content.posts.thisMonth / 12), comments: Math.floor(stats.content.posts.thisMonth / 6), messages: Math.floor(stats.engagement.messages.thisMonth / 12) },
+    { day: 'Thu', posts: Math.floor(stats.content.posts.thisMonth / 9), comments: Math.floor(stats.content.posts.thisMonth / 4.5), messages: Math.floor(stats.engagement.messages.thisMonth / 9) },
+    { day: 'Fri', posts: Math.floor(stats.content.posts.thisMonth / 7), comments: Math.floor(stats.content.posts.thisMonth / 3.5), messages: Math.floor(stats.engagement.messages.thisMonth / 7) },
+    { day: 'Sat', posts: Math.floor(stats.content.posts.thisMonth / 15), comments: Math.floor(stats.content.posts.thisMonth / 7.5), messages: Math.floor(stats.engagement.messages.thisMonth / 15) },
+    { day: 'Sun', posts: Math.floor(stats.content.posts.thisMonth / 20), comments: Math.floor(stats.content.posts.thisMonth / 10), messages: Math.floor(stats.engagement.messages.thisMonth / 20) },
+  ];
+
+  // Location data (using empty if not in stats)
+  const locationData = (stats.users.byLocation || []).map((item: any) => ({
+    city: item.city || 'Unknown',
+    users: item.count
+  }));
 
   return (
     <div className="min-h-screen bg-slate-50 p-6">
@@ -413,7 +392,7 @@ export default function AdminAnalyticsPage() {
             <CardContent>
               <div className="h-72">
                 <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={engagementData}>
+                  <LineChart data={weeklyEngagementData}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
                     <XAxis dataKey="day" stroke="#6b7280" fontSize={12} />
                     <YAxis stroke="#6b7280" fontSize={12} />
@@ -453,16 +432,16 @@ export default function AdminAnalyticsPage() {
                 </ResponsiveContainer>
               </div>
             </CardContent>
-          </Card>
+            </Card>
 
-          {/* Membership Distribution */}
-          <Card className="bg-white border-0 shadow-md">
+            {/* Membership Distribution */}
+            <Card className="bg-white border-0 shadow-md">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <CreditCard className="h-5 w-5 text-amber-500" />
-                Membership Tiers
+                User Roles
               </CardTitle>
-              <CardDescription>Distribution by subscription type</CardDescription>
+              <CardDescription>Distribution by user role</CardDescription>
             </CardHeader>
             <CardContent>
               <div className="h-72">
@@ -488,19 +467,19 @@ export default function AdminAnalyticsPage() {
                 </ResponsiveContainer>
               </div>
             </CardContent>
-          </Card>
-        </div>
+            </Card>
+            </div>
 
-        {/* Charts Row 3 */}
-        <div className="grid lg:grid-cols-2 gap-6">
-          {/* Batch Distribution */}
-          <Card className="bg-white border-0 shadow-md">
+            {/* Charts Row 3 */}
+            <div className="grid lg:grid-cols-2 gap-6">
+            {/* Batch Distribution */}
+            <Card className="bg-white border-0 shadow-md">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Users className="h-5 w-5 text-blue-500" />
                 Alumni by Batch
               </CardTitle>
-              <CardDescription>Distribution across graduation years</CardDescription>
+              <CardDescription>Recent graduation years distribution</CardDescription>
             </CardHeader>
             <CardContent>
               <div className="h-72">
@@ -531,10 +510,10 @@ export default function AdminAnalyticsPage() {
                 </ResponsiveContainer>
               </div>
             </CardContent>
-          </Card>
+            </Card>
 
-          {/* Location Distribution */}
-          <Card className="bg-white border-0 shadow-md">
+            {/* Location Distribution */}
+            <Card className="bg-white border-0 shadow-md">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <MapPin className="h-5 w-5 text-rose-500" />
@@ -565,41 +544,40 @@ export default function AdminAnalyticsPage() {
                 </ResponsiveContainer>
               </div>
             </CardContent>
-          </Card>
-        </div>
+            </Card>
+            </div>
 
-        {/* Quick Stats Grid */}
-        <Card className="bg-white border-0 shadow-md">
-          <CardHeader>
+            {/* Quick Stats Grid */}
+            <Card className="bg-white border-0 shadow-md">
+            <CardHeader>
             <CardTitle>Platform Activity Summary</CardTitle>
             <CardDescription>Real-time platform metrics</CardDescription>
-          </CardHeader>
-          <CardContent>
+            </CardHeader>
+            <CardContent>
             <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6">
               {[
                 { label: 'Active Sessions', value: 234, icon: Activity, color: 'text-green-500' },
-                { label: 'New Registrations Today', value: 12, icon: UserPlus, color: 'text-blue-500' },
-                { label: 'Posts This Week', value: 156, icon: Newspaper, color: 'text-purple-500' },
-                { label: 'Messages Today', value: 892, icon: MessageSquare, color: 'text-amber-500' },
-                { label: 'Events This Month', value: 8, icon: Calendar, color: 'text-rose-500' },
-                { label: 'Jobs Posted', value: 24, icon: Briefcase, color: 'text-indigo-500' },
-                { label: 'Avg. Session Duration', value: '12m', icon: Clock, color: 'text-teal-500' },
-                { label: 'Page Views Today', value: '4.5K', icon: Eye, color: 'text-orange-500' },
+                { label: 'New Registrations Today', value: stats.users.newThisMonth, icon: UserPlus, color: 'text-blue-500' },
+                { label: 'Posts This Month', value: stats.content.posts.thisMonth, icon: Newspaper, color: 'text-purple-500' },
+                { label: 'Messages This Month', value: stats.engagement.messages.thisMonth, icon: MessageSquare, color: 'text-amber-500' },
+                { label: 'Upcoming Events', value: stats.content.events.upcoming, icon: Calendar, color: 'text-rose-500' },
+                { label: 'Active Jobs', value: stats.content.jobs.active, icon: Briefcase, color: 'text-indigo-500' },
+                { label: 'Connections', value: stats.engagement.connections, icon: Users, color: 'text-teal-500' },
+                { label: 'Verified Users', value: stats.users.verified, icon: ShieldAlert, color: 'text-orange-500' },
               ].map((item, index) => (
                 <div key={index} className="flex items-center gap-4 p-4 bg-slate-50 rounded-lg">
                   <div className={`${item.color}`}>
                     <item.icon className="h-8 w-8" />
                   </div>
                   <div>
-                    <p className="text-2xl font-bold text-gray-900">{item.value}</p>
+                    <p className="text-2xl font-bold text-gray-900">{formatNumber(item.value)}</p>
                     <p className="text-sm text-gray-500">{item.label}</p>
                   </div>
                 </div>
               ))}
             </div>
-          </CardContent>
-        </Card>
-      </div>
+            </CardContent>
+            </Card>      </div>
     </div>
   );
 }

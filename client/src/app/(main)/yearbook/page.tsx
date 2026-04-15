@@ -52,7 +52,7 @@ export default function YearbookPage() {
     },
   });
 
-  const alumni = data?.data || [];
+  const alumni = data?.data?.alumni || data?.data || [];
 
   return (
     <div className="space-y-6">

@@ -4,6 +4,9 @@ import { config } from '../config';
 import Razorpay from 'razorpay';
 import crypto from 'crypto';
 
+import { generateMembershipReceipt, generateReceiptNumber } from '../utils/pdfReceipt';
+import { uploadBufferToStorage } from '../utils/storage';
+
 const razorpay = new Razorpay({
   key_id: config.razorpay.keyId,
   key_secret: config.razorpay.keySecret,
@@ -178,6 +181,37 @@ export class MembershipService {
       where: { id: userId },
       data: { membershipTierId: tier.id },
     });
+
+    // Generate and upload receipt PDF
+    try {
+      const user = await prisma.user.findUnique({ where: { id: userId } });
+      if (user) {
+        const receiptBuffer = await generateMembershipReceipt({
+          receiptNumber: generateReceiptNumber('MEM'),
+          memberName: user.fullName,
+          memberEmail: user.email,
+          membershipTier: tier.name,
+          amount: Number(tier.priceInr),
+          startDate: new Date(),
+          endDate: endDate || new Date(), // Fallback
+          paymentId: razorpayPaymentId,
+        });
+
+        const receiptUrl = await uploadBufferToStorage(
+          receiptBuffer,
+          `receipt_${transaction.id}.pdf`,
+          'application/pdf',
+          'receipts'
+        );
+
+        await prisma.transaction.update({
+          where: { id: transaction.id },
+          data: { receiptUrl },
+        });
+      }
+    } catch (receiptError) {
+      console.error('Failed to generate/upload membership receipt:', receiptError);
+    }
 
     return {
       message: 'Membership activated successfully',

@@ -6,6 +6,9 @@ import Razorpay from 'razorpay';
 import crypto from 'crypto';
 import { Prisma } from '@prisma/client';
 
+import { generateDonationReceipt, generateReceiptNumber } from '../utils/pdfReceipt';
+import { uploadBufferToStorage } from '../utils/storage';
+
 const razorpay = new Razorpay({
   key_id: config.razorpay.keyId,
   key_secret: config.razorpay.keySecret,
@@ -117,6 +120,45 @@ export class DonationService {
           totalDonations: { increment: donationData.amount },
         },
       });
+    }
+
+    // Generate and upload receipt PDF if user is logged in
+    if (userId && transaction) {
+      try {
+        const user = await prisma.user.findUnique({ where: { id: userId } });
+        const chapter = donationData.chapterId 
+          ? await prisma.chapter.findUnique({ where: { id: donationData.chapterId } })
+          : null;
+
+        if (user) {
+          const receiptBuffer = await generateDonationReceipt({
+            receiptNumber: generateReceiptNumber('DON'),
+            donorName: user.fullName,
+            donorEmail: user.email,
+            amount: donationData.amount,
+            date: new Date(),
+            paymentId: razorpayPaymentId,
+            dedicatedTo: donationData.dedicatedTo,
+            message: donationData.message,
+            chapterName: chapter?.name,
+          });
+
+          const receiptUrl = await uploadBufferToStorage(
+            receiptBuffer,
+            `receipt_${transaction.id}.pdf`,
+            'application/pdf',
+            'receipts'
+          );
+
+          await prisma.transaction.update({
+            where: { id: transaction.id },
+            data: { receiptUrl },
+          });
+        }
+      } catch (receiptError) {
+        console.error('Failed to generate/upload receipt:', receiptError);
+        // Don't fail the whole process if receipt generation fails
+      }
     }
 
     return {
