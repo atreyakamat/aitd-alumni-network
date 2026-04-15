@@ -144,6 +144,32 @@ export class GalleryService {
     return { message: 'Photo deleted' };
   }
 
+  // User can delete their own photos
+  async userDeletePhoto(photoId: string, userId: string) {
+    const photo = await prisma.galleryPhoto.findUnique({
+      where: { id: photoId },
+    });
+
+    if (!photo) {
+      throw new AppError('Photo not found', 404, 'NOT_FOUND');
+    }
+
+    // Check if user owns this photo or is admin
+    if (photo.uploadedById !== userId) {
+      throw new AppError('Not authorized to delete this photo', 403, 'FORBIDDEN');
+    }
+
+    await prisma.galleryPhoto.delete({ where: { id: photoId } });
+
+    // Decrement photo count
+    await prisma.galleryAlbum.update({
+      where: { id: photo.albumId },
+      data: { photoCount: { decrement: 1 } },
+    });
+
+    return { message: 'Photo deleted' };
+  }
+
   async getRecentPhotos(limit: number = 8) {
     return prisma.galleryPhoto.findMany({
       where: {

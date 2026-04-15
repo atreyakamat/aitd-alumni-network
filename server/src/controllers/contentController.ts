@@ -78,6 +78,45 @@ export class GalleryController {
     }
   }
 
+  // User photo upload (for batch memories)
+  async userAddPhoto(req: Request, res: Response, next: NextFunction) {
+    try {
+      const { albumId } = req.params;
+      const files = req.files as Express.Multer.File[];
+      
+      if (!files || files.length === 0) {
+        return res.status(400).json({ success: false, error: 'No photos uploaded' });
+      }
+
+      const photos = [];
+      for (const file of files) {
+        const photo = await galleryService.addPhoto(
+          albumId,
+          req.user!.id,
+          file.path,
+          file.path,
+          req.body.caption
+        );
+        photos.push(photo);
+      }
+
+      res.status(201).json({ success: true, data: photos });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  // User can delete their own photos
+  async userDeletePhoto(req: Request, res: Response, next: NextFunction) {
+    try {
+      const { id } = req.params;
+      const result = await galleryService.userDeletePhoto(id, req.user!.id);
+      res.json({ success: true, data: result });
+    } catch (error) {
+      next(error);
+    }
+  }
+
   async getRecentPhotos(req: Request, res: Response, next: NextFunction) {
     try {
       const limit = parseInt(req.query.limit as string) || 8;

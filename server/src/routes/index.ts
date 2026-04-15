@@ -146,8 +146,14 @@ router.get('/gallery/recent', galleryController.getRecentPhotos);
 router.post('/gallery/albums', authenticate, isAdmin, galleryController.createAlbum);
 router.patch('/gallery/albums/:id', authenticate, isAdmin, galleryController.updateAlbum);
 router.delete('/gallery/albums/:id', authenticate, isAdmin, galleryController.deleteAlbum);
-router.post('/gallery/albums/:albumId/photos', authenticate, isAdmin, galleryController.addPhoto);
-router.delete('/gallery/photos/:id', authenticate, isAdmin, galleryController.deletePhoto);
+
+// User photo upload (for batch memories, personal uploads)
+router.post('/gallery/albums/:albumId/photos', authenticate, upload.array('photos', 10), galleryController.userAddPhoto);
+router.delete('/gallery/photos/:id', authenticate, galleryController.userDeletePhoto);
+
+// Admin-only photo management
+router.post('/gallery/photos/admin', authenticate, isAdmin, galleryController.addPhoto);
+router.delete('/gallery/photos/admin/:id', authenticate, isAdmin, galleryController.deletePhoto);
 
 // ============== NEWS ROUTES ==============
 router.get('/news', newsController.getArticles);
