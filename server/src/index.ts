@@ -27,7 +27,7 @@ app.use(helmet({
   crossOriginResourcePolicy: false, // Allow loading images from local server
 }));
 app.use(cors({
-  origin: config.corsOrigins,
+  origin: true, // This allows any origin that sends a request
   credentials: true,
 }));
 

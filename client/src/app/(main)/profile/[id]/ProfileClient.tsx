@@ -51,7 +51,7 @@ export function ProfileClient({ profile, id }: { profile: any; id: string }) {
                 )}
                 {profile.membershipTier && (
                   <Badge className="bg-amber-100 text-amber-700">
-                    {profile.membershipTier}
+                    {typeof profile.membershipTier === 'object' ? profile.membershipTier.name : profile.membershipTier}
                   </Badge>
                 )}
               </div>
