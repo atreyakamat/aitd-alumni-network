@@ -230,7 +230,8 @@ export const userApi = {
     api.get(`/users/yearbook/${year}`, { params: { department } }),
   getStats: () => api.get('/users/stats'),
   getNotable: (limit?: number) => api.get('/users/notable', { params: { limit } }),
-  getLocations: () => api.get('/users/locations'),
+  getLocations: (params?: { north?: number; south?: number; east?: number; west?: number; limit?: number }) =>
+    api.get('/users/locations', { params }),
   getNearby: (lat: number, lng: number, radius?: number) =>
     api.get('/users/nearby', { params: { lat, lng, radius } }),
 

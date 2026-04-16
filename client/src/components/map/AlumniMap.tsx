@@ -1,8 +1,8 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useCallback, useEffect } from 'react';
 import L from 'leaflet';
-import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Popup, useMap, useMapEvents } from 'react-leaflet';
 import MarkerClusterGroup from 'react-leaflet-cluster';
 import 'leaflet/dist/leaflet.css';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -34,12 +34,20 @@ interface AlumniLocation {
   locationLng: number;
 }
 
+export interface MapBounds {
+  north: number;
+  south: number;
+  east: number;
+  west: number;
+}
+
 interface AlumniMapProps {
   alumni: AlumniLocation[];
   center?: [number, number];
   zoom?: number;
   onMarkerClick?: (alumnus: AlumniLocation) => void;
   selectedAlumnus?: AlumniLocation | null;
+  onBoundsChange?: (bounds: MapBounds) => void;
 }
 
 // Component to handle map center changes
@@ -48,6 +56,30 @@ function ChangeView({ center, zoom }: { center: [number, number]; zoom: number }
   useEffect(() => {
     map.setView(center, zoom);
   }, [center, zoom, map]);
+  return null;
+}
+
+function BoundsListener({ onBoundsChange }: { onBoundsChange?: (bounds: MapBounds) => void }) {
+  const emitBounds = useCallback((mapInstance: L.Map) => {
+    if (!onBoundsChange) return;
+    const bounds = mapInstance.getBounds();
+    onBoundsChange({
+      north: bounds.getNorth(),
+      south: bounds.getSouth(),
+      east: bounds.getEast(),
+      west: bounds.getWest(),
+    });
+  }, [onBoundsChange]);
+
+  const map = useMapEvents({
+    moveend: () => emitBounds(map),
+    zoomend: () => emitBounds(map),
+  });
+
+  useEffect(() => {
+    emitBounds(map);
+  }, [map, emitBounds]);
+
   return null;
 }
 
@@ -65,7 +97,7 @@ export default function AlumniMap({
   center = [19.076, 72.8777], 
   zoom = 10,
   onMarkerClick,
-  selectedAlumnus
+  onBoundsChange
 }: AlumniMapProps) {
   useEffect(() => {
     fixLeafletIcons();
@@ -84,6 +116,7 @@ export default function AlumniMap({
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
         />
         <ChangeView center={center} zoom={zoom} />
+        <BoundsListener onBoundsChange={onBoundsChange} />
         
         <MarkerClusterGroup>
           {alumni.map((alumnus) => (

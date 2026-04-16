@@ -15,7 +15,9 @@ import { mentorshipController } from '../controllers/mentorshipController';
 import { adminController } from '../controllers/adminController';
 import { authenticate, optionalAuth, isAdmin, isSuperAdmin } from '../middleware/auth';
 import { validate } from '../middleware/validate';
+import { cacheMiddleware } from '../middleware/cache';
 import { upload } from '../utils/storage';
+import config from '../config';
 import {
   registerSchema,
   loginSchema,
@@ -40,6 +42,7 @@ router.post('/auth/reset-password', validate(resetPasswordSchema), authControlle
 router.post('/auth/refresh-token', validate(refreshTokenSchema), authController.refreshToken);
 router.post('/auth/logout', authenticate, authController.logout);
 router.get('/auth/me', authenticate, authController.me);
+router.get('/auth/oauth/providers', authController.getOAuthProviders);
 
 // 2FA Routes
 router.post('/auth/verify-2fa', authController.verify2FA);
@@ -49,16 +52,40 @@ router.post('/auth/2fa/disable', authenticate, authController.disable2FA);
 
 // OAuth Routes
 router.post('/auth/oauth/exchange', authController.exchangeOAuthCode);
-router.get('/auth/google', passport.authenticate('google', { scope: ['profile', 'email'], session: false }));
-router.get('/auth/google/callback', 
-  passport.authenticate('google', { session: false, failureRedirect: '/login?error=oauth_failed' }),
-  authController.googleCallback
-);
-router.get('/auth/linkedin', passport.authenticate('linkedin', { session: false }));
-router.get('/auth/linkedin/callback',
-  passport.authenticate('linkedin', { session: false, failureRedirect: '/login?error=oauth_failed' }),
-  authController.linkedinCallback
-);
+const isGoogleOAuthConfigured = Boolean(config.google.clientId && config.google.clientSecret);
+const isLinkedInOAuthConfigured = Boolean(config.linkedin.clientId && config.linkedin.clientSecret);
+
+if (isGoogleOAuthConfigured) {
+  router.get('/auth/google', passport.authenticate('google', { scope: ['profile', 'email'], session: false }));
+  router.get(
+    '/auth/google/callback',
+    passport.authenticate('google', { session: false, failureRedirect: '/login?error=oauth_failed' }),
+    authController.googleCallback
+  );
+} else {
+  router.get('/auth/google', (_req, res) => {
+    res.status(503).json({ success: false, error: 'Google OAuth is not configured' });
+  });
+  router.get('/auth/google/callback', (_req, res) => {
+    res.status(503).json({ success: false, error: 'Google OAuth is not configured' });
+  });
+}
+
+if (isLinkedInOAuthConfigured) {
+  router.get('/auth/linkedin', passport.authenticate('linkedin', { session: false }));
+  router.get(
+    '/auth/linkedin/callback',
+    passport.authenticate('linkedin', { session: false, failureRedirect: '/login?error=oauth_failed' }),
+    authController.linkedinCallback
+  );
+} else {
+  router.get('/auth/linkedin', (_req, res) => {
+    res.status(503).json({ success: false, error: 'LinkedIn OAuth is not configured' });
+  });
+  router.get('/auth/linkedin/callback', (_req, res) => {
+    res.status(503).json({ success: false, error: 'LinkedIn OAuth is not configured' });
+  });
+}
 
 // ============== USER ROUTES ==============
 router.get('/users/stats', userController.getPublicStats);
@@ -86,7 +113,7 @@ router.delete('/users/education/:id', authenticate, userController.deleteEducati
 router.put('/users/skills', authenticate, userController.updateSkills);
 
 // ============== POST ROUTES ==============
-router.get('/posts', optionalAuth, postController.getFeed);
+router.get('/posts', optionalAuth, cacheMiddleware({ ttl: config.cache.feedTtlSeconds }), postController.getFeed);
 router.get('/posts/:id', optionalAuth, postController.getPost);
 router.post('/posts', authenticate, validate(createPostSchema), postController.createPost);
 router.post('/posts/media', authenticate, upload.array('media', 5), postController.uploadMedia);

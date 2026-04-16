@@ -1,15 +1,15 @@
 'use client';
 
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, useCallback, useRef } from 'react';
 import dynamic from 'next/dynamic';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
 import { MapPin, Search, Users, Navigation, Loader2 } from 'lucide-react';
-import { useAuth } from '@/context/auth-context';
 import api from '@/lib/api';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import type { MapBounds } from '@/components/map/AlumniMap';
 
 // Dynamically import the Map component with no SSR
 const AlumniMap = dynamic(() => import('@/components/map/AlumniMap'), {
@@ -39,7 +39,6 @@ interface AlumniLocation {
 const defaultCenter: [number, number] = [19.076, 72.8777]; // Mumbai as default
 
 export default function AlumniNearbyPage() {
-  const { user } = useAuth();
   const [alumni, setAlumni] = useState<AlumniLocation[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedAlumni, setSelectedAlumni] = useState<AlumniLocation | null>(null);
@@ -47,9 +46,10 @@ export default function AlumniNearbyPage() {
   const [userLocation, setUserLocation] = useState<[number, number] | null>(null);
   const [mapCenter, setMapCenter] = useState<[number, number]>(defaultCenter);
   const [mapZoom, setMapZoom] = useState(10);
+  const [bounds, setBounds] = useState<MapBounds | null>(null);
+  const requestSequence = useRef(0);
 
   useEffect(() => {
-    fetchAlumniLocations();
     getUserLocation();
   }, []);
 
@@ -65,18 +65,47 @@ export default function AlumniNearbyPage() {
     );
   }, [searchQuery, alumni]);
 
-  const fetchAlumniLocations = async () => {
+  const fetchAlumniLocations = useCallback(async (viewportBounds: MapBounds) => {
+    const requestId = ++requestSequence.current;
+
     try {
       setLoading(true);
-      // Using /users/locations to get all alumni for the map
-      const response = await api.get('/users/locations');
-      setAlumni(response.data.data || []);
+      const response = await api.get('/users/locations', {
+        params: {
+          north: viewportBounds.north,
+          south: viewportBounds.south,
+          east: viewportBounds.east,
+          west: viewportBounds.west,
+          limit: 1000,
+        },
+      });
+
+      if (requestId === requestSequence.current) {
+        setAlumni(response.data.data || []);
+      }
     } catch (error) {
       console.error('Failed to fetch alumni locations:', error);
+      if (requestId === requestSequence.current) {
+        setAlumni([]);
+      }
     } finally {
-      setLoading(false);
+      if (requestId === requestSequence.current) {
+        setLoading(false);
+      }
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    if (!bounds) return;
+
+    const timer = window.setTimeout(() => {
+      void fetchAlumniLocations(bounds);
+    }, 250);
+
+    return () => {
+      window.clearTimeout(timer);
+    };
+  }, [bounds, fetchAlumniLocations]);
 
   const getUserLocation = () => {
     if (navigator.geolocation) {
@@ -99,6 +128,28 @@ export default function AlumniNearbyPage() {
       setMapZoom(12);
     }
   };
+
+  const handleBoundsChange = useCallback((nextBounds: MapBounds) => {
+    const normalizedBounds = {
+      north: Number(nextBounds.north.toFixed(4)),
+      south: Number(nextBounds.south.toFixed(4)),
+      east: Number(nextBounds.east.toFixed(4)),
+      west: Number(nextBounds.west.toFixed(4)),
+    };
+
+    setBounds((previousBounds) => {
+      if (
+        previousBounds &&
+        previousBounds.north === normalizedBounds.north &&
+        previousBounds.south === normalizedBounds.south &&
+        previousBounds.east === normalizedBounds.east &&
+        previousBounds.west === normalizedBounds.west
+      ) {
+        return previousBounds;
+      }
+      return normalizedBounds;
+    });
+  }, []);
 
   const getInitials = (name: string) => {
     return name
@@ -212,6 +263,7 @@ export default function AlumniNearbyPage() {
             zoom={mapZoom}
             onMarkerClick={(alumnus) => setSelectedAlumni(alumnus)}
             selectedAlumnus={selectedAlumni}
+            onBoundsChange={handleBoundsChange}
           />
         </div>
       </div>

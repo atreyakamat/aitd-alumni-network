@@ -26,11 +26,13 @@ type LoginFormData = z.infer<typeof loginSchema>;
 function LoginContent() {
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [isOAuthProvidersLoading, setIsOAuthProvidersLoading] = useState(true);
+  const [oauthProviders, setOAuthProviders] = useState({ google: true, linkedin: true });
   const [requires2FA, setRequires2FA] = useState(false);
   const [userId, setUserId] = useState<string | null>(null);
   const [otpCode, setOtpCode] = useState('');
   const [isVerifying2FA, setIsVerifying2FA] = useState(false);
-  const { setOAuthTokens, setAuthData } = useAuth();
+  const { setAuthData } = useAuth();
   const { toast } = useToast();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -40,6 +42,41 @@ function LoginContent() {
   const code = searchParams?.get('code');
   const oauthProvider = searchParams?.get('oauth');
   const isNewUser = searchParams?.get('newUser');
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const fetchOAuthProviders = async () => {
+      try {
+        const response = await api.get('/auth/oauth/providers');
+        const providers = response?.data?.data;
+
+        if (
+          isMounted &&
+          providers &&
+          typeof providers.google === 'boolean' &&
+          typeof providers.linkedin === 'boolean'
+        ) {
+          setOAuthProviders({
+            google: providers.google,
+            linkedin: providers.linkedin,
+          });
+        }
+      } catch {
+        // Keep defaults if the status endpoint is unavailable.
+      } finally {
+        if (isMounted) {
+          setIsOAuthProvidersLoading(false);
+        }
+      }
+    };
+
+    void fetchOAuthProviders();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   // Handle OAuth callback tokens
   useEffect(() => {
@@ -168,6 +205,16 @@ function LoginContent() {
         description: 'Failed to resend code. Please try again.',
       });
     }
+  };
+
+  const redirectToOAuth = (provider: 'google' | 'linkedin') => {
+    toast({
+      title: 'OAuth Coming Soon',
+      description: `${provider.charAt(0).toUpperCase() + provider.slice(1)} login is currently disabled for this test version. Please use your email and password to sign in.`,
+    });
+    // const baseUrl =
+    //   api.defaults.baseURL || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
+    // window.location.href = `${baseUrl}/auth/${provider}`;
   };
 
   // 2FA Verification UI
@@ -393,8 +440,8 @@ function LoginContent() {
             <div className="grid grid-cols-2 gap-4">
               <Button 
                 variant="outline" 
-                disabled={isLoading}
-                onClick={() => window.location.href = `${process.env.NEXT_PUBLIC_API_URL}/auth/google`}
+                disabled={isLoading || isOAuthProvidersLoading || !oauthProviders.google}
+                onClick={() => redirectToOAuth('google')}
               >
                 <svg className="mr-2 h-4 w-4" viewBox="0 0 24 24">
                   <path
@@ -418,8 +465,8 @@ function LoginContent() {
               </Button>
               <Button 
                 variant="outline" 
-                disabled={isLoading}
-                onClick={() => window.location.href = `${process.env.NEXT_PUBLIC_API_URL}/auth/linkedin`}
+                disabled={isLoading || isOAuthProvidersLoading || !oauthProviders.linkedin}
+                onClick={() => redirectToOAuth('linkedin')}
               >
                 <svg className="mr-2 h-4 w-4" viewBox="0 0 24 24" fill="currentColor">
                   <path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433c-1.144 0-2.063-.926-2.063-2.065 0-1.138.92-2.063 2.063-2.063 1.14 0 2.064.925 2.064 2.063 0 1.139-.925 2.065-2.064 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z" />
@@ -427,6 +474,12 @@ function LoginContent() {
                 LinkedIn
               </Button>
             </div>
+
+            {(!oauthProviders.google || !oauthProviders.linkedin) && (
+              <p className="mt-3 text-center text-xs text-muted-foreground">
+                One or more social providers are unavailable until server OAuth credentials are configured.
+              </p>
+            )}
 
             <p className="mt-6 text-center text-sm text-muted-foreground">
               Don't have an account?{' '}

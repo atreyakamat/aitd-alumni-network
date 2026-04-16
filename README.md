@@ -115,14 +115,21 @@ aitd-alumni-network/
 
 5. **Set up the database**
    ```bash
-   # Generate Prisma client
-   cd server && npx prisma generate
-   
-   # Run migrations
-   npx prisma migrate dev
-   
-   # (Optional) Seed the database
-   npx prisma db seed
+    # Generate Prisma client
+    cd server && npx prisma generate
+    
+    # Run migrations
+    npx prisma migrate dev
+
+    # Production deployment migrations
+    npx prisma migrate deploy
+
+    # If deploying to an existing non-empty DB for the first time,
+    # baseline already-applied migrations before deploy:
+    # npx prisma migrate resolve --applied <migration_name>
+    
+    # (Optional) Seed the database
+    npx prisma db seed
    ```
 
 6. **Start development servers**
@@ -146,6 +153,8 @@ See `.env.example` for all required environment variables:
 - `AWS_*` - S3 bucket configuration
 - `SMTP_*` - Email configuration
 - `GOOGLE_*` - OAuth and Maps API
+- `FEED_CACHE_TTL_SECONDS` - Public feed cache TTL in seconds
+- `IMAGE_*` - Upload image compression and resize configuration
 
 ## 🔧 Available Scripts
 
@@ -163,6 +172,7 @@ npm start                # Start production server
 
 # Database
 npm run db:migrate       # Run Prisma migrations
+npm run db:deploy        # Deploy migrations (production-safe)
 npm run db:seed          # Seed the database
 npm run db:studio        # Open Prisma Studio
 ```
@@ -181,12 +191,14 @@ npm run db:studio        # Open Prisma Studio
 - `POST /api/auth/verify-email` - Verify email
 - `POST /api/auth/forgot-password` - Request password reset
 - `POST /api/auth/reset-password` - Reset password
+- `GET /api/auth/oauth/providers` - Check configured OAuth providers
 
 ### Users
 - `GET /api/users/directory` - Search alumni directory
 - `GET /api/users/:id` - Get user profile
 - `PATCH /api/users/profile` - Update own profile
 - `GET /api/users/yearbook/:year` - Get yearbook by batch
+- `GET /api/users/locations` - Get map markers (supports optional bounds: north/south/east/west)
 - `GET /api/users/nearby` - Get alumni near a location
 
 ### Invites

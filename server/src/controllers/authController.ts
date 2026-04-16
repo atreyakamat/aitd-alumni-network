@@ -173,6 +173,20 @@ export class AuthController {
     }
   }
 
+  async getOAuthProviders(req: Request, res: Response, next: NextFunction) {
+    try {
+      res.json({
+        success: true,
+        data: {
+          google: Boolean(config.google.clientId && config.google.clientSecret),
+          linkedin: Boolean(config.linkedin.clientId && config.linkedin.clientSecret),
+        },
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
   // Exchange one-time code for JWT tokens (Security fix)
   async exchangeOAuthCode(req: Request, res: Response, next: NextFunction) {
     try {

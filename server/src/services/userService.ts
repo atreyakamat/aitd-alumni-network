@@ -63,6 +63,14 @@ interface DirectoryFilters {
   limit?: number;
 }
 
+interface AlumniLocationFilters {
+  north?: number;
+  south?: number;
+  east?: number;
+  west?: number;
+  limit?: number;
+}
+
 export class UserService {
   async getProfile(userId: string, viewerId?: string) {
     const user = await prisma.user.findUnique({
@@ -413,20 +421,62 @@ export class UserService {
   }
 
   // Alumni Nearby (Map)
-  async getAlumniLocations() {
+  async getAlumniLocations(filters: AlumniLocationFilters = {}) {
+    const where: Prisma.UserWhereInput = {
+      isActive: true,
+      isVerified: true,
+      isLocationPublic: true,
+      locationLat: { not: null },
+      locationLng: { not: null },
+    };
+
+    if (
+      filters.north !== undefined &&
+      filters.south !== undefined &&
+      filters.east !== undefined &&
+      filters.west !== undefined
+    ) {
+      where.locationLat = {
+        not: null,
+        gte: filters.south,
+        lte: filters.north,
+      };
+
+      // Handle antimeridian crossing (e.g. west=170, east=-170)
+      if (filters.west <= filters.east) {
+        where.locationLng = {
+          not: null,
+          gte: filters.west,
+          lte: filters.east,
+        };
+      } else {
+        where.OR = [
+          {
+            locationLng: {
+              not: null,
+              gte: filters.west,
+            },
+          },
+          {
+            locationLng: {
+              not: null,
+              lte: filters.east,
+            },
+          },
+        ];
+      }
+    }
+
+    const take = Math.min(filters.limit || 1000, 5000);
+
     const alumni = await prisma.user.findMany({
-      where: {
-        isActive: true,
-        isVerified: true,
-        isLocationPublic: true,
-        locationLat: { not: null },
-        locationLng: { not: null },
-      },
+      where,
       select: {
         id: true,
         fullName: true,
         profilePhotoUrl: true,
         batchYear: true,
+        department: true,
         city: true,
         locationLat: true,
         locationLng: true,
@@ -437,9 +487,45 @@ export class UserService {
           select: { company: true },
         },
       },
+      take,
     });
 
     return alumni.map(a => ({
+      ...a,
+      locationLat: a.locationLat?.toNumber(),
+      locationLng: a.locationLng?.toNumber(),
+    }));
+  }
+
+  // Alumni in Bounding Box (Map)
+  async getAlumniInBounds(north: number, south: number, east: number, west: number) {
+    const alumni = await prisma.user.findMany({
+      where: {
+        isActive: true,
+        isVerified: true,
+        isLocationPublic: true,
+        locationLat: {
+          gte: south,
+          lte: north,
+        },
+        locationLng: {
+          gte: west,
+          lte: east,
+        },
+      },
+      select: {
+        id: true,
+        fullName: true,
+        profilePhotoUrl: true,
+        batchYear: true,
+        city: true,
+        locationLat: true,
+        locationLng: true,
+        currentDesignation: true,
+      },
+    });
+
+    return alumni.map((a) => ({
       ...a,
       locationLat: a.locationLat?.toNumber(),
       locationLng: a.locationLng?.toNumber(),

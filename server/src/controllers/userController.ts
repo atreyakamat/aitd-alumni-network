@@ -162,7 +162,50 @@ export class UserController {
   // Alumni Nearby
   async getAlumniLocations(req: Request, res: Response, next: NextFunction) {
     try {
-      const result = await userService.getAlumniLocations();
+      const north = req.query.north !== undefined ? parseFloat(req.query.north as string) : undefined;
+      const south = req.query.south !== undefined ? parseFloat(req.query.south as string) : undefined;
+      const east = req.query.east !== undefined ? parseFloat(req.query.east as string) : undefined;
+      const west = req.query.west !== undefined ? parseFloat(req.query.west as string) : undefined;
+      const limit = req.query.limit !== undefined ? parseInt(req.query.limit as string, 10) : undefined;
+
+      const hasBoundsParam = [north, south, east, west].some((value) => value !== undefined);
+      const hasIncompleteBounds = [north, south, east, west].some((value) => value === undefined);
+
+      if (hasBoundsParam && hasIncompleteBounds) {
+        return res.status(400).json({
+          success: false,
+          message: 'Provide north, south, east, and west together for bounds filtering.',
+        });
+      }
+
+      if ([north, south, east, west].some((value) => value !== undefined && Number.isNaN(value))) {
+        return res.status(400).json({
+          success: false,
+          message: 'Bounds must be valid numbers.',
+        });
+      }
+
+      if (north !== undefined && south !== undefined && north < south) {
+        return res.status(400).json({
+          success: false,
+          message: 'north must be greater than or equal to south.',
+        });
+      }
+
+      if (limit !== undefined && (Number.isNaN(limit) || limit <= 0)) {
+        return res.status(400).json({
+          success: false,
+          message: 'limit must be a positive integer.',
+        });
+      }
+
+      const result = await userService.getAlumniLocations({
+        north,
+        south,
+        east,
+        west,
+        limit,
+      });
       res.json({ success: true, data: result });
     } catch (error) {
       next(error);

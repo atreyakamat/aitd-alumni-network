@@ -3,6 +3,7 @@ import { galleryService } from '../services/galleryService';
 import { newsService } from '../services/newsService';
 import { chapterService } from '../services/chapterService';
 import { marketplaceService } from '../services/marketplaceService';
+import { uploadToStorage } from '../utils/storage';
 
 // Gallery Controller
 export class GalleryController {
@@ -90,11 +91,12 @@ export class GalleryController {
 
       const photos = [];
       for (const file of files) {
+        const photoUrl = await uploadToStorage(file, 'gallery');
         const photo = await galleryService.addPhoto(
           albumId,
           req.user!.id,
-          file.path,
-          file.path,
+          photoUrl,
+          photoUrl,
           req.body.caption
         );
         photos.push(photo);

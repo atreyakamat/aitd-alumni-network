@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { postService } from '../services/postService';
 import { uploadToStorage } from '../utils/storage';
+import { invalidateCache } from '../middleware/cache';
 
 export class PostController {
   async getFeed(req: Request, res: Response, next: NextFunction) {
@@ -27,6 +28,7 @@ export class PostController {
   async createPost(req: Request, res: Response, next: NextFunction) {
     try {
       const result = await postService.createPost(req.user!.id, req.body);
+      await invalidateCache('cache:/api/posts*');
       res.status(201).json({ success: true, data: result });
     } catch (error) {
       next(error);
@@ -38,6 +40,7 @@ export class PostController {
       const { id } = req.params;
       const isAdmin = ['ADMIN', 'SUPER_ADMIN'].includes(req.user!.userRole);
       const result = await postService.updatePost(req.user!.id, id, req.body, isAdmin);
+      await invalidateCache('cache:/api/posts*');
       res.json({ success: true, data: result });
     } catch (error) {
       next(error);
@@ -49,6 +52,7 @@ export class PostController {
       const { id } = req.params;
       const isAdmin = ['ADMIN', 'SUPER_ADMIN'].includes(req.user!.userRole);
       const result = await postService.deletePost(req.user!.id, id, isAdmin);
+      await invalidateCache('cache:/api/posts*');
       res.json({ success: true, data: result });
     } catch (error) {
       next(error);
@@ -59,6 +63,7 @@ export class PostController {
     try {
       const { id } = req.params;
       const result = await postService.likePost(req.user!.id, id);
+      await invalidateCache('cache:/api/posts*');
       res.json({ success: true, data: result });
     } catch (error) {
       next(error);
@@ -70,6 +75,7 @@ export class PostController {
       const { postId } = req.params;
       const { content, parentId } = req.body;
       const result = await postService.addComment(req.user!.id, postId, content, parentId);
+      await invalidateCache('cache:/api/posts*');
       res.status(201).json({ success: true, data: result });
     } catch (error) {
       next(error);
@@ -81,6 +87,7 @@ export class PostController {
       const { id } = req.params;
       const isAdmin = ['ADMIN', 'SUPER_ADMIN'].includes(req.user!.userRole);
       const result = await postService.deleteComment(req.user!.id, id, isAdmin);
+      await invalidateCache('cache:/api/posts*');
       res.json({ success: true, data: result });
     } catch (error) {
       next(error);
