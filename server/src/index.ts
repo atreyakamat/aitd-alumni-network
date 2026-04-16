@@ -10,6 +10,7 @@ import routes from './routes';
 import { errorHandler } from './middleware/errorHandler';
 import { notFoundHandler } from './middleware/notFoundHandler';
 import { initSocket } from './utils/socket';
+import { config } from './config';
 import './config/passport'; // Initialize passport strategies
 
 dotenv.config();
@@ -26,7 +27,7 @@ app.use(helmet({
   crossOriginResourcePolicy: false, // Allow loading images from local server
 }));
 app.use(cors({
-  origin: process.env.FRONTEND_URL || 'http://localhost:3000',
+  origin: config.corsOrigins,
   credentials: true,
 }));
 

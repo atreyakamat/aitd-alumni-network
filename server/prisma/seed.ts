@@ -157,6 +157,9 @@ async function main() {
     const city = cities[i % cities.length];
     const batchYear = 2015 + (i % 10);
 
+    const lat = 15.2993 + (Math.random() * 0.1); // Around Goa
+    const lng = 73.9814 + (Math.random() * 0.1);
+
     await prisma.user.create({
       data: {
         email: `user${i}@example.com`,
@@ -167,6 +170,9 @@ async function main() {
         degree: 'B.Tech',
         roleType: 'ALUMNI',
         isVerified: true,
+        isLocationPublic: true,
+        locationLat: lat,
+        locationLng: lng,
         emailVerifiedAt: new Date(),
         profileCompleteness: 60,
         currentDesignation: `Software Engineer ${i}`,

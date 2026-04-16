@@ -14,8 +14,8 @@ The project is currently running in the background.
 - **Role:** Super Admin (Full access to all management features)
 
 ### 2. Sample Alumni Accounts
-- **Email:** `alumni_1@example.com` to `alumni_10@example.com`
-- **Password:** `Password@123`
+- **Email:** `user1@example.com` to `user10@example.com`
+- **Password:** `User@123`
 - **Role:** Member (Access to networking, directory, map, and jobs)
 
 ## Key Features to Test
