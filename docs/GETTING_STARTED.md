@@ -137,6 +137,17 @@ npm run dev --workspace=client
 - **API Health Check**: http://localhost:5000/health (includes MySQL status)
 - **Prisma Studio**: http://localhost:5555 (if running)
 
+### 8. Seed admin and sample users
+
+```bash
+cd server
+npx prisma db seed
+```
+
+Seeded credentials:
+- Admin: `admin@aitdconnection.edu` / `Admin@123`
+- Alumni/Open users: `user1@example.com` to `user10@example.com` / `User@123`
+
 ## Testing the API
 
 You can test the API using curl or Postman:

@@ -7,8 +7,23 @@ async function main() {
   console.log('🌱 Seeding database...');
 
   // Create membership tiers
-  const generalTier = await prisma.membershipTier.create({
-    data: {
+  const generalTier = await prisma.membershipTier.upsert({
+    where: { name: 'General Member' },
+    update: {
+      description: 'Basic free membership for all registered alumni',
+      priceInr: 0,
+      durationMonths: null,
+      benefits: [
+        'Basic profile',
+        'Directory access',
+        'Notice board participation',
+        'Event RSVP',
+        'Basic messaging',
+      ],
+      badgeColor: '#6B7280',
+      displayOrder: 1,
+    },
+    create: {
       name: 'General Member',
       description: 'Basic free membership for all registered alumni',
       priceInr: 0,
@@ -25,8 +40,23 @@ async function main() {
     },
   });
 
-  const silverTier = await prisma.membershipTier.create({
-    data: {
+  const silverTier = await prisma.membershipTier.upsert({
+    where: { name: 'Silver Member' },
+    update: {
+      description: 'Annual premium membership with enhanced features',
+      priceInr: 1000,
+      durationMonths: 12,
+      benefits: [
+        'All General benefits',
+        'Priority job listings',
+        'Exclusive event invites',
+        'Enhanced profile visibility',
+        'Priority support',
+      ],
+      badgeColor: '#9CA3AF',
+      displayOrder: 2,
+    },
+    create: {
       name: 'Silver Member',
       description: 'Annual premium membership with enhanced features',
       priceInr: 1000,
@@ -43,8 +73,23 @@ async function main() {
     },
   });
 
-  const goldTier = await prisma.membershipTier.create({
-    data: {
+  const goldTier = await prisma.membershipTier.upsert({
+    where: { name: 'Gold Member' },
+    update: {
+      description: 'Lifetime premium membership with full access',
+      priceInr: 4000,
+      durationMonths: null,
+      benefits: [
+        'All Silver benefits',
+        'Featured profile',
+        'Marketplace priority listing',
+        'Exclusive networking events',
+        'Direct admin contact',
+      ],
+      badgeColor: '#F59E0B',
+      displayOrder: 3,
+    },
+    create: {
       name: 'Gold Member',
       description: 'Lifetime premium membership with full access',
       priceInr: 4000,
@@ -61,8 +106,24 @@ async function main() {
     },
   });
 
-  const patronTier = await prisma.membershipTier.create({
-    data: {
+  const patronTier = await prisma.membershipTier.upsert({
+    where: { name: 'Patron Member' },
+    update: {
+      description: 'Top-tier membership with exclusive benefits',
+      priceInr: 5000,
+      durationMonths: null,
+      benefits: [
+        'All Gold benefits',
+        'Donor recognition on wall',
+        'Chapter voting rights',
+        'Exclusive newsletters',
+        'VIP event access',
+        'Mentorship priority',
+      ],
+      badgeColor: '#8B5CF6',
+      displayOrder: 4,
+    },
+    create: {
       name: 'Patron Member',
       description: 'Top-tier membership with exclusive benefits',
       priceInr: 5000,
@@ -116,8 +177,13 @@ async function main() {
   ];
 
   for (const chapter of chapters) {
-    await prisma.chapter.create({
-      data: chapter,
+    await prisma.chapter.upsert({
+      where: { name: chapter.name },
+      update: {
+        region: chapter.region,
+        isActive: true,
+      },
+      create: chapter,
     });
   }
 
@@ -125,8 +191,24 @@ async function main() {
 
   // Create admin user
   const adminPassword = await bcrypt.hash('Admin@123', 12);
-  const adminUser = await prisma.user.create({
-    data: {
+  const adminUser = await prisma.user.upsert({
+    where: { email: 'admin@aitdconnection.edu' },
+    update: {
+      passwordHash: adminPassword,
+      fullName: 'System Administrator',
+      batchYear: 2020,
+      department: 'Administration',
+      degree: 'B.Tech',
+      roleType: 'ALUMNI',
+      userRole: 'SUPER_ADMIN',
+      isVerified: true,
+      emailVerifiedAt: new Date(),
+      profileCompleteness: 50,
+      currentDesignation: 'Platform Administrator',
+      shortBio: 'Managing the AITD Connection platform',
+      membershipTierId: patronTier.id,
+    },
+    create: {
       email: 'admin@aitdconnection.edu',
       passwordHash: adminPassword,
       fullName: 'System Administrator',
@@ -160,8 +242,27 @@ async function main() {
     const lat = 15.2993 + (Math.random() * 0.1); // Around Goa
     const lng = 73.9814 + (Math.random() * 0.1);
 
-    await prisma.user.create({
-      data: {
+    await prisma.user.upsert({
+      where: { email: `user${i}@example.com` },
+      update: {
+        passwordHash: samplePassword,
+        fullName: `Test User ${i}`,
+        batchYear,
+        department: dept,
+        degree: 'B.Tech',
+        roleType: 'ALUMNI',
+        isVerified: true,
+        isLocationPublic: true,
+        locationLat: lat,
+        locationLng: lng,
+        emailVerifiedAt: new Date(),
+        profileCompleteness: 60,
+        currentDesignation: `Software Engineer ${i}`,
+        shortBio: `Passionate alumnus from the ${batchYear} batch of ${dept}`,
+        city,
+        membershipTierId: generalTier.id,
+      },
+      create: {
         email: `user${i}@example.com`,
         passwordHash: samplePassword,
         fullName: `Test User ${i}`,
@@ -261,7 +362,20 @@ async function main() {
   ];
 
   for (const article of newsData) {
-    await prisma.newsArticle.create({ data: article });
+    await prisma.newsArticle.upsert({
+      where: { slug: article.slug },
+      update: {
+        title: article.title,
+        content: article.content,
+        excerpt: article.excerpt,
+        category: article.category,
+        authorId: article.authorId,
+        status: article.status,
+        readingTime: article.readingTime,
+        publishedAt: article.publishedAt,
+      },
+      create: article,
+    });
   }
 
   console.log('✅ Created sample news articles');

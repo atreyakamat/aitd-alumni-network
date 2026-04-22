@@ -25,9 +25,13 @@ const nextConfig = {
     return config;
   },
   async rewrites() {
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL || '/api';
     const destinationBase = apiUrl.endsWith('/api') ? apiUrl.slice(0, -4) : apiUrl;
-    
+
+    if (!apiUrl.startsWith('http')) {
+      return [];
+    }
+
     return [
       {
         source: '/api/:path*',

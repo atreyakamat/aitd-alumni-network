@@ -162,6 +162,22 @@ See `.env.example` for all required environment variables:
 - `FEED_CACHE_TTL_SECONDS` - Public feed cache TTL in seconds
 - `IMAGE_*` - Upload image compression and resize configuration
 
+### Production host setup (`aitd.stixnvibes.com`)
+
+Set frontend environment variable:
+
+```bash
+NEXT_PUBLIC_API_URL=/api
+```
+
+Use a reverse proxy (or platform routing) so `https://aitd.stixnvibes.com/api/*` reaches your backend service.
+
+If frontend and backend are on different domains, set:
+
+```bash
+NEXT_PUBLIC_API_URL=https://<your-api-domain>/api
+```
+
 ## 🔧 Available Scripts
 
 ```bash
@@ -182,6 +198,13 @@ npm run db:deploy        # Deploy migrations (production-safe)
 npm run db:seed          # Seed the database
 npm run db:studio        # Open Prisma Studio
 ```
+
+## 👤 Default Seed Accounts
+
+After `npm run db:seed` (or `cd server && npx prisma db seed`):
+
+- **Admin:** `admin@aitdconnection.edu` / `Admin@123`
+- **Sample Alumni/Open users:** `user1@example.com` to `user10@example.com` / `User@123`
 
 ## 📚 API Documentation
 
