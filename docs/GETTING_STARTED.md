@@ -134,7 +134,7 @@ npm run dev --workspace=client
 
 - **Frontend**: http://localhost:3000
 - **Backend API**: http://localhost:5000
-- **API Health Check**: http://localhost:5000/health
+- **API Health Check**: http://localhost:5000/health (includes MySQL status)
 - **Prisma Studio**: http://localhost:5555 (if running)
 
 ## Testing the API
@@ -397,6 +397,10 @@ Use the health endpoint to verify the server is running:
 ```bash
 curl http://localhost:5000/health
 ```
+
+Expected response includes:
+- `database: "mysql"`
+- `databaseStatus: "up"` when MySQL is reachable
 
 ### Logging
 

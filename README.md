@@ -107,11 +107,16 @@ aitd-alumni-network/
    ```
 
 4. **Set up environment variables**
-   ```bash
-   cp .env.example .env
-   # Edit .env with your MySQL credentials
-   # DATABASE_URL="mysql://root:YOUR_PASSWORD@localhost:3306/alumni_connect"
-   ```
+    ```bash
+    # Server environment (required)
+    copy server\.env.example server\.env
+
+    # Client environment (optional overrides)
+    copy client\.env.example client\.env.local
+
+    # Edit server\.env with your MySQL credentials
+    # DATABASE_URL="mysql://root:YOUR_PASSWORD@localhost:3306/alumni_connect"
+    ```
 
 5. **Set up the database**
    ```bash
@@ -138,9 +143,10 @@ aitd-alumni-network/
    npm run dev
    ```
 
-   This starts:
-   - Frontend: http://localhost:3000
-   - Backend: http://localhost:5000
+This starts:
+- Frontend: http://localhost:3000
+- Backend: http://localhost:5000
+- Health check (includes DB status): http://localhost:5000/health
 
 ## 📝 Environment Variables
 

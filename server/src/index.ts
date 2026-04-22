@@ -7,10 +7,10 @@ import passport from 'passport';
 import { createServer } from 'http';
 import { rateLimit } from 'express-rate-limit';
 import routes from './routes';
+import prisma from './config/database';
 import { errorHandler } from './middleware/errorHandler';
 import { notFoundHandler } from './middleware/notFoundHandler';
 import { initSocket } from './utils/socket';
-import { config } from './config';
 import './config/passport'; // Initialize passport strategies
 
 dotenv.config();
@@ -18,6 +18,15 @@ dotenv.config();
 const app = express();
 const server = createServer(app);
 const PORT = process.env.PORT || 5000;
+const DATABASE_URL = process.env.DATABASE_URL || '';
+
+if (!DATABASE_URL) {
+  throw new Error('DATABASE_URL is required. Configure a MySQL connection string before starting the server.');
+}
+
+if (!DATABASE_URL.toLowerCase().startsWith('mysql://')) {
+  throw new Error('DATABASE_URL must use MySQL (mysql://...) for this project.');
+}
 
 // Initialize Socket.io
 initSocket(server);
@@ -60,8 +69,23 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')));
 
 // Health check
-app.get('/health', (req, res) => {
-  res.json({ status: 'ok', timestamp: new Date().toISOString() });
+app.get('/health', async (_req, res) => {
+  try {
+    await prisma.$queryRaw`SELECT 1`;
+    res.json({
+      status: 'ok',
+      database: 'mysql',
+      databaseStatus: 'up',
+      timestamp: new Date().toISOString(),
+    });
+  } catch {
+    res.status(503).json({
+      status: 'degraded',
+      database: 'mysql',
+      databaseStatus: 'down',
+      timestamp: new Date().toISOString(),
+    });
+  }
 });
 
 // API Routes
