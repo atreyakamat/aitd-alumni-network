@@ -13,6 +13,7 @@ import { inviteController } from '../controllers/inviteController';
 import { auditController } from '../controllers/auditController';
 import { mentorshipController } from '../controllers/mentorshipController';
 import { adminController } from '../controllers/adminController';
+import { platformController } from '../controllers/platformController';
 import { authenticate, optionalAuth, isAdmin, isSuperAdmin } from '../middleware/auth';
 import { validate } from '../middleware/validate';
 import { cacheMiddleware } from '../middleware/cache';
@@ -271,6 +272,7 @@ router.post('/mentorship/sessions/:sessionId/complete', authenticate, mentorship
 
 // ============== ADMIN ROUTES ==============
 router.get('/admin/stats', authenticate, isAdmin, adminController.getStats);
+router.get('/platform/readiness', authenticate, isAdmin, platformController.getReadiness);
 
 // ============== ADMIN AUDIT ROUTES ==============
 router.get('/admin/audit', authenticate, isAdmin, auditController.getLogs);

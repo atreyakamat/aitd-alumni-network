@@ -122,7 +122,7 @@ export default function EventsPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedType, setSelectedType] = useState('All Events');
 
-  const canCreateEvent = user?.role === 'ADMIN' || user?.role === 'SUPERADMIN' || user?.role === 'ALUMNI';
+  const canCreateEvent = user?.role === 'ADMIN' || user?.role === 'SUPER_ADMIN' || user?.role === 'SUPERADMIN';
 
   const now = new Date();
   const upcomingEvents = events.filter((e) => new Date(e.startDate) > now);

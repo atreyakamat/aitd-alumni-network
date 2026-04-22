@@ -80,7 +80,7 @@ export default function JobsPage() {
   const jobs = data?.data?.items || [];
   const pagination = data?.data || { total: 0, pages: 0, page: 1 };
 
-  const canPostJob = user?.role === 'ADMIN' || user?.role === 'SUPERADMIN' || user?.role === 'ALUMNI';
+  const canPostJob = Boolean(user);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();

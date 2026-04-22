@@ -460,11 +460,15 @@ export const searchApi = {
 // Admin API
 export const adminApi = {
   getStats: () => api.get('/admin/stats'),
-  updateSettings: (settings: any) => api.patch('/admin/settings', settings),
-  getAuditLogs: (params?: any) => api.get('/admin/audit-logs', { params }),
-  getUsers: (params?: any) => api.get('/admin/users', { params }),
-  updateUserStatus: (userId: string, status: string) => 
-    api.patch(`/admin/users/${userId}/status`, { status }),
+  getAuditLogs: (params?: any) => api.get('/admin/audit', { params }),
+  getRecentAuditActivity: (params?: any) => api.get('/admin/audit/activity', { params }),
+  getEntityAuditHistory: (entityType: string, entityId: string) =>
+    api.get(`/admin/audit/${entityType}/${entityId}`),
+};
+
+// Platform control API
+export const platformApi = {
+  getReadiness: () => api.get('/platform/readiness'),
 };
 
 export default api;

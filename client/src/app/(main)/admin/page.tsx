@@ -30,6 +30,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { adminApi } from '@/lib/api';
 import { useAuth } from '@/context/auth-context';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import {
   LineChart,
   Line,
@@ -81,13 +82,13 @@ export default function AdminDashboardPage() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!authLoading && (!user || user.role !== 'ADMIN' && user.role !== 'SUPERADMIN')) {
+    if (!authLoading && (!user || (user.role !== 'ADMIN' && user.role !== 'SUPER_ADMIN' && user.role !== 'SUPERADMIN'))) {
       router.push('/dashboard');
     }
   }, [user, authLoading, router]);
 
   useEffect(() => {
-    if (user && (user.role === 'ADMIN' || user.role === 'SUPERADMIN')) {
+    if (user && (user.role === 'ADMIN' || user.role === 'SUPER_ADMIN' || user.role === 'SUPERADMIN')) {
       loadStats();
     }
   }, [user, timeRange]);
@@ -185,6 +186,9 @@ export default function AdminDashboardPage() {
           </Select>
           <Button variant="outline" size="icon" onClick={loadStats}>
             <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+          </Button>
+          <Button variant="outline" asChild>
+            <Link href="/admin/control">Control Center</Link>
           </Button>
           <Button>
             <Download className="h-4 w-4 mr-2" />

@@ -18,6 +18,22 @@ interface User {
   profileCompleteness: number;
 }
 
+const normalizeUser = (rawUser: any): User => {
+  return {
+    id: rawUser.id,
+    email: rawUser.email,
+    fullName: rawUser.fullName,
+    avatarUrl: rawUser.avatarUrl || rawUser.profilePhotoUrl || undefined,
+    role: rawUser.role || rawUser.userRole || 'MEMBER',
+    batchYear: rawUser.batchYear || new Date().getFullYear(),
+    department: rawUser.department || 'Unknown',
+    degree: rawUser.degree || 'Unknown',
+    membershipTier: rawUser.membershipTier?.name || rawUser.membershipTier || undefined,
+    isVerified: Boolean(rawUser.isVerified),
+    profileCompleteness: rawUser.profileCompleteness || 0,
+  };
+};
+
 interface AuthContextType {
   user: User | null;
   isLoading: boolean;
@@ -55,7 +71,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return;
       }
       const response = await authApi.me();
-      setUser(response.data.data);
+      setUser(normalizeUser(response.data.data));
     } catch {
       localStorage.removeItem('accessToken');
       localStorage.removeItem('refreshToken');
@@ -79,7 +95,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     localStorage.setItem('accessToken', accessToken);
     localStorage.setItem('refreshToken', refreshToken);
-    setUser(userData);
+    setUser(normalizeUser(userData));
 
     router.push('/dashboard');
   };
@@ -105,7 +121,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     localStorage.setItem('accessToken', data.accessToken);
     localStorage.setItem('refreshToken', data.refreshToken);
     if (data.user) {
-      setUser(data.user);
+      setUser(normalizeUser(data.user));
     }
   };
 
