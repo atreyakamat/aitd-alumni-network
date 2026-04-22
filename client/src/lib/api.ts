@@ -1,11 +1,13 @@
 import axios from 'axios';
 
+const isBrowser = typeof window !== 'undefined';
+
 const getApiUrl = () => {
   if (process.env.NEXT_PUBLIC_API_URL) {
     return process.env.NEXT_PUBLIC_API_URL;
   }
 
-  if (typeof window !== 'undefined') {
+  if (isBrowser) {
     const { hostname, origin } = window.location;
     const isLocalHost = hostname === 'localhost' || hostname === '127.0.0.1';
     return isLocalHost ? 'http://localhost:5000/api' : `${origin}/api`;
@@ -14,15 +16,39 @@ const getApiUrl = () => {
   return 'http://localhost:5000/api';
 };
 
-const API_URL = getApiUrl();
+const getFallbackApiUrl = () => {
+  if (!isBrowser) return null;
+  const { hostname } = window.location;
+  const isLocalHost = hostname === 'localhost' || hostname === '127.0.0.1';
+  if (isLocalHost) return null;
+  if (hostname.startsWith('api.')) return null;
+  return `https://api.${hostname}/api`;
+};
+
+let currentApiUrl = getApiUrl();
+
+if (isBrowser) {
+  const persistedApiUrl = window.localStorage.getItem('apiBaseUrlOverride');
+  if (persistedApiUrl) {
+    currentApiUrl = persistedApiUrl;
+  }
+}
 
 export const api = axios.create({
-  baseURL: API_URL,
+  baseURL: currentApiUrl,
   headers: {
     'Content-Type': 'application/json',
   },
   withCredentials: true,
 });
+
+const setApiBaseUrl = (baseUrl: string) => {
+  currentApiUrl = baseUrl;
+  api.defaults.baseURL = baseUrl;
+  if (isBrowser) {
+    window.localStorage.setItem('apiBaseUrlOverride', baseUrl);
+  }
+};
 
 // Request interceptor to add auth token
 api.interceptors.request.use(
@@ -43,11 +69,33 @@ api.interceptors.response.use(
   (response) => response,
   async (error) => {
     const originalRequest = error.config;
+    const fallbackApiUrl = getFallbackApiUrl();
+    const isHtml404 =
+      error.response?.status === 404 &&
+      typeof error.response?.headers?.['content-type'] === 'string' &&
+      error.response.headers['content-type'].includes('text/html');
+
+    const tryFailover = async () => {
+      if (!isBrowser || !fallbackApiUrl || originalRequest?._apiFailoverTried) {
+        return null;
+      }
+      if (currentApiUrl === fallbackApiUrl) {
+        return null;
+      }
+
+      originalRequest._apiFailoverTried = true;
+      setApiBaseUrl(fallbackApiUrl);
+      originalRequest.baseURL = fallbackApiUrl;
+      return api(originalRequest);
+    };
 
     // Handle network errors
     if (!error.response) {
+      const failoverResponse = await tryFailover();
+      if (failoverResponse) return failoverResponse;
+
       console.error('Network error:', error.message);
-      if (typeof window !== 'undefined') {
+      if (isBrowser) {
         window.dispatchEvent(new CustomEvent('api:network_error', { 
           detail: { message: 'Network error. Please check your connection.' } 
         }));
@@ -55,10 +103,15 @@ api.interceptors.response.use(
       return Promise.reject(error);
     }
 
+    if (isHtml404) {
+      const failoverResponse = await tryFailover();
+      if (failoverResponse) return failoverResponse;
+    }
+
     // Handle 500 server errors
     if (error.response?.status >= 500) {
       console.error('Server error:', error.response.data);
-      if (typeof window !== 'undefined') {
+      if (isBrowser) {
         window.dispatchEvent(new CustomEvent('api:server_error', { 
           detail: { 
             message: error.response.data?.error || 'Server error. Please try again later.',
@@ -76,7 +129,7 @@ api.interceptors.response.use(
       try {
         const refreshToken = localStorage.getItem('refreshToken');
         if (refreshToken) {
-          const response = await axios.post(`${API_URL}/auth/refresh-token`, {
+          const response = await axios.post(`${currentApiUrl}/auth/refresh-token`, {
             refreshToken,
           });
 
@@ -92,7 +145,7 @@ api.interceptors.response.use(
         // Refresh failed, clear tokens and redirect to login
         localStorage.removeItem('accessToken');
         localStorage.removeItem('refreshToken');
-        if (typeof window !== 'undefined') {
+        if (isBrowser) {
           window.dispatchEvent(new CustomEvent('api:session_expired', { 
             detail: { message: 'Your session has expired. Please log in again.' } 
           }));
@@ -103,7 +156,7 @@ api.interceptors.response.use(
 
     // Handle 403 Forbidden
     if (error.response?.status === 403) {
-      if (typeof window !== 'undefined') {
+      if (isBrowser) {
         window.dispatchEvent(new CustomEvent('api:forbidden', { 
           detail: { message: 'You do not have permission to perform this action.' } 
         }));

@@ -148,6 +148,12 @@ Seeded credentials:
 - Admin: `admin@aitdconnection.edu` / `Admin@123`
 - Alumni/Open users: `user1@example.com` to `user10@example.com` / `User@123`
 
+## Production note for `aitd.stixnvibes.com`
+
+Frontend API calls should route to backend via:
+- Netlify redirect: `/api/* -> https://api.aitd.stixnvibes.com/api/:splat`
+- or `NEXT_PUBLIC_API_URL=https://api.aitd.stixnvibes.com/api`
+
 ## Testing the API
 
 You can test the API using curl or Postman:

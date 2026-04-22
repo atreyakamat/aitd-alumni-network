@@ -172,6 +172,18 @@ NEXT_PUBLIC_API_URL=/api
 
 Use a reverse proxy (or platform routing) so `https://aitd.stixnvibes.com/api/*` reaches your backend service.
 
+This repository now includes a Netlify redirect:
+
+```toml
+/api/*  ->  https://api.aitd.stixnvibes.com/api/:splat
+```
+
+If `/api/*` is not proxied, the frontend now attempts one automatic failover to:
+
+```bash
+https://api.aitd.stixnvibes.com/api
+```
+
 If frontend and backend are on different domains, set:
 
 ```bash
