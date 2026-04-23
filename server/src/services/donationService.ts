@@ -9,10 +9,22 @@ import { Prisma } from '@prisma/client';
 import { generateDonationReceipt, generateReceiptNumber } from '../utils/pdfReceipt';
 import { uploadBufferToStorage } from '../utils/storage';
 
-const razorpay = new Razorpay({
-  key_id: config.razorpay.keyId,
-  key_secret: config.razorpay.keySecret,
-});
+let razorpayClient: Razorpay | null = null;
+
+const getRazorpayClient = () => {
+  if (!config.razorpay.keyId || !config.razorpay.keySecret) {
+    throw new AppError('Payments are not configured. Missing Razorpay credentials.', 503, 'PAYMENT_NOT_CONFIGURED');
+  }
+
+  if (!razorpayClient) {
+    razorpayClient = new Razorpay({
+      key_id: config.razorpay.keyId,
+      key_secret: config.razorpay.keySecret,
+    });
+  }
+
+  return razorpayClient;
+};
 
 interface CreateDonationInput {
   amount: number;
@@ -24,6 +36,7 @@ interface CreateDonationInput {
 
 export class DonationService {
   async createOrder(userId: string | null, data: CreateDonationInput) {
+    const razorpay = getRazorpayClient();
     const order = await razorpay.orders.create({
       amount: data.amount * 100, // Amount in paise
       currency: 'INR',
@@ -69,6 +82,7 @@ export class DonationService {
     razorpaySignature: string,
     donationData: CreateDonationInput
   ) {
+    const razorpay = getRazorpayClient();
     // Verify signature
     const body = razorpayOrderId + '|' + razorpayPaymentId;
     const expectedSignature = crypto

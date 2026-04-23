@@ -7,10 +7,22 @@ import crypto from 'crypto';
 import { generateMembershipReceipt, generateReceiptNumber } from '../utils/pdfReceipt';
 import { uploadBufferToStorage } from '../utils/storage';
 
-const razorpay = new Razorpay({
-  key_id: config.razorpay.keyId,
-  key_secret: config.razorpay.keySecret,
-});
+let razorpayClient: Razorpay | null = null;
+
+const getRazorpayClient = () => {
+  if (!config.razorpay.keyId || !config.razorpay.keySecret) {
+    throw new AppError('Payments are not configured. Missing Razorpay credentials.', 503, 'PAYMENT_NOT_CONFIGURED');
+  }
+
+  if (!razorpayClient) {
+    razorpayClient = new Razorpay({
+      key_id: config.razorpay.keyId,
+      key_secret: config.razorpay.keySecret,
+    });
+  }
+
+  return razorpayClient;
+};
 
 export class MembershipService {
   async getTiers() {
@@ -85,6 +97,7 @@ export class MembershipService {
 
   async createOrder(userId: string, tierId: string) {
     const tier = await this.getTier(tierId);
+    const razorpay = getRazorpayClient();
 
     // Create Razorpay order
     const order = await razorpay.orders.create({
