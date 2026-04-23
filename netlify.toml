@@ -11,10 +11,3 @@
   NEXT_USE_NETLIFY_EDGE = "false"
   NODE_ENV = "production"
   CI = "false"
-
-[[redirects]]
-  from = "/api/*"
-  to = "https://api.aitd.stixnvibes.com/api/:splat"
-  status = 200
-  force = true
-

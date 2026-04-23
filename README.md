@@ -162,30 +162,44 @@ See `.env.example` for all required environment variables:
 - `FEED_CACHE_TTL_SECONDS` - Public feed cache TTL in seconds
 - `IMAGE_*` - Upload image compression and resize configuration
 
-### Production host setup (`aitd.stixnvibes.com`)
+### Production Deployment
 
-The frontend defaults to same-origin API calls using `/api`. Set up your reverse proxy so that `https://aitd.stixnvibes.com/api/*` routes to your backend service.
+**Option 1: Backend on separate domain (Heroku, Railway, AWS, etc.)**
 
-**Same-origin proxying (recommended):**
+Frontend (on Netlify):
 ```bash
-# Frontend environment (default)
+# In Netlify environment variables, set:
+NEXT_PUBLIC_API_URL=https://your-backend-url.com/api
+```
+
+**Option 2: Backend and frontend on same domain**
+
+If you have a reverse proxy (Nginx, Apache) or backend on same server as frontend:
+```bash
+# Frontend defaults to same-origin:
 NEXT_PUBLIC_API_URL=/api
 ```
 
-Use a reverse proxy (Netlify, Nginx, etc.) to proxy `/api/*` requests to your backend:
-```toml
-# Example Netlify redirect
-/api/*  ->  https://api.aitd.stixnvibes.com/api/:splat
+Then configure your proxy/server to route `/api/*` to your backend:
+```nginx
+# Nginx example
+location /api {
+  proxy_pass http://your-backend:5000/api;
+}
 ```
 
-**Different-domain backend:**
-If backend is on a separate domain, explicitly set the API URL:
+**Option 3: Monolithic Netlify deployment with Functions**
+
+If using Netlify Functions as your backend, set:
 ```bash
-NEXT_PUBLIC_API_URL=https://<your-api-domain>/api
+NEXT_PUBLIC_API_URL=/api
 ```
 
-**Failover (opt-in):**
-If you want automatic failover to a secondary backend on network/gateway errors, explicitly configure it:
+And configure Netlify to route `/api/*` requests to your functions.
+
+**Failover (optional):**
+
+For automatic failover to a secondary backend on network/gateway errors:
 ```bash
 NEXT_PUBLIC_API_FALLBACK_URL=https://backup-api.yourdomain.com/api
 ```
