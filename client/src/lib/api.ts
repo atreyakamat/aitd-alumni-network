@@ -17,12 +17,12 @@ const getApiUrl = () => {
 };
 
 const getFallbackApiUrl = () => {
-  if (!isBrowser) return null;
-  const { hostname } = window.location;
-  const isLocalHost = hostname === 'localhost' || hostname === '127.0.0.1';
-  if (isLocalHost) return null;
-  if (hostname.startsWith('api.')) return null;
-  return `https://api.${hostname}/api`;
+  // Only use fallback if explicitly configured via env var
+  // This prevents auto-construction of non-existent DNS records like api.aitd.stixnvibes.com
+  if (process.env.NEXT_PUBLIC_API_FALLBACK_URL) {
+    return process.env.NEXT_PUBLIC_API_FALLBACK_URL;
+  }
+  return null;
 };
 
 let currentApiUrl = getApiUrl();

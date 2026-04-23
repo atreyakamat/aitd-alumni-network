@@ -164,31 +164,33 @@ See `.env.example` for all required environment variables:
 
 ### Production host setup (`aitd.stixnvibes.com`)
 
-Set frontend environment variable:
+The frontend defaults to same-origin API calls using `/api`. Set up your reverse proxy so that `https://aitd.stixnvibes.com/api/*` routes to your backend service.
 
+**Same-origin proxying (recommended):**
 ```bash
+# Frontend environment (default)
 NEXT_PUBLIC_API_URL=/api
 ```
 
-Use a reverse proxy (or platform routing) so `https://aitd.stixnvibes.com/api/*` reaches your backend service.
-
-This repository now includes a Netlify redirect:
-
+Use a reverse proxy (Netlify, Nginx, etc.) to proxy `/api/*` requests to your backend:
 ```toml
+# Example Netlify redirect
 /api/*  ->  https://api.aitd.stixnvibes.com/api/:splat
 ```
 
-If `/api/*` is not proxied, or the proxy returns gateway failures (502/503/504), the frontend attempts one automatic failover to:
-
-```bash
-https://api.aitd.stixnvibes.com/api
-```
-
-If frontend and backend are on different domains, set:
-
+**Different-domain backend:**
+If backend is on a separate domain, explicitly set the API URL:
 ```bash
 NEXT_PUBLIC_API_URL=https://<your-api-domain>/api
 ```
+
+**Failover (opt-in):**
+If you want automatic failover to a secondary backend on network/gateway errors, explicitly configure it:
+```bash
+NEXT_PUBLIC_API_FALLBACK_URL=https://backup-api.yourdomain.com/api
+```
+
+Without `NEXT_PUBLIC_API_FALLBACK_URL`, the frontend will NOT attempt to construct or fall back to alternate domains. This prevents DNS errors on non-existent subdomains.
 
 ## 🔧 Available Scripts
 
