@@ -178,7 +178,7 @@ This repository now includes a Netlify redirect:
 /api/*  ->  https://api.aitd.stixnvibes.com/api/:splat
 ```
 
-If `/api/*` is not proxied, the frontend now attempts one automatic failover to:
+If `/api/*` is not proxied, or the proxy returns gateway failures (502/503/504), the frontend attempts one automatic failover to:
 
 ```bash
 https://api.aitd.stixnvibes.com/api

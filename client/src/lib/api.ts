@@ -70,6 +70,10 @@ api.interceptors.response.use(
   async (error) => {
     const originalRequest = error.config;
     const fallbackApiUrl = getFallbackApiUrl();
+    const isGatewayFailure =
+      error.response?.status === 502 ||
+      error.response?.status === 503 ||
+      error.response?.status === 504;
     const isHtml404 =
       error.response?.status === 404 &&
       typeof error.response?.headers?.['content-type'] === 'string' &&
@@ -103,7 +107,7 @@ api.interceptors.response.use(
       return Promise.reject(error);
     }
 
-    if (isHtml404) {
+    if (isHtml404 || isGatewayFailure) {
       const failoverResponse = await tryFailover();
       if (failoverResponse) return failoverResponse;
     }
