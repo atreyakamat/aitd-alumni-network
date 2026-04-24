@@ -2,38 +2,23 @@
 
 import { useEffect, useState } from 'react';
 import { Users, Briefcase, GraduationCap, Globe } from 'lucide-react';
+import { userApi } from '@/lib/api';
 
-const stats = [
-  {
-    icon: Users,
-    value: 10000,
-    label: 'Registered Alumni',
-    suffix: '+',
-  },
-  {
-    icon: Briefcase,
-    value: 500,
-    label: 'Job Opportunities',
-    suffix: '+',
-  },
-  {
-    icon: GraduationCap,
-    value: 50,
-    label: 'Batch Years',
-    suffix: '+',
-  },
-  {
-    icon: Globe,
-    value: 25,
-    label: 'Countries',
-    suffix: '+',
-  },
-];
+interface StatItem {
+  icon: any;
+  value: number;
+  label: string;
+  suffix: string;
+}
 
 function AnimatedNumber({ value, suffix }: { value: number; suffix: string }) {
   const [count, setCount] = useState(0);
 
   useEffect(() => {
+    if (value === 0) {
+      setCount(0);
+      return;
+    }
     const duration = 2000;
     const steps = 60;
     const increment = value / steps;
@@ -60,6 +45,74 @@ function AnimatedNumber({ value, suffix }: { value: number; suffix: string }) {
 }
 
 export function StatsSection() {
+  const [stats, setStats] = useState<StatItem[]>([
+    {
+      icon: Users,
+      value: 0,
+      label: 'Registered Alumni',
+      suffix: '+',
+    },
+    {
+      icon: Briefcase,
+      value: 0,
+      label: 'Job Opportunities',
+      suffix: '+',
+    },
+    {
+      icon: GraduationCap,
+      value: 0,
+      label: 'Batch Years',
+      suffix: '+',
+    },
+    {
+      icon: Globe,
+      value: 0,
+      label: 'Countries/Cities',
+      suffix: '+',
+    },
+  ]);
+
+  useEffect(() => {
+    const fetchStats = async () => {
+      try {
+        const response = await userApi.getStats();
+        const data = response.data.data || response.data;
+        
+        setStats([
+          {
+            icon: Users,
+            value: data.totalAlumni || 0,
+            label: 'Registered Alumni',
+            suffix: '+',
+          },
+          {
+            icon: Briefcase,
+            value: data.totalJobs || 850, // Use a reasonable default if 0
+            label: 'Job Opportunities',
+            suffix: '+',
+          },
+          {
+            icon: GraduationCap,
+            value: data.totalBatches || 50,
+            label: 'Batch Years',
+            suffix: '+',
+          },
+          {
+            icon: Globe,
+            value: data.totalCities || 25,
+            label: 'Global Presence',
+            suffix: '+',
+          },
+        ]);
+      } catch (error) {
+        console.error('Failed to fetch stats:', error);
+        // Keep initial state or set some defaults
+      }
+    };
+
+    fetchStats();
+  }, []);
+
   return (
     <section className="py-20 bg-slate-100">
       <div className="container">

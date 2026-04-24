@@ -20,6 +20,9 @@ export function Footer() {
             <Link href="/directory" className="text-sm tracking-wide text-slate-500 transition-colors hover:text-blue-700 font-body">
               Directory
             </Link>
+            <Link href="/yearbook" className="text-sm tracking-wide text-slate-500 transition-colors hover:text-blue-700 font-body">
+              Yearbook
+            </Link>
             <Link href="/jobs" className="text-sm tracking-wide text-slate-500 transition-colors hover:text-blue-700 font-body">
               Jobs
             </Link>

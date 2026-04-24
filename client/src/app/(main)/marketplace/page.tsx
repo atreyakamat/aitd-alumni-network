@@ -40,7 +40,7 @@ export default function MarketplacePage() {
         category: selectedCategory === 'all' ? undefined : selectedCategory,
         search: searchQuery || undefined
       });
-      setListings(response.data.data || []);
+      setListings(response.data.items || []);
     } catch (error) {
       console.error('Marketplace fetch error:', error);
     } finally {

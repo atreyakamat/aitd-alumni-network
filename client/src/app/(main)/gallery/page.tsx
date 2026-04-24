@@ -38,8 +38,8 @@ export default function GalleryPage() {
         galleryApi.getAlbums(),
         galleryApi.getRecentPhotos(12)
       ]);
-      setAlbums(albumsRes.data.data || []);
-      setRecentPhotos(photosRes.data.data || []);
+      setAlbums(albumsRes.data.items || []);
+      setRecentPhotos(photosRes.data.items || []);
     } catch (error) {
       console.error('Gallery fetch error:', error);
     } finally {

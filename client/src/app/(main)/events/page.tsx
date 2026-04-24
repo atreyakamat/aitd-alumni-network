@@ -1,14 +1,28 @@
 'use client';
 
 import { useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { eventApi } from '@/lib/api';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { 
+  Calendar, 
+  MapPin, 
+  Clock, 
+  Search, 
+  Plus, 
+  Video, 
+  Filter,
+  Trophy,
+  AlertCircle
+} from 'lucide-react';
+import { formatDate } from '@/lib/utils';
 import { useAuth } from '@/context/auth-context';
 import Link from 'next/link';
+import { LoadingSpinner } from '@/components/ui/loading';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import {
   Select,
   SelectContent,
@@ -16,162 +30,73 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import {
-  Search,
-  Filter,
-  MapPin,
-  Calendar,
-  Clock,
-  Users,
-  Plus,
-  Video,
-  ExternalLink,
-  Trophy,
-} from 'lucide-react';
-import { formatDate, formatDateTime } from '@/lib/utils';
-
-const eventTypes = ['All Events', 'Robowar', 'Reunion', 'Workshop', 'Webinar', 'Meetup', 'Conference'];
-
-// Mock data
-const events = [
-  {
-    id: 'robowar-2026',
-    title: 'Robowar Championship 2026',
-    description: 'The ultimate battle of machines! Witness the most powerful robots compete for glory in our flagship technical event.',
-    coverImageUrl: null,
-    location: 'College Main Arena',
-    isVirtual: false,
-    startDate: '2026-04-15T10:00:00Z',
-    endDate: '2026-04-15T18:00:00Z',
-    maxAttendees: 1000,
-    attendeesCount: 450,
-    type: 'ROBOWAR',
-    isUserRSVPed: false,
-    tags: ['Flagship', 'Gold', 'Silver', 'Bronze'],
-  },
-  {
-    id: '1',
-    title: 'Annual Alumni Reunion 2024',
-    description: 'Join us for the grand reunion of all batches. Connect with old friends, make new connections, and relive your college memories.',
-    coverImageUrl: null,
-    location: 'College Campus, Main Auditorium',
-    isVirtual: false,
-    startDate: '2024-01-15T09:00:00Z',
-    endDate: '2024-01-15T18:00:00Z',
-    maxAttendees: 500,
-    attendeesCount: 250,
-    type: 'REUNION',
-    isUserRSVPed: false,
-  },
-  {
-    id: '2',
-    title: 'Tech Career Workshop',
-    description: 'Learn about career opportunities in tech from industry experts. Q&A session included.',
-    coverImageUrl: null,
-    location: 'Online (Zoom)',
-    isVirtual: true,
-    meetingUrl: 'https://zoom.us/j/123456789',
-    startDate: '2024-01-20T14:00:00Z',
-    endDate: '2024-01-20T16:00:00Z',
-    maxAttendees: 200,
-    attendeesCount: 120,
-    type: 'WORKSHOP',
-    isUserRSVPed: true,
-  },
-  {
-    id: '3',
-    title: 'Mumbai Chapter Meetup',
-    description: 'Monthly networking meetup for Mumbai-based alumni. Great opportunity to expand your network.',
-    coverImageUrl: null,
-    location: 'Starbucks, Bandra West, Mumbai',
-    isVirtual: false,
-    startDate: '2024-01-28T17:00:00Z',
-    endDate: '2024-01-28T20:00:00Z',
-    maxAttendees: 50,
-    attendeesCount: 35,
-    type: 'MEETUP',
-    isUserRSVPed: false,
-  },
-  {
-    id: '4',
-    title: 'AI & Future of Work Webinar',
-    description: 'Industry leaders discuss how AI is transforming workplaces and what skills you need to stay relevant.',
-    coverImageUrl: null,
-    location: 'Online (YouTube Live)',
-    isVirtual: true,
-    startDate: '2024-02-05T18:00:00Z',
-    endDate: '2024-02-05T19:30:00Z',
-    maxAttendees: null,
-    attendeesCount: 450,
-    type: 'WEBINAR',
-    isUserRSVPed: false,
-  },
-];
 
 const eventTypeColors: Record<string, string> = {
-  ROBOWAR: 'bg-red-100 text-red-700 border-red-200',
-  REUNION: 'bg-purple-100 text-purple-700',
-  WORKSHOP: 'bg-blue-100 text-blue-700',
-  WEBINAR: 'bg-green-100 text-green-700',
-  MEETUP: 'bg-amber-100 text-amber-700',
-  CONFERENCE: 'bg-rose-100 text-rose-700',
+  ONLINE: 'bg-green-100 text-green-700',
+  OFFLINE: 'bg-blue-100 text-blue-700',
+  HYBRID: 'bg-purple-100 text-purple-700',
 };
+
+const eventTypes = [
+  { label: 'All Events', value: 'ALL' },
+  { label: 'Online', value: 'ONLINE' },
+  { label: 'Offline', value: 'OFFLINE' },
+  { label: 'Hybrid', value: 'HYBRID' },
+];
 
 export default function EventsPage() {
   const { user } = useAuth();
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedType, setSelectedType] = useState('All Events');
+  const [selectedType, setSelectedType] = useState('ALL');
+  const [page, setPage] = useState(1);
+
+  const { data, isLoading, isError, error, refetch } = useQuery({
+    queryKey: ['events', searchQuery, selectedType, page],
+    queryFn: async () => {
+      const params: any = {
+        page,
+        limit: 12,
+        search: searchQuery || undefined,
+        type: selectedType !== 'ALL' ? selectedType : undefined,
+      };
+      const response = await eventApi.getEvents(params);
+      return response.data;
+    },
+  });
+
+  const events = data?.items || [];
+  const pagination = data || { total: 0, pages: 0, page: 1 };
 
   const canCreateEvent = user?.role === 'ADMIN' || user?.role === 'SUPER_ADMIN' || user?.role === 'SUPERADMIN';
 
-  const now = new Date();
-  const upcomingEvents = events.filter((e) => new Date(e.startDate) > now);
-  const pastEvents = events.filter((e) => new Date(e.startDate) <= now);
-
-  const filterEvents = (eventList: typeof events) => {
-    return eventList.filter((event) => {
-      const matchesSearch =
-        event.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        event.description.toLowerCase().includes(searchQuery.toLowerCase());
-      const matchesType =
-        selectedType === 'All Events' ||
-        event.type.toLowerCase() === selectedType.toLowerCase();
-      return matchesSearch && matchesType;
-    });
+  const handleSearch = (e: React.FormEvent) => {
+    e.preventDefault();
+    setPage(1);
+    refetch();
   };
 
-  const EventCard = ({ event }: { event: (typeof events)[0] }) => (
+  const EventCard = ({ event }: { event: any }) => (
     <Card className="overflow-hidden hover:shadow-md transition-shadow">
       <div className="aspect-video bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center relative">
-        {event.type === 'ROBOWAR' ? <Trophy className="h-12 w-12 text-red-600/50" /> : <Calendar className="h-12 w-12 text-primary/50" />}
+        {event.bannerUrl ? (
+          <img src={event.bannerUrl} alt={event.title} className="w-full h-full object-cover" />
+        ) : (
+          <Calendar className="h-12 w-12 text-primary/50" />
+        )}
         <div className="absolute top-3 left-3 flex gap-2">
-          <Badge className={eventTypeColors[event.type]}>{event.type}</Badge>
-          {event.isVirtual && (
+          <Badge className={eventTypeColors[event.eventType] || 'bg-slate-100 text-slate-700'}>
+            {event.eventType}
+          </Badge>
+          {event.eventType === 'ONLINE' && (
             <Badge variant="secondary">
               <Video className="h-3 w-3 mr-1" />
               Virtual
             </Badge>
           )}
         </div>
-        {event.isUserRSVPed && (
-          <div className="absolute top-3 right-3">
-            <Badge variant="default" className="bg-green-600">Registered</Badge>
-          </div>
-        )}
       </div>
       <CardContent className="p-6">
-        <div className="flex flex-wrap gap-1 mb-3">
-          {event.tags?.map((tag) => (
-            <Badge 
-              key={tag} 
-              variant={tag === 'Flagship' ? 'neon' : tag === 'Gold' ? 'warning' : 'outline'}
-              className={tag === 'Silver' ? 'bg-slate-200' : tag === 'Bronze' ? 'bg-orange-200' : ''}
-            >
-              {tag}
-            </Badge>
-          ))}
-        </div>
-        <h3 className="font-semibold text-lg mb-2">{event.title}</h3>
+        <h3 className="font-semibold text-lg mb-2 truncate">{event.title}</h3>
         <p className="text-sm text-muted-foreground line-clamp-2 mb-4">
           {event.description}
         </p>
@@ -184,11 +109,7 @@ export default function EventsPage() {
           <div className="flex items-center gap-2">
             <Clock className="h-4 w-4" />
             <span>
-              {new Date(event.startDate).toLocaleTimeString('en-IN', {
-                hour: '2-digit',
-                minute: '2-digit',
-              })} - 
-              {new Date(event.endDate).toLocaleTimeString('en-IN', {
+              {new Date(event.startDate).toLocaleTimeString([], {
                 hour: '2-digit',
                 minute: '2-digit',
               })}
@@ -196,37 +117,17 @@ export default function EventsPage() {
           </div>
           <div className="flex items-center gap-2">
             <MapPin className="h-4 w-4" />
-            <span className="truncate">{event.location}</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <Users className="h-4 w-4" />
-            <span>
-              {event.attendeesCount} attending
-              {event.maxAttendees && ` / ${event.maxAttendees} max`}
-            </span>
+            <span className="truncate">{event.location || event.venue || 'Location TBD'}</span>
           </div>
         </div>
 
-        <div className="flex gap-2 mt-4">
-          <Link href={`/events/${event.id}`} className="flex-1">
-            <Button variant="outline" className="w-full">
-              View Details
-            </Button>
+        <div className="mt-6 flex items-center justify-between">
+          <span className="text-xs text-muted-foreground">
+            {event.rsvpCount || 0} registered
+          </span>
+          <Link href={`/events/${event.id}`}>
+            <Button size="sm">View Details</Button>
           </Link>
-          {event.isUserRSVPed ? (
-            event.isVirtual ? (
-              <Button className="flex-1">
-                Join Event
-                <ExternalLink className="ml-2 h-4 w-4" />
-              </Button>
-            ) : (
-              <Button variant="secondary" className="flex-1">
-                Cancel RSVP
-              </Button>
-            )
-          ) : (
-            <Button className="flex-1">RSVP Now</Button>
-          )}
         </div>
       </CardContent>
     </Card>
@@ -236,23 +137,25 @@ export default function EventsPage() {
     <div className="space-y-6">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold">Events</h1>
+          <h1 className="text-2xl font-bold">Upcoming Events</h1>
           <p className="text-muted-foreground">
-            Discover reunions, workshops, and networking events
+            Stay connected through webinars, meetups, and reunions
           </p>
         </div>
         {canCreateEvent && (
-          <Button>
-            <Plus className="h-4 w-4 mr-2" />
-            Create Event
-          </Button>
+          <Link href="/admin/events/new">
+            <Button>
+              <Plus className="h-4 w-4 mr-2" />
+              Create Event
+            </Button>
+          </Link>
         )}
       </div>
 
       {/* Filters */}
       <Card>
         <CardContent className="pt-6">
-          <div className="flex flex-col md:flex-row gap-4">
+          <form onSubmit={handleSearch} className="flex flex-col md:flex-row gap-4">
             <div className="flex-1 relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
@@ -262,85 +165,81 @@ export default function EventsPage() {
                 className="pl-10"
               />
             </div>
-            <Select value={selectedType} onValueChange={setSelectedType}>
+            <Select 
+              value={selectedType} 
+              onValueChange={(val) => {
+                setSelectedType(val);
+                setPage(1);
+              }}
+            >
               <SelectTrigger className="w-full md:w-[180px]">
                 <SelectValue placeholder="Event Type" />
               </SelectTrigger>
               <SelectContent>
                 {eventTypes.map((type) => (
-                  <SelectItem key={type} value={type}>
-                    {type}
+                  <SelectItem key={type.value} value={type.value}>
+                    {type.label}
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
-            <Button variant="outline">
-              <Filter className="h-4 w-4 mr-2" />
-              More Filters
-            </Button>
-          </div>
+            <Button type="submit">Search</Button>
+          </form>
         </CardContent>
       </Card>
 
-      {/* Event Tabs */}
-      <Tabs defaultValue="upcoming">
-        <TabsList>
-          <TabsTrigger value="upcoming">
-            Upcoming ({filterEvents(upcomingEvents).length})
-          </TabsTrigger>
-          <TabsTrigger value="past">
-            Past Events ({filterEvents(pastEvents).length})
-          </TabsTrigger>
-          <TabsTrigger value="my-events">My Events</TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="upcoming" className="mt-6">
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filterEvents(upcomingEvents).map((event) => (
+      {isLoading ? (
+        <div className="flex justify-center py-12">
+          <LoadingSpinner size="lg" />
+        </div>
+      ) : isError ? (
+        <Alert variant="destructive">
+          <AlertCircle className="h-4 w-4" />
+          <AlertTitle>Error</AlertTitle>
+          <AlertDescription>
+            {(error as any)?.response?.data?.error || 'Failed to load events. Please try again later.'}
+          </AlertDescription>
+        </Alert>
+      ) : events.length === 0 ? (
+        <div className="text-center py-12 border rounded-lg bg-muted/20">
+          <Calendar className="h-12 w-12 mx-auto text-muted-foreground mb-4 opacity-20" />
+          <h3 className="text-lg font-medium">No events found</h3>
+          <p className="text-muted-foreground">Try adjusting your search or filters</p>
+        </div>
+      ) : (
+        <>
+          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            {events.map((event: any) => (
               <EventCard key={event.id} event={event} />
             ))}
           </div>
-          {filterEvents(upcomingEvents).length === 0 && (
-            <div className="text-center py-12">
-              <Calendar className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-              <p className="text-muted-foreground">No upcoming events found</p>
-            </div>
-          )}
-        </TabsContent>
 
-        <TabsContent value="past" className="mt-6">
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filterEvents(pastEvents).map((event) => (
-              <EventCard key={event.id} event={event} />
-            ))}
-          </div>
-          {filterEvents(pastEvents).length === 0 && (
-            <div className="text-center py-12">
-              <Calendar className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-              <p className="text-muted-foreground">No past events found</p>
-            </div>
-          )}
-        </TabsContent>
-
-        <TabsContent value="my-events" className="mt-6">
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {events
-              .filter((e) => e.isUserRSVPed)
-              .map((event) => (
-                <EventCard key={event.id} event={event} />
-              ))}
-          </div>
-          {events.filter((e) => e.isUserRSVPed).length === 0 && (
-            <div className="text-center py-12">
-              <Calendar className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-              <p className="text-muted-foreground">You haven't RSVP'd to any events yet</p>
-              <Button className="mt-4" variant="outline">
-                Browse Events
+          {/* Pagination */}
+          {pagination.pages > 1 && (
+            <div className="flex justify-center gap-2 mt-8">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                disabled={page === 1}
+              >
+                Previous
+              </Button>
+              <div className="flex items-center px-4 text-sm font-medium">
+                Page {page} of {pagination.pages}
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setPage((p) => Math.min(pagination.pages, p + 1))}
+                disabled={page === pagination.pages}
+              >
+                Next
               </Button>
             </div>
           )}
-        </TabsContent>
-      </Tabs>
+        </>
+      )}
     </div>
   );
 }

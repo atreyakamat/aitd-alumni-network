@@ -81,9 +81,9 @@ export default function DirectoryPage() {
     enabled: !!user,
   });
 
-  const alumni = data?.data?.items || [];
-  const pagination = data?.data || { total: 0, pages: 0, page: 1 };
-  const connections = connectionsData?.data?.items || [];
+  const alumni = data?.items || [];
+  const pagination = data || { total: 0, pages: 0, page: 1 };
+  const connections = connectionsData?.items || [];
 
   useEffect(() => {
     if (!user || !connections.length) return;

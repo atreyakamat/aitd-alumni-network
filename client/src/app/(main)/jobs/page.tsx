@@ -77,8 +77,8 @@ export default function JobsPage() {
     },
   });
 
-  const jobs = data?.data?.items || [];
-  const pagination = data?.data || { total: 0, pages: 0, page: 1 };
+  const jobs = data?.items || [];
+  const pagination = data || { total: 0, pages: 0, page: 1 };
 
   const canPostJob = Boolean(user);
 

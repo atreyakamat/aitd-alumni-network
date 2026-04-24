@@ -1,8 +1,12 @@
+'use client';
+
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { Button } from '@/components/ui/button';
+import { newsApi } from '@/lib/api';
 
-const stories = [
+const FALLBACK_STORIES = [
   {
     id: '1',
     tag: 'Alumni Spotlight',
@@ -25,6 +29,32 @@ const stories = [
 ];
 
 export function LatestNews() {
+  const [stories, setStories] = useState<any[]>(FALLBACK_STORIES);
+
+  useEffect(() => {
+    const fetchNews = async () => {
+      try {
+        const response = await newsApi.getLatest(2);
+        const data = response.data.data || response.data;
+        if (data && data.length > 0) {
+          const formattedStories = data.map((article: any) => ({
+            id: article.id,
+            tag: article.category || 'News',
+            title: article.title,
+            excerpt: article.summary || article.content.substring(0, 150) + '...',
+            cta: 'Read More',
+            image: article.coverImageUrl || (article.id === data[0].id ? FALLBACK_STORIES[0].image : FALLBACK_STORIES[1].image),
+          }));
+          setStories(formattedStories);
+        }
+      } catch (error) {
+        console.error('Failed to fetch news:', error);
+      }
+    };
+
+    fetchNews();
+  }, []);
+
   return (
     <section className="overflow-hidden bg-slate-100 py-24">
       <div className="container">
@@ -43,41 +73,45 @@ export function LatestNews() {
           </div>
 
           <div className="space-y-24 lg:col-span-8">
-            <article className="grid items-center gap-10 md:grid-cols-2">
-              <div className="order-2 md:order-1">
-                <span className="mb-4 block text-[10px] font-bold uppercase tracking-[0.3em] text-amber-700 font-label">
-                  {stories[0].tag}
-                </span>
-                <h3 className="mb-4 font-headline text-3xl leading-snug text-primary">{stories[0].title}</h3>
-                <p className="mb-6 text-sm leading-relaxed text-slate-600 font-body">{stories[0].excerpt}</p>
-                <Link href="/news" className="border-b-2 border-primary pb-1 text-xs font-bold uppercase tracking-widest text-primary font-label">
-                  {stories[0].cta}
-                </Link>
-              </div>
-              <div className="order-1 md:order-2">
-                <div className="relative aspect-square rotate-3 overflow-hidden rounded-2xl bg-slate-200 transition-transform duration-500 hover:rotate-0">
-                  <Image src={stories[0].image} alt={stories[0].title} fill className="object-cover" sizes="(max-width: 768px) 100vw, 50vw" />
+            {stories.length > 0 && (
+              <article className="grid items-center gap-10 md:grid-cols-2">
+                <div className="order-2 md:order-1">
+                  <span className="mb-4 block text-[10px] font-bold uppercase tracking-[0.3em] text-amber-700 font-label">
+                    {stories[0].tag}
+                  </span>
+                  <h3 className="mb-4 font-headline text-3xl leading-snug text-primary">{stories[0].title}</h3>
+                  <p className="mb-6 text-sm leading-relaxed text-slate-600 font-body">{stories[0].excerpt}</p>
+                  <Link href="/news" className="border-b-2 border-primary pb-1 text-xs font-bold uppercase tracking-widest text-primary font-label">
+                    {stories[0].cta}
+                  </Link>
                 </div>
-              </div>
-            </article>
+                <div className="order-1 md:order-2">
+                  <div className="relative aspect-square rotate-3 overflow-hidden rounded-2xl bg-slate-200 transition-transform duration-500 hover:rotate-0">
+                    <Image src={stories[0].image} alt={stories[0].title} fill className="object-cover" sizes="(max-width: 768px) 100vw, 50vw" />
+                  </div>
+                </div>
+              </article>
+            )}
 
-            <article className="grid items-center gap-10 md:grid-cols-2">
-              <div>
-                <div className="relative aspect-video -rotate-2 overflow-hidden rounded-2xl bg-slate-200 transition-transform duration-500 hover:rotate-0">
-                  <Image src={stories[1].image} alt={stories[1].title} fill className="object-cover" sizes="(max-width: 768px) 100vw, 50vw" />
+            {stories.length > 1 && (
+              <article className="grid items-center gap-10 md:grid-cols-2">
+                <div>
+                  <div className="relative aspect-video -rotate-2 overflow-hidden rounded-2xl bg-slate-200 transition-transform duration-500 hover:rotate-0">
+                    <Image src={stories[1].image} alt={stories[1].title} fill className="object-cover" sizes="(max-width: 768px) 100vw, 50vw" />
+                  </div>
                 </div>
-              </div>
-              <div>
-                <span className="mb-4 block text-[10px] font-bold uppercase tracking-[0.3em] text-amber-700 font-label">
-                  {stories[1].tag}
-                </span>
-                <h3 className="mb-4 font-headline text-3xl leading-snug text-primary">{stories[1].title}</h3>
-                <p className="mb-6 text-sm leading-relaxed text-slate-600 font-body">{stories[1].excerpt}</p>
-                <Link href="/news" className="border-b-2 border-primary pb-1 text-xs font-bold uppercase tracking-widest text-primary font-label">
-                  {stories[1].cta}
-                </Link>
-              </div>
-            </article>
+                <div>
+                  <span className="mb-4 block text-[10px] font-bold uppercase tracking-[0.3em] text-amber-700 font-label">
+                    {stories[1].tag}
+                  </span>
+                  <h3 className="mb-4 font-headline text-3xl leading-snug text-primary">{stories[1].title}</h3>
+                  <p className="mb-6 text-sm leading-relaxed text-slate-600 font-body">{stories[1].excerpt}</p>
+                  <Link href="/news" className="border-b-2 border-primary pb-1 text-xs font-bold uppercase tracking-widest text-primary font-label">
+                    {stories[1].cta}
+                  </Link>
+                </div>
+              </article>
+            )}
           </div>
         </div>
       </div>

@@ -48,6 +48,7 @@ const navItems = [
 
 const moreItems = [
   { href: '/directory', label: 'Directory', icon: Users },
+  { href: '/yearbook', label: 'Yearbook', icon: GraduationCap },
   { href: '/gallery', label: 'Gallery', icon: Image },
   { href: '/news', label: 'News', icon: Newspaper },
   { href: '/donations', label: 'Donate', icon: Heart },

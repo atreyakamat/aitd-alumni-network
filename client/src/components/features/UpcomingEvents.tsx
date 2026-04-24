@@ -1,9 +1,13 @@
+'use client';
+
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { Button } from '@/components/ui/button';
 import { MapPin, Clock } from 'lucide-react';
+import { eventApi } from '@/lib/api';
 
-const events = [
+const FALLBACK_EVENTS = [
   {
     id: '1',
     title: 'The Centennial Alumni Gala',
@@ -37,6 +41,39 @@ const events = [
 ];
 
 export function UpcomingEvents() {
+  const [events, setEvents] = useState<any[]>(FALLBACK_EVENTS);
+
+  useEffect(() => {
+    const fetchEvents = async () => {
+      try {
+        const response = await eventApi.getUpcoming(3);
+        const data = response.data.data || response.data;
+        if (data && data.length > 0) {
+          const formattedEvents = data.map((event: any) => {
+            const startDate = new Date(event.startDate);
+            return {
+              id: event.id,
+              title: event.title,
+              badge: event.isVirtual ? 'Virtual' : 'In-Person',
+              date: {
+                day: startDate.getDate().toString(),
+                month: startDate.toLocaleString('default', { month: 'short' }),
+              },
+              location: event.location || (event.isVirtual ? 'Virtual' : 'TBD'),
+              time: startDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false }),
+              image: event.coverImageUrl || FALLBACK_EVENTS[0].image,
+            };
+          });
+          setEvents(formattedEvents);
+        }
+      } catch (error) {
+        console.error('Failed to fetch events:', error);
+      }
+    };
+
+    fetchEvents();
+  }, []);
+
   return (
     <section className="bg-white py-24">
       <div className="container">
