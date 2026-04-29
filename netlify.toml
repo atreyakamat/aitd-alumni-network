@@ -11,3 +11,32 @@
   NEXT_USE_NETLIFY_EDGE = "false"
   NODE_ENV = "production"
   CI = "false"
+  NEXT_PUBLIC_API_URL = "https://api.aitd.stixnvibes.com/api"
+
+[[redirects]]
+  from = "/api/*"
+  to = "https://api.aitd.stixnvibes.com/api/:splat"
+  status = 200
+  force = false
+
+# Security headers
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Frame-Options = "SAMEORIGIN"
+    X-Content-Type-Options = "nosniff"
+    X-XSS-Protection = "1; mode=block"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+    Permissions-Policy = "geolocation=(), microphone=(), camera=()"
+
+# Cache policy for static assets
+[[headers]]
+  for = "/_next/static/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
+
+# Cache policy for images
+[[headers]]
+  for = "/images/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000"

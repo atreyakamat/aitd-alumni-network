@@ -36,7 +36,14 @@ app.use(helmet({
   crossOriginResourcePolicy: false, // Allow loading images from local server
 }));
 app.use(cors({
-  origin: true, // This allows any origin that sends a request
+  origin: (origin, callback) => {
+    const allowedOrigins = process.env.CORS_ORIGINS?.split(',').map(o => o.trim()) || ['http://localhost:3000'];
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
   credentials: true,
 }));
 
