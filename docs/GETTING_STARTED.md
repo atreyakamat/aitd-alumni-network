@@ -6,17 +6,16 @@ This guide will walk you through setting up the AITD Connection platform on your
 
 Before you begin, ensure you have the following installed:
 
-- **Node.js** (v18.0.0 or higher) - [Download](https://nodejs.org/)
-- **MySQL** (v8.0 or higher) - [Download](https://dev.mysql.com/downloads/mysql/)
+- **Node.js** (v20 or higher) - [Download](https://nodejs.org/)
+- **PostgreSQL 17** - optional: `npm run db:local -w server` runs an embedded PostgreSQL, no install or Docker needed
 - **Git** - [Download](https://git-scm.com/)
 - **Redis** (optional, for caching) - [Download](https://redis.io/download)
 
 ### Verify installations
 
 ```bash
-node --version    # Should be v18.x or higher
+node --version    # Should be v20.x or higher
 npm --version     # Should be v9.x or higher
-mysql --version   # Should be v8.x or higher
 ```
 
 ## Quick Start
@@ -36,18 +35,15 @@ npm install
 
 This installs dependencies for both the client and server workspaces.
 
-### 3. Set Up MySQL Database
+### 3. Start PostgreSQL
 
 ```bash
-# Connect to MySQL (use your root password)
-mysql -u root -p
-
-# Create the database
-CREATE DATABASE alumni_connect;
-
-# Exit mysql
-exit
+# Embedded PostgreSQL 17 on 127.0.0.1:5433 (data in server/.local-pg; add --fresh to wipe it)
+npm run db:local -w server
 ```
+
+Keep this terminal open. It prints the `DATABASE_URL` to use. If you run your own PostgreSQL 17 instead,
+create an `alumni_connect` database and point `DATABASE_URL` at it.
 
 ### 4. Configure Environment Variables
 
@@ -64,10 +60,8 @@ cp server/.env.example server/.env
 Edit `server/.env` with your configuration:
 
 ```env
-# Database (MySQL)
-# Replace YOUR_PASSWORD with your MySQL root password
-# If no password, use: mysql://root@localhost:3306/alumni_connect
-DATABASE_URL="mysql://root:YOUR_PASSWORD@localhost:3306/alumni_connect"
+# Database (PostgreSQL) - matches `npm run db:local -w server`
+DATABASE_URL="postgresql://postgres:postgres@127.0.0.1:5433/alumni_connect"
 
 # JWT Secrets (generate strong secrets for production!)
 JWT_SECRET="your-super-secret-jwt-key"
@@ -104,8 +98,8 @@ cd server
 # Generate Prisma Client
 npx prisma generate
 
-# Run database migrations
-npx prisma migrate dev --name init
+# Apply the committed migrations
+npx prisma migrate deploy
 
 # (Optional) Open Prisma Studio to view data
 npx prisma studio
@@ -134,7 +128,7 @@ npm run dev --workspace=client
 
 - **Frontend**: http://localhost:3000
 - **Backend API**: http://localhost:5000
-- **API Health Check**: http://localhost:5000/health (includes MySQL status)
+- **API Health Check**: http://localhost:5000/health (includes database status)
 - **Prisma Studio**: http://localhost:5555 (if running)
 
 ### 8. Seed admin and sample users
@@ -359,15 +353,11 @@ taskkill /PID <PID> /F
 
 ### Database Connection Issues
 
-1. Ensure MySQL is running
-2. Verify credentials in `.env`
-3. Check if database exists:
+1. Ensure PostgreSQL is running (`npm run db:local -w server`, or your own server)
+2. Verify `DATABASE_URL` in `server/.env` starts with `postgresql://` (the API refuses anything else)
+3. Test the connection:
    ```bash
-   mysql -u root -p -e "SHOW DATABASES;"
-   ```
-4. Test connection manually:
-   ```bash
-   mysql -u root -p alumni_connect
+   cd server && npx prisma migrate status
    ```
 
 ### Prisma Issues
@@ -401,11 +391,11 @@ Both client and server support hot reload during development:
 # Open Prisma Studio (visual DB browser)
 cd server && npx prisma studio
 
-# View database schema
-npx prisma db pull
+# Check the schema is valid (avoid `prisma format` / `db pull`: they rewrite schema.prisma)
+npx prisma validate
 
-# Format schema file
-npx prisma format
+# Check which migrations are applied
+npx prisma migrate status
 ```
 
 ### API Testing
@@ -416,8 +406,8 @@ curl http://localhost:5000/health
 ```
 
 Expected response includes:
-- `database: "mysql"`
-- `databaseStatus: "up"` when MySQL is reachable
+- `database: "postgresql"`
+- `databaseStatus: "up"` when PostgreSQL is reachable
 
 ### Logging
 

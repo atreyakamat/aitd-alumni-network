@@ -189,27 +189,25 @@ async function main() {
 
   console.log('✅ Created chapters');
 
-  // Create admin user
-  const adminPassword = await bcrypt.hash('Admin@123', 12);
+  // Create admin user. In production the password must come from the
+  // environment; re-running the seed never resets an existing password.
+  const isProduction = process.env.NODE_ENV === 'production';
+  const adminEmail = process.env.SEED_ADMIN_EMAIL || 'admin@aitdconnection.edu';
+  const adminPlainPassword = process.env.SEED_ADMIN_PASSWORD || (isProduction ? '' : 'Admin@123');
+  if (!adminPlainPassword || (isProduction && adminPlainPassword.length < 12)) {
+    throw new Error('Set SEED_ADMIN_PASSWORD (12+ characters) to seed the super admin in production.');
+  }
+  const adminPassword = await bcrypt.hash(adminPlainPassword, 12);
   const adminUser = await prisma.user.upsert({
-    where: { email: 'admin@aitdconnection.edu' },
+    where: { email: adminEmail },
+    // Re-seeding (SEED_ON_START) only re-asserts access; the admin's own profile edits are kept
     update: {
-      passwordHash: adminPassword,
-      fullName: 'System Administrator',
-      batchYear: 2020,
-      department: 'Administration',
-      degree: 'B.Tech',
-      roleType: 'ALUMNI',
       userRole: 'SUPER_ADMIN',
       isVerified: true,
-      emailVerifiedAt: new Date(),
-      profileCompleteness: 50,
-      currentDesignation: 'Platform Administrator',
-      shortBio: 'Managing the AITD Connection platform',
-      membershipTierId: patronTier.id,
+      isActive: true,
     },
     create: {
-      email: 'admin@aitdconnection.edu',
+      email: adminEmail,
       passwordHash: adminPassword,
       fullName: 'System Administrator',
       batchYear: 2020,
@@ -226,21 +224,36 @@ async function main() {
     },
   });
 
-  console.log('✅ Created admin user (admin@aitdconnection.edu / Admin@123)');
+  console.log(`✅ Created admin user (${adminEmail}${process.env.SEED_ADMIN_PASSWORD ? '' : ' / Admin@123'})`);
+
+  if (isProduction && process.env.SEED_SAMPLE_DATA !== 'true') {
+    console.log('ℹ️  Skipping sample users/events/news in production (set SEED_SAMPLE_DATA=true to include).');
+    return;
+  }
 
   // Create sample users
   const samplePassword = await bcrypt.hash('User@123', 12);
   
   const departments = ['Computer Engineering', 'Electronics', 'Mechanical', 'Civil', 'IT'];
-  const cities = ['Mumbai', 'Delhi', 'Bangalore', 'Pune', 'Hyderabad'];
-  
+  // City centres; members are spread a few km around them, at the ~1 km precision the app stores
+  const cityCoords: Record<string, [number, number]> = {
+    Mumbai: [19.08, 72.88],
+    Delhi: [28.61, 77.21],
+    Bangalore: [12.97, 77.59],
+    Pune: [18.52, 73.86],
+    Hyderabad: [17.39, 78.49],
+  };
+  const cities = Object.keys(cityCoords);
+
   for (let i = 1; i <= 10; i++) {
     const dept = departments[i % departments.length];
     const city = cities[i % cities.length];
     const batchYear = 2015 + (i % 10);
 
-    const lat = 15.2993 + (Math.random() * 0.1); // Around Goa
-    const lng = 73.9814 + (Math.random() * 0.1);
+    // Deterministic offsets (re-seeding gives the same map)
+    const [cityLat, cityLng] = cityCoords[city];
+    const lat = Math.round((cityLat + ((i % 3) - 1) * 0.03) * 100) / 100;
+    const lng = Math.round((cityLng + ((i % 4) - 1.5) * 0.02) * 100) / 100;
 
     await prisma.user.upsert({
       where: { email: `user${i}@example.com` },
@@ -329,8 +342,10 @@ async function main() {
     },
   ];
 
+  // Re-running the seed (e.g. SEED_ON_START in Docker) must not duplicate events
   for (const event of eventData) {
-    await prisma.event.create({ data: event });
+    const exists = await prisma.event.findFirst({ where: { title: event.title }, select: { id: true } });
+    if (!exists) await prisma.event.create({ data: event });
   }
 
   console.log('✅ Created sample events');

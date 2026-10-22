@@ -1,5 +1,10 @@
 import { Request, Response, NextFunction } from 'express';
-import { inviteService } from '../services/inviteService';
+import { inviteService, MAX_BULK_INVITES } from '../services/inviteService';
+
+const toBatchYear = (value: unknown): number | undefined => {
+  const n = parseInt(value as string, 10);
+  return Number.isFinite(n) ? n : undefined;
+};
 import { AppError } from '../middleware/errorHandler';
 
 export class InviteController {
@@ -15,7 +20,7 @@ export class InviteController {
       const result = await inviteService.sendInvite(req.user!.id, {
         email,
         name,
-        batchYear: batchYear ? parseInt(batchYear) : undefined,
+        batchYear: toBatchYear(batchYear),
         message,
       });
 
@@ -39,22 +44,22 @@ export class InviteController {
   // Send bulk invites (CSV upload)
   async sendBulkInvites(req: Request, res: Response, next: NextFunction) {
     try {
-      const { invites } = req.body;
+      const { invites, message } = req.body || {};
 
       if (!Array.isArray(invites) || invites.length === 0) {
         throw new AppError('Invites array is required', 400, 'MISSING_INVITES');
       }
 
-      if (invites.length > 500) {
-        throw new AppError('Maximum 500 invites per batch', 400, 'TOO_MANY_INVITES');
+      if (invites.length > MAX_BULK_INVITES) {
+        throw new AppError(`Maximum ${MAX_BULK_INVITES} invites per batch`, 400, 'TOO_MANY_INVITES');
       }
 
-      // Use the service method which has built-in rate limiting (100ms delay)
-      const result = await inviteService.sendBulkInvites(req.user!.id, invites.map(invite => ({
-        email: invite.email,
-        name: invite.name,
-        batchYear: invite.batchYear ? parseInt(invite.batchYear) : undefined,
-        message: invite.message
+      // A top-level message applies to every row that doesn't carry its own
+      const result = await inviteService.sendBulkInvites(req.user!.id, invites.map((invite: any) => ({
+        email: invite?.email,
+        name: invite?.name,
+        batchYear: toBatchYear(invite?.batchYear),
+        message: invite?.message ?? (typeof message === 'string' ? message : undefined),
       })));
 
       res.status(200).json({

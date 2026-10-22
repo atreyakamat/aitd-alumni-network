@@ -4,6 +4,16 @@ import { newsService } from '../services/newsService';
 import { chapterService } from '../services/chapterService';
 import { marketplaceService } from '../services/marketplaceService';
 import { uploadToStorage } from '../utils/storage';
+import { Actor, isAdminRole } from '../config/permissions';
+
+const actorOf = (req: Request): Actor => ({ id: req.user!.id, userRole: req.user!.userRole });
+const viewerOf = (req: Request): Actor | null => (req.user ? actorOf(req) : null);
+const queryString = (value: unknown): string | undefined =>
+  typeof value === 'string' && value.trim() !== '' ? value.trim() : undefined;
+const queryInt = (value: unknown, fallback: number): number => {
+  const n = parseInt(value as string, 10);
+  return Number.isFinite(n) ? n : fallback;
+};
 
 // Gallery Controller
 export class GalleryController {
@@ -12,7 +22,7 @@ export class GalleryController {
       const page = parseInt(req.query.page as string) || 1;
       const limit = parseInt(req.query.limit as string) || 12;
       const type = req.query.type as any;
-      const result = await galleryService.getAlbums(page, limit, type);
+      const result = await galleryService.getAlbums(page, limit, type, queryString(req.query.search));
       res.json({ success: true, ...result });
     } catch (error) {
       next(error);
@@ -22,7 +32,7 @@ export class GalleryController {
   async getAlbum(req: Request, res: Response, next: NextFunction) {
     try {
       const { id } = req.params;
-      const result = await galleryService.getAlbum(id);
+      const result = await galleryService.getAlbum(id, viewerOf(req));
       res.json({ success: true, data: result });
     } catch (error) {
       next(error);
@@ -60,9 +70,10 @@ export class GalleryController {
 
   async addPhoto(req: Request, res: Response, next: NextFunction) {
     try {
-      const { albumId } = req.params;
-      const { url, thumbnailUrl, caption } = req.body;
-      const result = await galleryService.addPhoto(albumId, req.user!.id, url, thumbnailUrl, caption);
+      // Admin route is POST /gallery/photos/admin, so the album comes from the body
+      const albumId = req.params.albumId || req.body?.albumId;
+      const { url, thumbnailUrl, caption } = req.body || {};
+      const result = await galleryService.addPhoto(albumId, actorOf(req), url, thumbnailUrl, caption);
       res.status(201).json({ success: true, data: result });
     } catch (error) {
       next(error);
@@ -72,7 +83,7 @@ export class GalleryController {
   async deletePhoto(req: Request, res: Response, next: NextFunction) {
     try {
       const { id } = req.params;
-      const result = await galleryService.deletePhoto(id);
+      const result = await galleryService.deletePhoto(id, actorOf(req));
       res.json({ success: true, data: result });
     } catch (error) {
       next(error);
@@ -84,17 +95,21 @@ export class GalleryController {
     try {
       const { albumId } = req.params;
       const files = req.files as Express.Multer.File[];
-      
+
       if (!files || files.length === 0) {
         return res.status(400).json({ success: false, error: 'No photos uploaded' });
       }
+
+      // Check permission before anything is written to storage
+      const actor = actorOf(req);
+      await galleryService.assertCanAddPhoto(albumId, actor);
 
       const photos = [];
       for (const file of files) {
         const photoUrl = await uploadToStorage(file, 'gallery');
         const photo = await galleryService.addPhoto(
           albumId,
-          req.user!.id,
+          actor,
           photoUrl,
           photoUrl,
           req.body.caption
@@ -112,7 +127,7 @@ export class GalleryController {
   async userDeletePhoto(req: Request, res: Response, next: NextFunction) {
     try {
       const { id } = req.params;
-      const result = await galleryService.userDeletePhoto(id, req.user!.id);
+      const result = await galleryService.userDeletePhoto(id, actorOf(req));
       res.json({ success: true, data: result });
     } catch (error) {
       next(error);
@@ -135,11 +150,13 @@ export class NewsController {
   async getArticles(req: Request, res: Response, next: NextFunction) {
     try {
       const filters = {
-        ...req.query,
-        page: req.query.page ? parseInt(req.query.page as string) : 1,
-        limit: req.query.limit ? parseInt(req.query.limit as string) : 12,
+        category: queryString(req.query.category) as any,
+        status: queryString(req.query.status) as any,
+        search: queryString(req.query.search),
+        page: queryInt(req.query.page, 1),
+        limit: queryInt(req.query.limit, 12),
       };
-      const result = await newsService.getArticles(filters);
+      const result = await newsService.getArticles(filters, viewerOf(req));
       res.json({ success: true, ...result });
     } catch (error) {
       next(error);
@@ -149,7 +166,7 @@ export class NewsController {
   async getArticle(req: Request, res: Response, next: NextFunction) {
     try {
       const { slug } = req.params;
-      const result = await newsService.getArticle(slug);
+      const result = await newsService.getArticle(slug, viewerOf(req));
       res.json({ success: true, data: result });
     } catch (error) {
       next(error);
@@ -222,7 +239,10 @@ export class ChapterController {
     try {
       const page = parseInt(req.query.page as string) || 1;
       const limit = parseInt(req.query.limit as string) || 20;
-      const result = await chapterService.getChapters(page, limit);
+      const result = await chapterService.getChapters(page, limit, {
+        search: queryString(req.query.search),
+        region: queryString(req.query.region),
+      });
       res.json({ success: true, ...result });
     } catch (error) {
       next(error);
@@ -251,7 +271,7 @@ export class ChapterController {
   async updateChapter(req: Request, res: Response, next: NextFunction) {
     try {
       const { id } = req.params;
-      const result = await chapterService.updateChapter(id, req.body);
+      const result = await chapterService.updateChapter({ id: req.user!.id, userRole: req.user!.userRole }, id, req.body);
       res.json({ success: true, data: result });
     } catch (error) {
       next(error);
@@ -315,9 +335,12 @@ export class MarketplaceController {
   async getListings(req: Request, res: Response, next: NextFunction) {
     try {
       const filters = {
-        ...req.query,
-        page: req.query.page ? parseInt(req.query.page as string) : 1,
-        limit: req.query.limit ? parseInt(req.query.limit as string) : 12,
+        type: queryString(req.query.type) as any,
+        category: queryString(req.query.category),
+        location: queryString(req.query.location),
+        search: queryString(req.query.search),
+        page: queryInt(req.query.page, 1),
+        limit: queryInt(req.query.limit, 12),
       };
       const result = await marketplaceService.getListings(filters);
       res.json({ success: true, ...result });
@@ -329,7 +352,7 @@ export class MarketplaceController {
   async getListing(req: Request, res: Response, next: NextFunction) {
     try {
       const { id } = req.params;
-      const result = await marketplaceService.getListing(id);
+      const result = await marketplaceService.getListing(id, viewerOf(req));
       res.json({ success: true, data: result });
     } catch (error) {
       next(error);
@@ -348,7 +371,7 @@ export class MarketplaceController {
   async updateListing(req: Request, res: Response, next: NextFunction) {
     try {
       const { id } = req.params;
-      const result = await marketplaceService.updateListing(req.user!.id, id, req.body);
+      const result = await marketplaceService.updateListing(actorOf(req), id, req.body);
       res.json({ success: true, data: result });
     } catch (error) {
       next(error);
@@ -358,7 +381,7 @@ export class MarketplaceController {
   async deleteListing(req: Request, res: Response, next: NextFunction) {
     try {
       const { id } = req.params;
-      const isAdmin = ['ADMIN', 'SUPER_ADMIN'].includes(req.user!.userRole);
+      const isAdmin = isAdminRole(req.user!.userRole);
       const result = await marketplaceService.deleteListing(req.user!.id, id, isAdmin);
       res.json({ success: true, data: result });
     } catch (error) {

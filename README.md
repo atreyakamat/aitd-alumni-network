@@ -13,7 +13,7 @@ A comprehensive alumni network platform built with Next.js and Express.js, desig
 - **Notifications** - Real-time notification badges and updates
 
 ### Additional Features
-- **Alumni Nearby Map** - Interactive map with clustering to find alumni near you
+- **Alumni Nearby Map** - OpenStreetMap/Leaflet map with clustering, a "Near me" radius search, batch/department/name filters and place search; shared locations are stored at ~1 km precision
 - **Photo Gallery** - Browse event photos and memories
 - **News & Stories** - Alumni spotlights and college updates
 - **Chapters** - Regional alumni groups with donation tracking
@@ -43,7 +43,7 @@ A comprehensive alumni network platform built with Next.js and Express.js, desig
 - **Express.js** - Node.js web framework
 - **TypeScript** - Type-safe backend
 - **Prisma** - Database ORM
-- **MySQL** - Primary database
+- **PostgreSQL 17** - Primary database
 - **Redis** - Caching and sessions
 - **JWT** - Authentication
 
@@ -51,7 +51,7 @@ A comprehensive alumni network platform built with Next.js and Express.js, desig
 - **Razorpay** - Payment processing
 - **AWS S3** - File storage
 - **SendGrid/SMTP** - Email delivery
-- **Google Maps API** - Alumni locations
+- **OpenStreetMap** - Map tiles (Leaflet) and place search (Nominatim, proxied by the API)
 
 ## 📁 Project Structure
 
@@ -84,8 +84,8 @@ aitd-alumni-network/
 ## 🚀 Getting Started
 
 ### Prerequisites
-- Node.js 18+
-- MySQL 8.0+
+- Node.js 20+
+- PostgreSQL 17 — or nothing at all: `npm run db:local -w server` runs an embedded PostgreSQL (no Docker)
 - Redis (optional, for caching)
 
 ### Installation
@@ -101,10 +101,12 @@ aitd-alumni-network/
    npm install
    ```
 
-3. **Set up MySQL database**
+3. **Start PostgreSQL** (skip if you already run PostgreSQL 17)
    ```bash
-   mysql -u root -p -e "CREATE DATABASE alumni_connect;"
+   # Embedded PostgreSQL 17 on 127.0.0.1:5433, data kept in server/.local-pg (add --fresh to wipe it)
+   npm run db:local -w server
    ```
+   Leave it running in its own terminal.
 
 4. **Set up environment variables**
     ```bash
@@ -114,28 +116,18 @@ aitd-alumni-network/
     # Client environment (optional overrides)
     copy client\.env.example client\.env.local
 
-    # Edit server\.env with your MySQL credentials
-    # DATABASE_URL="mysql://root:YOUR_PASSWORD@localhost:3306/alumni_connect"
+    # server\.env — matches the embedded database above:
+    # DATABASE_URL="postgresql://postgres:postgres@127.0.0.1:5433/alumni_connect"
     ```
 
 5. **Set up the database**
    ```bash
-    # Generate Prisma client
-    cd server && npx prisma generate
-    
-    # Run migrations
-    npx prisma migrate dev
-
-    # Production deployment migrations
-    npx prisma migrate deploy
-
-    # If deploying to an existing non-empty DB for the first time,
-    # baseline already-applied migrations before deploy:
-    # npx prisma migrate resolve --applied <migration_name>
-    
-    # (Optional) Seed the database
-    npx prisma db seed
+    cd server
+    npx prisma generate
+    npx prisma migrate deploy      # apply the committed migrations
+    npm run db:seed                # admin account, tiers, skills, chapters, sample alumni
    ```
+   Use `npx prisma migrate dev --name <change>` only when you change `schema.prisma`.
 
 6. **Start development servers**
    ```bash
@@ -150,15 +142,16 @@ This starts:
 
 ## 📝 Environment Variables
 
-See `.env.example` for all required environment variables:
+See `server/.env.example` (local) and `.env.docker.example` (docker-compose) for all variables:
 
-- `DATABASE_URL` - MySQL connection string (e.g., `mysql://root:password@localhost:3306/alumni_connect`)
+- `DATABASE_URL` - PostgreSQL connection string (e.g., `postgresql://postgres:postgres@127.0.0.1:5433/alumni_connect`)
 - `REDIS_URL` - Redis connection string
 - `JWT_SECRET` - Secret for JWT tokens
 - `RAZORPAY_KEY_ID` / `RAZORPAY_KEY_SECRET` - Payment gateway
 - `AWS_*` - S3 bucket configuration
 - `SMTP_*` - Email configuration
-- `GOOGLE_*` - OAuth and Maps API
+- `GOOGLE_*` / `LINKEDIN_*` - OAuth (optional)
+- `GEOCODER_*` - Place search for the map (OpenStreetMap Nominatim by default; `GEOCODER_URL=off` disables it)
 - `FEED_CACHE_TTL_SECONDS` - Public feed cache TTL in seconds
 - `IMAGE_*` - Upload image compression and resize configuration
 
@@ -225,6 +218,7 @@ npm run db:migrate       # Run Prisma migrations
 npm run db:deploy        # Deploy migrations (production-safe)
 npm run db:seed          # Seed the database
 npm run db:studio        # Open Prisma Studio
+npm run db:local -w server   # Embedded PostgreSQL for local dev (no Docker)
 ```
 
 ## 👤 Default Seed Accounts
@@ -256,7 +250,10 @@ After `npm run db:seed` (or `cd server && npx prisma db seed`):
 - `PATCH /api/users/profile` - Update own profile
 - `GET /api/users/yearbook/:year` - Get yearbook by batch
 - `GET /api/users/locations` - Get map markers (supports optional bounds: north/south/east/west)
-- `GET /api/users/nearby` - Get alumni near a location
+- `GET /api/users/nearby` - Alumni within a radius, nearest first (optional batchYear/department/search)
+- `GET /api/geo/search` / `GET /api/geo/reverse` - Place search and reverse geocoding for the map
+
+The complete, generated endpoint list is in [docs/API_REFERENCE.md](docs/API_REFERENCE.md).
 
 ### Invites
 - `POST /api/invites/send` - Send single invite
@@ -325,56 +322,41 @@ This project is proprietary software for AITD Alumni Association.
 
 ## 🐳 Docker Deployment
 
-### Quick Start with Docker Compose
+The full stack (PostgreSQL 17, Redis, API, web, optional nginx) runs from `docker-compose.yml`.
+See **[docs/DOCKER.md](docs/DOCKER.md)** for the complete runbook (backups, upgrades, troubleshooting).
 
 ```bash
-# Copy environment variables
-cp .env.example .env
-# Edit .env with your configuration
+cp .env.docker.example .env
+# Set POSTGRES_PASSWORD, JWT_SECRET, JWT_REFRESH_SECRET (32+ chars each) and SEED_ADMIN_PASSWORD (12+ chars)
 
-# Build and start all services
-docker-compose up -d
-
-# View logs
-docker-compose logs -f
-
-# Stop services
-docker-compose down
+docker compose up -d --build
+docker compose logs -f api
 ```
 
-This starts:
-- **MySQL** - Database on port 3306
-- **Redis** - Cache on port 6379
-- **API** - Backend on port 5000
-- **Web** - Frontend on port 3000
-
-### Production Deployment
-
-```bash
-# Build images
-docker-compose build
-
-# Run with production profile (includes Nginx)
-docker-compose --profile production up -d
-```
+- Web: http://localhost:3000 · API: http://localhost:5000 (health: `/health`)
+- The API container waits for PostgreSQL, runs `prisma migrate deploy`, and — with `SEED_ON_START=true` and
+  `SEED_ADMIN_PASSWORD` set — idempotently seeds the super admin, tiers, skills and chapters.
+- Data lives in the `postgres_data`, `redis_data` and `uploads_data` volumes. `docker compose down` keeps them;
+  `docker compose down -v` deletes them.
+- Single origin behind nginx on :80: `docker compose --profile proxy up -d --build`, with
+  `NEXT_PUBLIC_API_URL=http(s)://<host>/api` (it is baked into the web image at build time).
 
 ### Individual Docker Builds
 
-```bash
-# Build server
-cd server && docker build -t alumni-connect-api .
+Both Dockerfiles build from the repository root (npm workspaces):
 
-# Build client
-cd client && docker build -t alumni-connect-web --build-arg NEXT_PUBLIC_API_URL=https://api.yourdomain.com/api .
+```bash
+docker build -f server/Dockerfile -t alumni-connect-api .
+docker build -f client/Dockerfile -t alumni-connect-web --build-arg NEXT_PUBLIC_API_URL=https://api.yourdomain.com/api .
 ```
 
 ## 🔄 CI/CD
 
 The project includes GitHub Actions workflows for:
 
-- **Backend CI** - Linting, testing, and building the Express server
+- **Backend CI** - Typecheck, lint, unit tests, integration tests against a `postgres:17-alpine` service, build
 - **Frontend CI** - Linting and building the Next.js app
-- **Docker Build** - Building and pushing Docker images on main branch
+- **Docker Build** - Validates `docker-compose.yml`, builds and pushes images (main branch)
 
 See `.github/workflows/ci.yml` for the full configuration.
 
@@ -393,7 +375,15 @@ cd server && npm run test:coverage
 
 # Watch mode
 cd server && npm run test:watch
+
+# Integration tests against a real (embedded) PostgreSQL
+cd server && npm run test:integration
+
+# Frontend tests
+cd client && npm test
 ```
+
+See [docs/TESTING.md](docs/TESTING.md) and [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
 ## 👥 Contributors
 

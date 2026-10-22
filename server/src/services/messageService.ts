@@ -4,18 +4,26 @@ import { paginationHelper, buildPaginationResponse } from '../utils/helpers';
 import { networkService } from './networkService';
 import { notificationService } from './notificationService';
 import { emitToUser } from '../utils/socket';
+import { clientLinks } from '../utils/clientLinks';
+
+export const MESSAGE_MAX_LENGTH = 5000;
 
 interface SendMessageInput {
   content: string;
   mediaUrl?: string;
 }
 
+const participantSelect = {
+  id: true,
+  fullName: true,
+  profilePhotoUrl: true,
+} as const;
+
 export class MessageService {
   async getConversations(userId: string, page: number = 1, limit: number = 20) {
-    // Get all unique conversations
-    const { skip, take } = paginationHelper(page, limit);
+    const { skip, take, page: safePage, limit: safeLimit } = paginationHelper(page, limit);
 
-    // Get the latest message from each conversation
+    // Latest-first list of every message the user is part of
     const messages = await prisma.message.findMany({
       where: {
         OR: [
@@ -24,154 +32,132 @@ export class MessageService {
         ],
       },
       include: {
-        sender: {
-          select: {
-            id: true,
-            fullName: true,
-            profilePhotoUrl: true,
-          },
-        },
-        receiver: {
-          select: {
-            id: true,
-            fullName: true,
-            profilePhotoUrl: true,
-          },
-        },
+        sender: { select: participantSelect },
+        receiver: { select: participantSelect },
       },
       orderBy: { createdAt: 'desc' },
     });
 
-    // Group by conversation partner and get latest message
+    // Group by conversation partner, keeping the latest message
     const conversationMap = new Map<string, typeof messages[0]>();
-    
     for (const msg of messages) {
       const partnerId = msg.senderId === userId ? msg.receiverId : msg.senderId;
-      
       if (!conversationMap.has(partnerId)) {
         conversationMap.set(partnerId, msg);
       }
     }
 
-    const conversations = Array.from(conversationMap.entries())
-      .slice(skip, skip + take)
-      .map(([partnerId, lastMessage]) => {
-        const partner = lastMessage.senderId === userId 
-          ? lastMessage.receiver 
-          : lastMessage.sender;
-        
-        return {
-          partnerId,
-          partner,
-          lastMessage: {
-            id: lastMessage.id,
-            content: lastMessage.content,
-            createdAt: lastMessage.createdAt,
-            isRead: lastMessage.isRead,
-            isSent: lastMessage.senderId === userId,
-          },
-          unreadCount: 0, // Will be calculated separately
-        };
-      });
+    const page_ = Array.from(conversationMap.entries()).slice(skip, skip + take);
 
-    // Get unread counts
-    for (const conv of conversations) {
-      conv.unreadCount = await prisma.message.count({
+    // One grouped query for unread counts instead of one count per conversation
+    const unreadByPartner = new Map<string, number>();
+    if (page_.length > 0) {
+      const grouped = await prisma.message.groupBy({
+        by: ['senderId'],
         where: {
-          senderId: conv.partnerId,
           receiverId: userId,
           isRead: false,
+          senderId: { in: page_.map(([partnerId]) => partnerId) },
         },
+        _count: { _all: true },
       });
+      for (const row of grouped || []) {
+        unreadByPartner.set(row.senderId, row._count?._all ?? 0);
+      }
     }
 
-    return {
-      data: conversations,
-      pagination: {
-        total: conversationMap.size,
-        page,
-        limit,
-        totalPages: Math.ceil(conversationMap.size / limit),
-        hasNextPage: page * limit < conversationMap.size,
-        hasPrevPage: page > 1,
+    const conversations = page_.map(([partnerId, lastMessage]) => ({
+      partnerId,
+      partner: lastMessage.senderId === userId ? lastMessage.receiver : lastMessage.sender,
+      lastMessage: {
+        id: lastMessage.id,
+        content: lastMessage.content,
+        createdAt: lastMessage.createdAt,
+        isRead: lastMessage.isRead,
+        isSent: lastMessage.senderId === userId,
+        isRequest: lastMessage.isRequest,
+        requestStatus: lastMessage.requestStatus,
       },
-    };
+      unreadCount: unreadByPartner.get(partnerId) ?? 0,
+    }));
+
+    return buildPaginationResponse(conversations, conversationMap.size, safePage, safeLimit);
   }
 
   async getMessages(userId: string, partnerId: string, page: number = 1, limit: number = 50) {
-    const { skip, take } = paginationHelper(page, limit);
+    const { skip, take, page: safePage, limit: safeLimit } = paginationHelper(page, limit);
+
+    // Strictly the two-party thread between the caller and the partner
+    const where = {
+      OR: [
+        { senderId: userId, receiverId: partnerId },
+        { senderId: partnerId, receiverId: userId },
+      ],
+    };
 
     const [messages, total] = await Promise.all([
       prisma.message.findMany({
-        where: {
-          OR: [
-            { senderId: userId, receiverId: partnerId },
-            { senderId: partnerId, receiverId: userId },
-          ],
-        },
+        where,
         include: {
-          sender: {
-            select: {
-              id: true,
-              fullName: true,
-              profilePhotoUrl: true,
-            },
-          },
+          sender: { select: participantSelect },
         },
         orderBy: { createdAt: 'desc' },
         skip,
         take,
       }),
-      prisma.message.count({
-        where: {
-          OR: [
-            { senderId: userId, receiverId: partnerId },
-            { senderId: partnerId, receiverId: userId },
-          ],
-        },
-      }),
+      prisma.message.count({ where }),
     ]);
 
-    // Mark messages as read
-    await prisma.message.updateMany({
-      where: {
-        senderId: partnerId,
-        receiverId: userId,
-        isRead: false,
-      },
-      data: {
-        isRead: true,
-        readAt: new Date(),
-      },
-    });
+    // Opening the thread reads everything the partner sent to the caller
+    await this.markAllAsRead(userId, partnerId);
 
-    return buildPaginationResponse(messages.reverse(), total, page, limit);
+    return buildPaginationResponse([...messages].reverse(), total, safePage, safeLimit);
   }
 
   async sendMessage(senderId: string, receiverId: string, data: SendMessageInput) {
-    if (senderId === receiverId) {
+    if (!receiverId || senderId === receiverId) {
       throw new AppError('Cannot send message to yourself', 400, 'INVALID_REQUEST');
     }
 
-    // Check if users are connected
-    const areConnected = await networkService.areConnected(senderId, receiverId);
+    const raw = data?.content;
+    if (typeof raw !== 'string' || raw.trim().length === 0) {
+      throw new AppError('Message content is required', 400, 'VALIDATION_ERROR');
+    }
+    const content = raw.trim();
+    if (content.length > MESSAGE_MAX_LENGTH) {
+      throw new AppError(`Message must be at most ${MESSAGE_MAX_LENGTH} characters`, 400, 'VALIDATION_ERROR');
+    }
+    if (data.mediaUrl !== undefined && data.mediaUrl !== null && typeof data.mediaUrl !== 'string') {
+      throw new AppError('mediaUrl must be a string', 400, 'VALIDATION_ERROR');
+    }
 
-    // If not connected, this is a message request
-    const isRequest = !areConnected;
+    const receiver = await prisma.user.findUnique({
+      where: { id: receiverId },
+      select: { id: true, isActive: true },
+    });
+    if (!receiver || !receiver.isActive) {
+      throw new AppError('Recipient not found', 404, 'NOT_FOUND');
+    }
 
-    // Check if there's a pending message request
+    const isRequest = !(await this.canMessageDirectly(senderId, receiverId));
+
     if (isRequest) {
+      // Non-connections get exactly one outstanding request until the receiver accepts it
       const existingRequest = await prisma.message.findFirst({
         where: {
           senderId,
           receiverId,
           isRequest: true,
-          requestStatus: 'PENDING',
+          requestStatus: { in: ['PENDING', 'DECLINED'] },
         },
+        orderBy: { createdAt: 'desc' },
       });
 
-      if (existingRequest) {
-        throw new AppError('You already have a pending message request', 400, 'REQUEST_PENDING');
+      if (existingRequest?.requestStatus === 'PENDING') {
+        throw new AppError('You already have a pending message request', 409, 'REQUEST_PENDING');
+      }
+      if (existingRequest?.requestStatus === 'DECLINED') {
+        throw new AppError('This user declined your message request', 403, 'REQUEST_DECLINED');
       }
     }
 
@@ -179,19 +165,13 @@ export class MessageService {
       data: {
         senderId,
         receiverId,
-        content: data.content,
-        mediaUrl: data.mediaUrl,
+        content,
+        mediaUrl: data.mediaUrl || null,
         isRequest,
         requestStatus: isRequest ? 'PENDING' : null,
       },
       include: {
-        sender: {
-          select: {
-            id: true,
-            fullName: true,
-            profilePhotoUrl: true,
-          },
-        },
+        sender: { select: participantSelect },
       },
     });
 
@@ -208,15 +188,52 @@ export class MessageService {
       userId: receiverId,
       type: 'MESSAGE_RECEIVED',
       title: isRequest ? 'New Message Request' : 'New Message',
-      message: `${sender?.fullName} sent you a message`,
-      link: `/messages/${senderId}`,
+      message: `${sender?.fullName ?? 'Someone'} sent you a message`,
+      link: clientLinks.conversation(senderId),
       metadata: { messageId: message.id, senderId },
     });
 
     return message;
   }
 
+  /**
+   * Two users may message freely when connected, or once either side has
+   * accepted a message request from the other. Replying to a pending request
+   * from the receiver implicitly accepts it.
+   */
+  private async canMessageDirectly(senderId: string, receiverId: string): Promise<boolean> {
+    if (await networkService.areConnected(senderId, receiverId)) return true;
+
+    const accepted = await prisma.message.findFirst({
+      where: {
+        isRequest: true,
+        requestStatus: 'ACCEPTED',
+        OR: [
+          { senderId, receiverId },
+          { senderId: receiverId, receiverId: senderId },
+        ],
+      },
+      select: { id: true },
+    });
+    if (accepted) return true;
+
+    const replied = await prisma.message.updateMany({
+      where: {
+        senderId: receiverId,
+        receiverId: senderId,
+        isRequest: true,
+        requestStatus: 'PENDING',
+      },
+      data: { requestStatus: 'ACCEPTED' },
+    });
+    return !!replied && replied.count > 0;
+  }
+
   async respondToMessageRequest(userId: string, messageId: string, accept: boolean) {
+    if (typeof accept !== 'boolean') {
+      throw new AppError('accept must be a boolean', 400, 'VALIDATION_ERROR');
+    }
+
     const message = await prisma.message.findUnique({
       where: { id: messageId },
     });
@@ -235,22 +252,25 @@ export class MessageService {
 
     await prisma.message.update({
       where: { id: messageId },
-      data: { requestStatus: accept ? 'ACCEPTED' : 'DECLINED' },
-    });
-
-    // Notify the sender about the response
-    const receiver = await prisma.user.findUnique({
-      where: { id: userId },
-      select: { fullName: true },
+      // A declined request is dismissed, so it must not linger in the unread count
+      data: accept
+        ? { requestStatus: 'ACCEPTED' }
+        : { requestStatus: 'DECLINED', isRead: true, readAt: new Date() },
     });
 
     if (accept) {
+      const receiver = await prisma.user.findUnique({
+        where: { id: userId },
+        select: { fullName: true },
+      });
+
       await notificationService.createNotification({
         userId: message.senderId,
-        type: 'CONNECTION_ACCEPTED', // Or a more specific type if available
+        type: 'MESSAGE_RECEIVED',
         title: 'Message Request Accepted',
-        message: `${receiver?.fullName} accepted your message request`,
-        link: `/messages/${userId}`,
+        message: `${receiver?.fullName ?? 'Someone'} accepted your message request`,
+        link: clientLinks.conversation(userId),
+        metadata: { messageId, receiverId: userId },
       });
     }
 
@@ -269,7 +289,8 @@ export class MessageService {
   }
 
   async markAllAsRead(userId: string, partnerId: string) {
-    await prisma.message.updateMany({
+    // Only ever touches messages the caller received from this partner
+    const result = await prisma.message.updateMany({
       where: {
         senderId: partnerId,
         receiverId: userId,
@@ -281,7 +302,12 @@ export class MessageService {
       },
     });
 
-    return { message: 'Messages marked as read' };
+    const updated = result?.count ?? 0;
+    if (updated > 0) {
+      emitToUser(partnerId, 'messages_read', { readerId: userId, count: updated });
+    }
+
+    return { message: 'Messages marked as read', updated };
   }
 }
 

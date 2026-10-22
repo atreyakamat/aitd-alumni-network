@@ -10,33 +10,28 @@ export const cacheMiddleware = (options: CacheOptions = {}) => {
   const { ttl = 300, keyGenerator } = options; // Default 5 minutes
 
   return async (req: Request, res: Response, next: NextFunction) => {
-    // Only cache GET requests
-    if (req.method !== 'GET') {
+    // Only cache anonymous GET requests when a cache backend is configured
+    if (!redis || req.method !== 'GET' || req.user) {
       return next();
     }
 
-    // Skip if user is authenticated (personalized content)
-    if (req.user) {
-      return next();
-    }
-
-    const cacheKey = keyGenerator 
-      ? keyGenerator(req) 
+    const cacheKey = keyGenerator
+      ? keyGenerator(req)
       : `cache:${req.originalUrl}`;
 
     try {
       const cached = await redis.get(cacheKey);
-      
+
       if (cached) {
-        console.log(`📦 Cache hit: ${cacheKey}`);
         return res.json(JSON.parse(cached));
       }
 
-      // Override res.json to cache the response
+      // Override res.json to cache successful responses
       const originalJson = res.json.bind(res);
       res.json = (data: any) => {
-        // Cache the response
-        redis.setex(cacheKey, ttl, JSON.stringify(data)).catch(console.error);
+        if (res.statusCode < 400) {
+          redis.setex(cacheKey, ttl, JSON.stringify(data)).catch(() => undefined);
+        }
         return originalJson(data);
       };
 
@@ -50,11 +45,11 @@ export const cacheMiddleware = (options: CacheOptions = {}) => {
 };
 
 export const invalidateCache = async (pattern: string) => {
+  if (!redis) return;
   try {
     const keys = await redis.keys(pattern);
     if (keys.length > 0) {
       await redis.del(...keys);
-      console.log(`🗑️ Invalidated ${keys.length} cache keys matching: ${pattern}`);
     }
   } catch (error) {
     console.error('Cache invalidation error:', error);

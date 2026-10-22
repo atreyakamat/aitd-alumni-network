@@ -1,6 +1,6 @@
 import prisma from '../config/database';
 import { AppError } from '../middleware/errorHandler';
-import { sendEmail, sendInviteEmail } from '../utils/email';
+import { sendEmail } from '../utils/email';
 import { config } from '../config';
 import crypto from 'crypto';
 import { paginationHelper, buildPaginationResponse } from '../utils/helpers';
@@ -19,9 +19,33 @@ interface BulkInviteResult {
   errors: Array<{ email: string; error: string }>;
 }
 
+export const MAX_BULK_INVITES = 50;
+const INVITE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+const LINK_TTL_MS = 30 * 24 * 60 * 60 * 1000;
+const SHAREABLE_EMAIL = 'shareable-link';
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const TOKEN_RE = /^[a-f0-9]{64}$/i;
+
+export const normalizeEmail = (email: unknown): string | null => {
+  if (typeof email !== 'string') return null;
+  const trimmed = email.trim().toLowerCase();
+  return trimmed.length <= 254 && EMAIL_RE.test(trimmed) ? trimmed : null;
+};
+
+const escapeHtml = (value: string) =>
+  value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+
 export class InviteService {
-  // Generate a unique invite token
-  private generateToken(): string {
+  /** Pause between bulk sends to stay under the mail provider's rate limit. */
+  bulkDelayMs = 100;
+
+  // Generate a unique, unguessable invite token (256 bits of CSPRNG output)
+  generateToken(): string {
     return crypto.randomBytes(32).toString('hex');
   }
 
@@ -33,8 +57,12 @@ export class InviteService {
     customMessage: string | undefined,
     inviteUrl: string
   ): string {
+    // Everything user-supplied is escaped before it is interpolated into HTML
+    inviterName = escapeHtml(inviterName || '');
+    inviteeName = inviteeName ? escapeHtml(inviteeName) : undefined;
+    customMessage = customMessage ? escapeHtml(customMessage) : undefined;
     const greeting = inviteeName ? `Hi ${inviteeName}` : 'Hello';
-    const batchInfo = batchYear ? ` (Class of ${batchYear})` : '';
+    const batchInfo = batchYear ? ` (Class of ${Number(batchYear)})` : '';
     
     return `
       <div style="font-family: 'Helvetica Neue', Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #ffffff;">
@@ -106,6 +134,12 @@ export class InviteService {
     inviterId: string,
     data: InviteInput
   ): Promise<{ success: boolean; invite?: any; error?: string }> {
+    const email = normalizeEmail(data?.email);
+    if (!email) {
+      return { success: false, error: 'Invalid email address' };
+    }
+
+    let createdInviteId: string | undefined;
     try {
       // Get inviter info
       const inviter = await prisma.user.findUnique({
@@ -119,7 +153,8 @@ export class InviteService {
 
       // Check if email is already a user
       const existingUser = await prisma.user.findUnique({
-        where: { email: data.email },
+        where: { email },
+        select: { id: true },
       });
 
       if (existingUser) {
@@ -132,8 +167,9 @@ export class InviteService {
       // Check if invite was already sent recently
       const existingInvite = await prisma.invite.findFirst({
         where: {
-          email: data.email,
-          createdAt: { gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) }, // Last 7 days
+          email,
+          isShareable: false,
+          createdAt: { gte: new Date(Date.now() - INVITE_TTL_MS) }, // Last 7 days
         },
       });
 
@@ -146,12 +182,13 @@ export class InviteService {
 
       // Generate token and create invite
       const token = this.generateToken();
-      const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
+      const expiresAt = new Date(Date.now() + INVITE_TTL_MS);
 
       const invite = await prisma.invite.create({
         data: {
-          email: data.email,
+          email,
           name: data.name,
+          batchYear: data.batchYear,
           token,
           expiresAt,
           inviterId,
@@ -161,6 +198,7 @@ export class InviteService {
           },
         },
       });
+      createdInviteId = invite.id;
 
       // Send branded email
       const inviteUrl = `${config.frontendUrl}/register?invite=${token}`;
@@ -173,32 +211,46 @@ export class InviteService {
       );
 
       await sendEmail({
-        to: data.email,
+        to: email,
         subject: `${inviter.fullName} invited you to join AITD Connection`,
         html: emailHtml,
       });
 
       // Update invite status
-      await prisma.invite.update({
+      const sent = await prisma.invite.update({
         where: { id: invite.id },
         data: { status: 'SENT' },
       });
 
-      return { success: true, invite };
+      return { success: true, invite: sent ?? { ...invite, status: 'SENT' } };
     } catch (error: any) {
       console.error('Failed to send invite:', error);
+      // Don't leave an unsent invite behind: it would block a retry for 7 days
+      if (createdInviteId) {
+        await prisma.invite.delete({ where: { id: createdInviteId } }).catch(() => undefined);
+      }
       return {
         success: false,
-        error: error.message || 'Failed to send invitation',
+        error: error?.message || 'Failed to send invitation',
       };
     }
   }
 
-  // Bulk invite from CSV data
+  /**
+   * Bulk invite (CSV upload). At most MAX_BULK_INVITES rows; invalid and
+   * duplicate (case-insensitive) e-mails are reported as failures, not sent.
+   */
   async sendBulkInvites(
     inviterId: string,
     invites: InviteInput[]
   ): Promise<BulkInviteResult> {
+    if (!Array.isArray(invites) || invites.length === 0) {
+      throw new AppError('Invites array is required', 400, 'MISSING_INVITES');
+    }
+    if (invites.length > MAX_BULK_INVITES) {
+      throw new AppError(`Maximum ${MAX_BULK_INVITES} invites per batch`, 400, 'TOO_MANY_INVITES');
+    }
+
     const result: BulkInviteResult = {
       total: invites.length,
       sent: 0,
@@ -206,134 +258,228 @@ export class InviteService {
       errors: [],
     };
 
+    const seen = new Set<string>();
+    let first = true;
+
     for (const invite of invites) {
-      const sendResult = await this.sendInvite(inviterId, invite);
-      
+      const rawEmail = typeof invite?.email === 'string' ? invite.email : String(invite?.email ?? '');
+      const email = normalizeEmail(invite?.email);
+
+      if (!email) {
+        result.failed++;
+        result.errors.push({ email: rawEmail, error: 'Invalid email address' });
+        continue;
+      }
+      if (seen.has(email)) {
+        result.failed++;
+        result.errors.push({ email: rawEmail, error: 'Duplicate email in batch' });
+        continue;
+      }
+      seen.add(email);
+
+      // Small delay between sends to avoid provider rate limiting
+      if (!first && this.bulkDelayMs > 0) {
+        await new Promise(resolve => setTimeout(resolve, this.bulkDelayMs));
+      }
+      first = false;
+
+      const sendResult = await this.sendInvite(inviterId, { ...invite, email });
+
       if (sendResult.success) {
         result.sent++;
       } else {
         result.failed++;
         result.errors.push({
-          email: invite.email,
+          email: rawEmail,
           error: sendResult.error || 'Unknown error',
         });
       }
-
-      // Add small delay to avoid rate limiting
-      await new Promise(resolve => setTimeout(resolve, 100));
     }
 
     return result;
   }
 
-  // Verify invite token and get invite details
-  async verifyInvite(token: string) {
-    const invite = await prisma.invite.findUnique({
+  /** Loads an invite by token and rejects unknown, expired or already-used ones. */
+  private async loadUsableInvite(token: string, include?: Record<string, unknown>) {
+    if (typeof token !== 'string' || !TOKEN_RE.test(token)) {
+      throw new AppError('Invalid invitation', 404, 'INVALID_INVITE');
+    }
+
+    const invite: any = await prisma.invite.findUnique({
       where: { token },
-      include: {
-        inviter: {
-          select: { fullName: true, profilePhotoUrl: true, batchYear: true },
-        },
-      },
+      ...(include ? { include } : {}),
     });
 
     if (!invite) {
       throw new AppError('Invalid invitation', 404, 'INVALID_INVITE');
     }
 
-    if (invite.expiresAt < new Date()) {
+    if (invite.expiresAt < new Date() || invite.status === 'EXPIRED') {
       throw new AppError('Invitation has expired', 400, 'EXPIRED_INVITE');
     }
 
-    if (invite.status === 'ACCEPTED') {
+    if (!invite.isShareable && invite.status === 'ACCEPTED') {
       throw new AppError('Invitation has already been used', 400, 'USED_INVITE');
     }
 
+    return invite;
+  }
+
+  // Verify invite token and get invite details
+  async verifyInvite(token: string) {
+    const invite = await this.loadUsableInvite(token, {
+      inviter: {
+        select: { fullName: true, profilePhotoUrl: true, batchYear: true },
+      },
+    });
+
     return {
-      email: invite.email,
+      email: invite.isShareable ? null : invite.email,
       name: invite.name,
+      isShareable: !!invite.isShareable,
       inviter: invite.inviter,
       metadata: invite.metadata,
     };
   }
 
-  // Mark invite as accepted
+  /**
+   * Accept an invite as `userId`.
+   *  - Direct invites: only the invited e-mail may accept, and only once.
+   *  - Shareable links: any member except the inviter may use them until expiry.
+   * A connection between inviter and invitee is created if none exists.
+   */
   async acceptInvite(token: string, userId: string) {
-    const invite = await prisma.invite.findUnique({ where: { token } });
+    const invite = await this.loadUsableInvite(token);
 
-    if (!invite) {
-      throw new AppError('Invalid invitation', 404, 'INVALID_INVITE');
+    if (invite.inviterId && invite.inviterId === userId) {
+      throw new AppError('You cannot accept your own invitation', 400, 'SELF_INVITE');
     }
 
-    await prisma.invite.update({
-      where: { id: invite.id },
-      data: {
-        status: 'ACCEPTED',
-        acceptedAt: new Date(),
-      },
-    });
+    if (!invite.isShareable) {
+      const user = await prisma.user.findUnique({
+        where: { id: userId },
+        select: { id: true, email: true },
+      });
+      if (!user || normalizeEmail(user.email) !== normalizeEmail(invite.email)) {
+        throw new AppError('This invitation was sent to a different email address', 403, 'INVITE_EMAIL_MISMATCH');
+      }
 
-    // Create connection between inviter and invitee
-    if (invite.inviterId) {
-      await prisma.connection.create({
+      // Atomic single use: only one request can flip a not-yet-accepted invite
+      const { count } = await prisma.invite.updateMany({
+        where: { id: invite.id, status: { not: 'ACCEPTED' } },
         data: {
-          requesterId: invite.inviterId,
-          addresseeId: userId,
           status: 'ACCEPTED',
+          acceptedAt: new Date(),
         },
       });
+      if (count !== 1) {
+        throw new AppError('Invitation has already been used', 400, 'USED_INVITE');
+      }
+    }
+
+    // Create connection between inviter and invitee (unless one already exists)
+    if (invite.inviterId) {
+      const existing = await prisma.connection.findFirst({
+        where: {
+          OR: [
+            { requesterId: invite.inviterId, addresseeId: userId },
+            { requesterId: userId, addresseeId: invite.inviterId },
+          ],
+        },
+      });
+
+      if (!existing) {
+        await prisma.connection.create({
+          data: {
+            requesterId: invite.inviterId,
+            addresseeId: userId,
+            status: 'ACCEPTED',
+          },
+        });
+      }
     }
 
     return { message: 'Invitation accepted' };
   }
 
-  // Get user's sent invites
+  // Get the caller's own sent (direct) invites; tokens are never returned
   async getSentInvites(userId: string, page: number = 1, limit: number = 20) {
-    const { skip, take } = paginationHelper(page, limit);
+    const pg = paginationHelper(page, limit);
+    const where = { inviterId: userId, isShareable: false };
 
     const [invites, total] = await Promise.all([
       prisma.invite.findMany({
-        where: { inviterId: userId },
+        where,
+        select: {
+          id: true,
+          email: true,
+          name: true,
+          batchYear: true,
+          status: true,
+          expiresAt: true,
+          acceptedAt: true,
+          createdAt: true,
+        },
         orderBy: { createdAt: 'desc' },
-        skip,
-        take,
+        skip: pg.skip,
+        take: pg.take,
       }),
-      prisma.invite.count({ where: { inviterId: userId } }),
+      prisma.invite.count({ where }),
     ]);
 
-    return buildPaginationResponse(invites, total, page, limit);
+    return buildPaginationResponse(invites, total, pg.page, pg.limit);
   }
 
-  // Get invite stats for a user
+  // Invite stats for the caller's own direct invites (shareable links excluded)
   async getInviteStats(userId: string) {
-    const [total, accepted, pending] = await Promise.all([
-      prisma.invite.count({ where: { inviterId: userId } }),
-      prisma.invite.count({ where: { inviterId: userId, status: 'ACCEPTED' } }),
-      prisma.invite.count({ where: { inviterId: userId, status: 'SENT' } }),
+    const base = { inviterId: userId, isShareable: false };
+    const now = new Date();
+    const [total, accepted, pending, expired] = await Promise.all([
+      prisma.invite.count({ where: base }),
+      prisma.invite.count({ where: { ...base, status: 'ACCEPTED' } }),
+      prisma.invite.count({ where: { ...base, status: { in: ['PENDING', 'SENT'] }, expiresAt: { gte: now } } }),
+      prisma.invite.count({ where: { ...base, status: { not: 'ACCEPTED' }, expiresAt: { lt: now } } }),
     ]);
 
     return {
       total,
       accepted,
       pending,
+      expired,
       conversionRate: total > 0 ? Math.round((accepted / total) * 100) : 0,
     };
   }
 
-  // Generate a shareable invite link
+  // Generate (or reuse a still-valid) shareable invite link
   async generateShareableLink(userId: string) {
-    const token = this.generateToken();
-    const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000); // 30 days
-
-    await prisma.invite.create({
-      data: {
-        email: 'shareable-link',
-        token,
-        expiresAt,
+    const existing = await prisma.invite.findFirst({
+      where: {
         inviterId: userId,
         isShareable: true,
+        // Reuse only if it still has more than a day of life left
+        expiresAt: { gt: new Date(Date.now() + 24 * 60 * 60 * 1000) },
       },
+      orderBy: { createdAt: 'desc' },
     });
+
+    let token: string;
+    let expiresAt: Date;
+    if (existing) {
+      token = existing.token;
+      expiresAt = existing.expiresAt;
+    } else {
+      token = this.generateToken();
+      expiresAt = new Date(Date.now() + LINK_TTL_MS);
+      await prisma.invite.create({
+        data: {
+          email: SHAREABLE_EMAIL,
+          token,
+          expiresAt,
+          inviterId: userId,
+          isShareable: true,
+        },
+      });
+    }
 
     return {
       link: `${config.frontendUrl}/register?ref=${token}`,

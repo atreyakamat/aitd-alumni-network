@@ -3,6 +3,8 @@ const path = require('path');
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
+  // Docker image uses the self-contained server (see client/Dockerfile)
+  output: process.env.NEXT_OUTPUT === 'standalone' ? 'standalone' : undefined,
   images: {
     remotePatterns: [
       {
@@ -15,10 +17,12 @@ const nextConfig = {
     imageSizes: [16, 32, 48, 64, 96, 128, 256, 384],
   },
   typescript: {
-    ignoreBuildErrors: true,
+    // Type errors fail the build; run `npm run typecheck` locally.
+    ignoreBuildErrors: false,
   },
   eslint: {
-    ignoreDuringBuilds: true,
+    // Lint runs during `next build` (only warnings remain; errors fail the build).
+    ignoreDuringBuilds: false,
   },
   webpack: (config) => {
     config.resolve.alias['@'] = path.resolve(__dirname, 'src');
@@ -42,6 +46,8 @@ const nextConfig = {
   // Bundle optimization
   experimental: {
     optimizeCss: true,
+    // npm workspaces hoist node_modules to the monorepo root
+    outputFileTracingRoot: path.join(__dirname, '..'),
   },
   // Enable compression
   compress: true,

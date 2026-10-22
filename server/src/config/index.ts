@@ -30,6 +30,8 @@ export const config = {
   razorpay: {
     keyId: process.env.RAZORPAY_KEY_ID || '',
     keySecret: process.env.RAZORPAY_KEY_SECRET || '',
+    /** Secret set on the Razorpay dashboard webhook; the webhook endpoint returns 503 while it is empty. */
+    webhookSecret: process.env.RAZORPAY_WEBHOOK_SECRET || '',
   },
   aws: {
     accessKeyId: process.env.AWS_ACCESS_KEY_ID || '',
@@ -41,7 +43,6 @@ export const config = {
     clientId: process.env.GOOGLE_CLIENT_ID || '',
     clientSecret: process.env.GOOGLE_CLIENT_SECRET || '',
     callbackUrl: process.env.GOOGLE_CALLBACK_URL || 'http://localhost:5000/api/auth/google/callback',
-    mapsApiKey: process.env.GOOGLE_MAPS_API_KEY || '',
   },
   linkedin: {
     clientId: process.env.LINKEDIN_CLIENT_ID || '',
@@ -56,6 +57,19 @@ export const config = {
     quality: toInt(process.env.IMAGE_QUALITY, 80),
     maxWidth: toInt(process.env.IMAGE_MAX_WIDTH, 1920),
     maxHeight: toInt(process.env.IMAGE_MAX_HEIGHT, 1920),
+  },
+  geocoder: {
+    // OpenStreetMap Nominatim by default; "off" disables place search (the map still works)
+    url: ['off', 'false', 'none'].includes((process.env.GEOCODER_URL || '').toLowerCase())
+      ? ''
+      : process.env.GEOCODER_URL || 'https://nominatim.openstreetmap.org',
+    userAgent:
+      process.env.GEOCODER_USER_AGENT ||
+      `AITD-Alumni-Network/1.0 (+${process.env.FRONTEND_URL || 'http://localhost:3000'})`,
+    email: process.env.GEOCODER_EMAIL || '',
+    minIntervalMs: toInt(process.env.GEOCODER_MIN_INTERVAL_MS, 1100),
+    timeoutMs: toInt(process.env.GEOCODER_TIMEOUT_MS, 5000),
+    cacheTtlSeconds: toInt(process.env.GEOCODER_CACHE_TTL_SECONDS, 24 * 60 * 60),
   },
   frontendUrl: process.env.FRONTEND_URL || 'http://localhost:3000',
   nodeEnv: process.env.NODE_ENV || 'development',

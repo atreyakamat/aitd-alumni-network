@@ -14,7 +14,9 @@ import { Label } from '@/components/ui/label';
 import { useAuth } from '@/context/auth-context';
 import { useToast } from '@/hooks/use-toast';
 import { Eye, EyeOff, Loader2, ShieldCheck } from 'lucide-react';
-import { api } from '@/lib/api';
+import { api, authApi, twoFactorApi, isTwoFactorChallenge, getApiErrorMessage } from '@/lib/api';
+import { getAuthErrorMessage, shouldRestart2FA } from '@/lib/auth';
+import { buildRegisterHref, getSafeNextPath } from '@/lib/public-paths';
 
 const loginSchema = z.object({
   email: z.string().email('Please enter a valid email'),
@@ -29,7 +31,7 @@ function LoginContent() {
   const [isOAuthProvidersLoading, setIsOAuthProvidersLoading] = useState(true);
   const [oauthProviders, setOAuthProviders] = useState({ google: true, linkedin: true });
   const [requires2FA, setRequires2FA] = useState(false);
-  const [userId, setUserId] = useState<string | null>(null);
+  const [twoFactorToken, setTwoFactorToken] = useState<string | null>(null);
   const [otpCode, setOtpCode] = useState('');
   const [isVerifying2FA, setIsVerifying2FA] = useState(false);
   const { setAuthData } = useAuth();
@@ -42,6 +44,8 @@ function LoginContent() {
   const code = searchParams?.get('code');
   const oauthProvider = searchParams?.get('oauth');
   const isNewUser = searchParams?.get('newUser');
+  // Where to go after signing in; only same-origin relative paths are honoured.
+  const afterLoginPath = getSafeNextPath(searchParams?.get('next')) ?? '/dashboard';
 
   useEffect(() => {
     let isMounted = true;
@@ -99,7 +103,7 @@ function LoginContent() {
           });
           
           // Remove OAuth params from URL and redirect
-          router.replace('/dashboard');
+          router.replace(afterLoginPath);
         } catch (error) {
           toast({
             variant: 'destructive',
@@ -117,7 +121,7 @@ function LoginContent() {
     };
     
     handleOAuthCallback();
-    }, [code, oauthProvider, isNewUser, oauthError, setAuthData, toast, router]);
+    }, [code, oauthProvider, isNewUser, oauthError, setAuthData, toast, router, afterLoginPath]);
 
 
   const {
@@ -131,12 +135,13 @@ function LoginContent() {
   const onSubmit = async (data: LoginFormData) => {
     setIsLoading(true);
     try {
-      const response = await api.post('/auth/login', data);
+      const response = await authApi.login(data);
       const result = response.data.data;
 
-      if (result.requires2FA) {
+      if (isTwoFactorChallenge(result)) {
         setRequires2FA(true);
-        setUserId(result.userId);
+        setOtpCode('');
+        setTwoFactorToken(result.twoFactorToken);
         toast({
           title: 'Verification Required',
           description: 'A verification code has been sent to your email.',
@@ -147,13 +152,13 @@ function LoginContent() {
           title: 'Welcome back!',
           description: 'You have successfully logged in.',
         });
-        router.push('/dashboard');
+        router.push(afterLoginPath);
       }
     } catch (error: any) {
       toast({
         variant: 'destructive',
         title: 'Login failed',
-        description: error.response?.data?.error || 'Invalid credentials. Please try again.',
+        description: getApiErrorMessage(error, 'Invalid credentials. Please try again.'),
       });
     } finally {
       setIsLoading(false);
@@ -170,22 +175,32 @@ function LoginContent() {
       return;
     }
 
+    if (!twoFactorToken) {
+      setRequires2FA(false);
+      return;
+    }
+
     setIsVerifying2FA(true);
     try {
-      const response = await api.post('/auth/verify-2fa', { userId, otp: otpCode });
+      const response = await twoFactorApi.verify2FA(twoFactorToken, otpCode);
       const result = response.data.data;
       setAuthData(result);
       toast({
         title: 'Welcome back!',
         description: 'You have successfully logged in.',
       });
-      router.push('/dashboard');
+      router.push(afterLoginPath);
     } catch (error: any) {
       toast({
         variant: 'destructive',
         title: 'Verification Failed',
-        description: error.response?.data?.error || 'Invalid or expired code. Please try again.',
+        description: getAuthErrorMessage(error, 'Invalid or expired code. Please try again.'),
       });
+      if (shouldRestart2FA(error)) {
+        setRequires2FA(false);
+        setTwoFactorToken(null);
+        setOtpCode('');
+      }
     } finally {
       setIsVerifying2FA(false);
     }
@@ -193,7 +208,11 @@ function LoginContent() {
 
   const resend2FA = async () => {
     try {
-      await api.post('/auth/resend-2fa', { userId });
+      if (!twoFactorToken) {
+        setRequires2FA(false);
+        return;
+      }
+      await twoFactorApi.resend2FA(twoFactorToken);
       toast({
         title: 'Code Sent',
         description: 'A new verification code has been sent to your email.',
@@ -201,9 +220,14 @@ function LoginContent() {
     } catch (error: any) {
       toast({
         variant: 'destructive',
-        title: 'Error',
-        description: 'Failed to resend code. Please try again.',
+        title: 'Could not resend code',
+        description: getAuthErrorMessage(error, 'Failed to resend code. Please try again.'),
       });
+      if (shouldRestart2FA(error)) {
+        setRequires2FA(false);
+        setTwoFactorToken(null);
+        setOtpCode('');
+      }
     }
   };
 
@@ -307,7 +331,7 @@ function LoginContent() {
                     type="button"
                     onClick={() => {
                       setRequires2FA(false);
-                      setUserId(null);
+                      setTwoFactorToken(null);
                       setOtpCode('');
                     }}
                     className="text-sm text-muted-foreground hover:underline"
@@ -483,7 +507,7 @@ function LoginContent() {
 
             <p className="mt-6 text-center text-sm text-muted-foreground">
               Don't have an account?{' '}
-              <Link href="/register" className="text-primary hover:underline font-medium">
+              <Link href={buildRegisterHref(searchParams?.get('next'))} className="text-primary hover:underline font-medium">
                 Sign up
               </Link>
             </p>

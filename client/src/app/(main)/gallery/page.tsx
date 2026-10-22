@@ -1,14 +1,25 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import Image from 'next/image';
-import { galleryApi } from '@/lib/api';
+import Link from 'next/link';
+import { useInfiniteQuery, useQuery, useQueryClient } from '@tanstack/react-query';
+import { galleryApi, getApiErrorMessage, readPaginated, type CreateAlbumInput } from '@/lib/api';
+import { useDebouncedValue } from '@/hooks/use-debounced-value';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { useAuth } from '@/context/auth-context';
+import { buildLoginHref } from '@/lib/public-paths';
+import { isAdmin } from '@/lib/roles';
+import { useToast } from '@/hooks/use-toast';
+import { CreateAlbumDialog } from '@/components/gallery/CreateAlbumDialog';
+import { AlbumViewDialog } from '@/components/gallery/AlbumViewDialog';
 import { Card, CardContent, CardFooter } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { 
-  Image as ImageIcon, 
+  AlertCircle,
+  Image as ImageIcon,
   Plus, 
   Search, 
   Loader2, 
@@ -21,38 +32,45 @@ import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogTrigger } from '@/components/ui/dialog';
 import { formatDate } from '@/lib/utils';
 
+const ALBUMS_PAGE_SIZE = 12;
+const SEARCH_DEBOUNCE_MS = 300;
+const SEARCH_MAX_LENGTH = 100;
+
 export default function GalleryPage() {
-  const [albums, setAlbums] = useState<any[]>([]);
-  const [recentPhotos, setRecentPhotos] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { user, isAuthenticated } = useAuth();
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
   const [searchQuery, setSearchQuery] = useState('');
+  const [createOpen, setCreateOpen] = useState(false);
+  const [openAlbum, setOpenAlbum] = useState<any | null>(null);
+  // Album creation is ADMIN+ on the server (POST /gallery/albums).
+  const canCreateAlbum = isAdmin(user);
+  // Search runs on the server (title/description) across every album, not just the loaded page.
+  const search = useDebouncedValue(searchQuery.trim().slice(0, SEARCH_MAX_LENGTH), SEARCH_DEBOUNCE_MS);
 
-  useEffect(() => {
-    fetchGalleryData();
-  }, []);
+  const albumsQuery = useInfiniteQuery({
+    queryKey: ['gallery', 'albums', search],
+    queryFn: async ({ pageParam }) =>
+      readPaginated<any>((await galleryApi.getAlbums(pageParam, ALBUMS_PAGE_SIZE, undefined, search || undefined)).data),
+    initialPageParam: 1,
+    getNextPageParam: (last) => (last.page < last.totalPages ? last.page + 1 : undefined),
+  });
+  const albums = albumsQuery.data?.pages.flatMap((p) => p.items) ?? [];
 
-  const fetchGalleryData = async () => {
-    setLoading(true);
-    try {
-      const [albumsRes, photosRes] = await Promise.all([
-        galleryApi.getAlbums(),
-        galleryApi.getRecentPhotos(12)
-      ]);
-      setAlbums(albumsRes.data.items || []);
-      setRecentPhotos(photosRes.data.items || []);
-    } catch (error) {
-      console.error('Gallery fetch error:', error);
-    } finally {
-      setLoading(false);
-    }
+  const recentQuery = useQuery({
+    queryKey: ['gallery', 'recent'],
+    queryFn: async () => readPaginated<any>((await galleryApi.getRecentPhotos(12)).data).items,
+  });
+  const recentPhotos = recentQuery.data ?? [];
+
+  const createAlbum = async (payload: CreateAlbumInput) => {
+    await galleryApi.createAlbum(payload);
+    toast({ title: 'Album created', description: `"${payload.title}" is ready for photos.` });
+    queryClient.invalidateQueries({ queryKey: ['gallery', 'albums'] });
   };
 
-  const filteredAlbums = albums.filter(album => 
-    album.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    album.description?.toLowerCase().includes(searchQuery.toLowerCase())
-  );
-
-  if (loading) {
+  // Full-page spinner only for the first load; while searching the header and input stay mounted.
+  if (albumsQuery.isLoading && !search && !searchQuery) {
     return (
       <div className="flex flex-col items-center justify-center py-20">
         <Loader2 className="h-12 w-12 animate-spin text-primary mb-4" />
@@ -71,17 +89,28 @@ export default function GalleryPage() {
         <div className="flex gap-2">
           <div className="relative w-full md:w-64">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input 
-              placeholder="Search albums..." 
+            <Input
+              aria-label="Search albums"
+              maxLength={SEARCH_MAX_LENGTH}
+              placeholder="Search albums..."
               className="pl-9"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
             />
           </div>
-          <Button variant="outline">
-            <Plus className="h-4 w-4 mr-2" />
-            New Album
-          </Button>
+          {canCreateAlbum ? (
+            <Button variant="outline" onClick={() => setCreateOpen(true)}>
+              <Plus className="h-4 w-4 mr-2" />
+              New Album
+            </Button>
+          ) : isAuthenticated ? null : (
+            <Button variant="outline" asChild>
+              <Link href={buildLoginHref('/gallery')}>
+                <Plus className="h-4 w-4 mr-2" />
+                Sign in to share
+              </Link>
+            </Button>
+          )}
         </div>
       </div>
 
@@ -91,14 +120,34 @@ export default function GalleryPage() {
           <TabsTrigger value="recent">Recent Photos</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="albums">
+        <TabsContent value="albums" className="space-y-6">
+          {albumsQuery.isError ? (
+            <Alert variant="destructive">
+              <AlertCircle className="h-4 w-4" />
+              <AlertTitle>Error</AlertTitle>
+              <AlertDescription className="flex flex-col sm:flex-row sm:items-center gap-3">
+                <span>{getApiErrorMessage(albumsQuery.error, 'Failed to load albums. Please try again.')}</span>
+                <Button variant="outline" size="sm" onClick={() => albumsQuery.refetch()} disabled={albumsQuery.isFetching}>
+                  Retry
+                </Button>
+              </AlertDescription>
+            </Alert>
+          ) : albumsQuery.isLoading ? (
+            <div className="flex justify-center py-12" role="status" aria-label="Searching albums">
+              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            </div>
+          ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-            {filteredAlbums.map((album) => (
-              <Card key={album.id} className="overflow-hidden group cursor-pointer hover:shadow-lg transition-all border-none shadow-md">
+            {albums.map((album) => (
+              <Card
+                key={album.id}
+                className="overflow-hidden group cursor-pointer hover:shadow-lg transition-all border-none shadow-md"
+                onClick={() => setOpenAlbum(album)}
+              >
                 <div className="aspect-[4/3] relative overflow-hidden bg-muted">
-                  {album.coverImageUrl ? (
+                  {album.coverPhotoUrl || album.coverImageUrl ? (
                     <Image 
-                      src={album.coverImageUrl} 
+                      src={album.coverPhotoUrl || album.coverImageUrl} 
                       alt={album.title} 
                       fill
                       className="object-cover group-hover:scale-110 transition-transform duration-500"
@@ -109,14 +158,22 @@ export default function GalleryPage() {
                       <ImageIcon className="h-12 w-12 text-muted-foreground/20" />
                     </div>
                   )}
-                  <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                    <Button variant="secondary" size="sm">
+                  <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity flex items-center justify-center">
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      aria-label={`View album: ${album.title}`}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setOpenAlbum(album);
+                      }}
+                    >
                       View Album
                       <ChevronRight className="h-4 w-4 ml-1" />
                     </Button>
                   </div>
                   <Badge className="absolute bottom-2 right-2 bg-black/60 backdrop-blur-sm border-none">
-                    {album._count?.photos || 0} Photos
+                    {album.photoCount ?? album._count?.photos ?? 0} Photos
                   </Badge>
                 </div>
                 <CardContent className="p-4">
@@ -137,13 +194,29 @@ export default function GalleryPage() {
               </Card>
             ))}
             
-            {filteredAlbums.length === 0 && (
+            {albums.length === 0 && (
               <div className="col-span-full py-20 text-center border-2 border-dashed rounded-xl">
                 <ImageIcon className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                <h3 className="text-lg font-medium text-muted-foreground">No albums found</h3>
+                <h3 className="text-lg font-medium text-muted-foreground">
+                  {search ? `No albums match "${search}"` : 'No albums found'}
+                </h3>
               </div>
             )}
           </div>
+          )}
+
+          {albumsQuery.hasNextPage && !albumsQuery.isError && (
+            <div className="flex justify-center">
+              <Button
+                variant="outline"
+                onClick={() => albumsQuery.fetchNextPage()}
+                disabled={albumsQuery.isFetchingNextPage}
+              >
+                {albumsQuery.isFetchingNextPage && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                Load more albums
+              </Button>
+            </div>
+          )}
         </TabsContent>
 
         <TabsContent value="recent">
@@ -192,6 +265,9 @@ export default function GalleryPage() {
           </div>
         </TabsContent>
       </Tabs>
+
+      <AlbumViewDialog album={openAlbum} onClose={() => setOpenAlbum(null)} />
+      {canCreateAlbum && <CreateAlbumDialog open={createOpen} onOpenChange={setCreateOpen} onSubmit={createAlbum} />}
     </div>
   );
 }

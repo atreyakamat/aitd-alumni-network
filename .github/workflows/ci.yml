@@ -11,29 +11,26 @@ env:
 
 jobs:
   # =====================
-  # Backend Tests & Build
+  # Backend: typecheck, lint, unit + integration tests, build
   # =====================
   backend:
     name: Backend CI
     runs-on: ubuntu-latest
-    
-    defaults:
-      run:
-        working-directory: ./server
 
     services:
-      mysql:
-        image: mysql:8.0
+      postgres:
+        image: postgres:17-alpine
         env:
-          MYSQL_ROOT_PASSWORD: testpassword
-          MYSQL_DATABASE: alumni_test
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: testpassword
+          POSTGRES_DB: alumni_test
         ports:
-          - 3306:3306
+          - 5432:5432
         options: >-
-          --health-cmd="mysqladmin ping"
-          --health-interval=10s
+          --health-cmd="pg_isready -U postgres"
+          --health-interval=5s
           --health-timeout=5s
-          --health-retries=3
+          --health-retries=10
 
     steps:
       - name: Checkout code
@@ -44,44 +41,50 @@ jobs:
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'npm'
-          cache-dependency-path: server/package-lock.json
+          cache-dependency-path: package-lock.json
 
-      - name: Install dependencies
+      - name: Install dependencies (workspaces)
         run: npm ci
 
       - name: Generate Prisma Client
+        working-directory: ./server
         run: npx prisma generate
 
-      - name: Run linter
+      - name: Typecheck (src + tests)
+        working-directory: ./server
+        run: npm run typecheck
+
+      - name: Lint
+        working-directory: ./server
         run: npm run lint
 
-      - name: Run tests
-        run: npm test
+      - name: Unit & route-level RBAC tests (with coverage)
+        working-directory: ./server
+        run: npm run test:coverage
+
+      - name: Integration tests (real PostgreSQL)
+        working-directory: ./server
+        run: npm run test:integration
         env:
-          DATABASE_URL: mysql://root:testpassword@localhost:3306/alumni_test
-          JWT_SECRET: test-jwt-secret
-          JWT_REFRESH_SECRET: test-jwt-refresh-secret
+          TEST_DATABASE_URL: postgresql://postgres:testpassword@127.0.0.1:5432/alumni_test
 
       - name: Build
+        working-directory: ./server
         run: npm run build
 
-      - name: Upload build artifacts
+      - name: Upload coverage
         uses: actions/upload-artifact@v4
         with:
-          name: server-dist
-          path: server/dist
+          name: server-coverage
+          path: server/coverage
           retention-days: 7
 
   # =====================
-  # Frontend Tests & Build
+  # Frontend: typecheck, unit tests, build
   # =====================
   frontend:
     name: Frontend CI
     runs-on: ubuntu-latest
-    
-    defaults:
-      run:
-        working-directory: ./client
 
     steps:
       - name: Checkout code
@@ -92,28 +95,27 @@ jobs:
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'npm'
-          cache-dependency-path: client/package-lock.json
+          cache-dependency-path: package-lock.json
 
-      - name: Install dependencies
+      - name: Install dependencies (workspaces)
         run: npm ci
 
-      - name: Run linter
-        run: npm run lint
+      - name: Typecheck
+        working-directory: ./client
+        run: npm run typecheck
+
+      - name: Unit tests
+        working-directory: ./client
+        run: npm test
 
       - name: Build
+        working-directory: ./client
         run: npm run build
         env:
           NEXT_PUBLIC_API_URL: http://localhost:5000/api
 
-      - name: Upload build artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: client-next
-          path: client/.next
-          retention-days: 7
-
   # =====================
-  # Docker Build
+  # Docker Build (images only; deployment runs them)
   # =====================
   docker:
     name: Docker Build
@@ -128,6 +130,9 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
+      - name: Validate docker-compose.yml
+        run: POSTGRES_PASSWORD=x JWT_SECRET=x JWT_REFRESH_SECRET=x docker compose config --quiet
+
       - name: Login to Docker Hub
         if: github.event_name != 'pull_request'
         uses: docker/login-action@v3
@@ -138,7 +143,8 @@ jobs:
       - name: Build and push backend
         uses: docker/build-push-action@v5
         with:
-          context: ./server
+          context: .
+          file: server/Dockerfile
           push: ${{ github.event_name != 'pull_request' }}
           tags: |
             ${{ secrets.DOCKER_USERNAME }}/alumni-connect-api:latest
@@ -149,7 +155,8 @@ jobs:
       - name: Build and push frontend
         uses: docker/build-push-action@v5
         with:
-          context: ./client
+          context: .
+          file: client/Dockerfile
           push: ${{ github.event_name != 'pull_request' }}
           tags: |
             ${{ secrets.DOCKER_USERNAME }}/alumni-connect-web:latest

@@ -41,9 +41,9 @@ aitd-alumni-network/
 ## 🚀 Quick Start
 
 ### Prerequisites
-- Node.js v18+
-- MySQL 8.0+
+- Node.js v20+
 - Git
+- PostgreSQL 17 (optional locally: `npm run db:local -w server` runs an embedded one)
 
 ### Installation
 
@@ -55,20 +55,18 @@ cd aitd-alumni-network
 # 2. Install all dependencies
 npm install
 
-# 3. Set up MySQL database
-mysql -u root -p
-> CREATE DATABASE alumni_connect;
-> exit
+# 3. Start PostgreSQL (embedded, no Docker; keep this terminal open)
+npm run db:local -w server
 
 # 4. Configure environment
 copy server\.env.example server\.env
-# Edit server\.env with your MySQL credentials:
-# DATABASE_URL="mysql://root:YOUR_PASSWORD@localhost:3306/alumni_connect"
+# DATABASE_URL="postgresql://postgres:postgres@127.0.0.1:5433/alumni_connect"
 
-# 5. Run database migrations
+# 5. Apply migrations and seed
 cd server
-npx prisma migrate dev
 npx prisma generate
+npx prisma migrate deploy
+npm run db:seed
 cd ..
 
 # 6. Start development servers
@@ -82,6 +80,9 @@ npm run dev
 | Frontend | http://localhost:3000 |
 | Backend API | http://localhost:5000/api |
 | Health Check | http://localhost:5000/health |
+
+To run the whole stack in containers instead, see [DOCKER.md](DOCKER.md). For how the pieces fit together, see
+[ARCHITECTURE.md](ARCHITECTURE.md).
 
 ---
 
@@ -265,7 +266,7 @@ npm run lint          # Lint all packages
 
 ```env
 # Database
-DATABASE_URL="mysql://user:pass@localhost:3306/alumni_connect"
+DATABASE_URL="postgresql://user:pass@localhost:5432/alumni_connect"
 
 # JWT
 JWT_SECRET="your-secret-key"

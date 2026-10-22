@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { userApi } from '@/lib/api';
+import { userApi, getApiErrorMessage } from '@/lib/api';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -123,7 +123,7 @@ export default function YearbookPage() {
           <AlertCircle className="h-4 w-4" />
           <AlertTitle>Error</AlertTitle>
           <AlertDescription>
-            {(error as any)?.response?.data?.error || 'Failed to load yearbook data. Please try again later.'}
+            {getApiErrorMessage(error, 'Failed to load yearbook data. Please try again later.')}
           </AlertDescription>
         </Alert>
       ) : alumni.length === 0 ? (

@@ -21,7 +21,8 @@ interface MembershipReceiptData {
   membershipTier: string;
   amount: number;
   startDate: Date;
-  endDate: Date;
+  /** null/undefined for lifetime memberships */
+  endDate?: Date | null;
   paymentId: string;
 }
 
@@ -431,7 +432,7 @@ export class PDFReceiptGenerator {
 
       // Validity period
       this.addField('Valid From:', formatDate(data.startDate), 520);
-      this.addField('Valid Until:', formatDate(data.endDate), 545);
+      this.addField('Valid Until:', data.endDate ? formatDate(data.endDate) : 'Lifetime', 545);
 
       // Benefits reminder
       this.doc
@@ -484,9 +485,17 @@ export const generateMembershipReceipt = async (
   return generator.generateMembershipReceipt(data);
 };
 
-// Generate unique receipt number
-export const generateReceiptNumber = (type: 'DON' | 'MEM'): string => {
-  const timestamp = Date.now().toString(36).toUpperCase();
-  const random = Math.random().toString(36).substring(2, 6).toUpperCase();
-  return `${type}-${timestamp}-${random}`;
+/**
+ * Deterministic receipt number for a transaction:
+ * `AITD-<DON|MEM>-<YYYYMMDD (UTC)>-<first 8 hex chars of the transaction id>`.
+ * The same transaction always yields the same receipt number, so receipts
+ * re-downloaded later match the copy e-mailed/stored at payment time.
+ */
+export const generateReceiptNumber = (type: 'DON' | 'MEM', transactionId: string, date: Date): string => {
+  const d = new Date(date);
+  const stamp = Number.isNaN(d.getTime())
+    ? '00000000'
+    : `${d.getUTCFullYear()}${String(d.getUTCMonth() + 1).padStart(2, '0')}${String(d.getUTCDate()).padStart(2, '0')}`;
+  const ref = String(transactionId || '').replace(/[^a-zA-Z0-9]/g, '').slice(0, 8).toUpperCase() || 'UNKNOWN';
+  return `AITD-${type}-${stamp}-${ref}`;
 };

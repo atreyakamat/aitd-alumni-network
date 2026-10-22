@@ -2,7 +2,8 @@
 
 import { useState, useEffect, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
-import { searchApi } from '@/lib/api';
+import { searchApi, getApiErrorMessage } from '@/lib/api';
+import { getEventLocation } from '@/lib/events';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -22,6 +23,9 @@ import {
 import Link from 'next/link';
 import { getInitials } from '@/lib/utils';
 
+const MIN_QUERY_LENGTH = 2;
+const MAX_QUERY_LENGTH = 100;
+
 function SearchResults() {
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -30,6 +34,7 @@ function SearchResults() {
   const [searchInput, setSearchInput] = useState(query);
   const [results, setResults] = useState<any>(null);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState('all');
 
   useEffect(() => {
@@ -39,14 +44,23 @@ function SearchResults() {
   }, [query]);
 
   const handleSearch = async (searchTerm: string) => {
-    if (!searchTerm || searchTerm.length < 2) return;
+    const term = searchTerm.trim().slice(0, MAX_QUERY_LENGTH);
+    if (term.length < MIN_QUERY_LENGTH) return;
     
     setLoading(true);
+    setError(null);
     try {
-      const response = await searchApi.globalSearch(searchTerm);
-      setResults(response.data.data);
-    } catch (error) {
-      console.error('Search failed:', error);
+      const response = await searchApi.globalSearch(term);
+      const data = response.data.data;
+      setResults({
+        users: data?.users ?? [],
+        jobs: data?.jobs ?? [],
+        events: data?.events ?? [],
+        posts: data?.posts ?? [],
+      });
+    } catch (err) {
+      setResults(null);
+      setError(getApiErrorMessage(err, 'Search failed. Please try again.'));
     } finally {
       setLoading(false);
     }
@@ -54,8 +68,9 @@ function SearchResults() {
 
   const onSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (searchInput.trim()) {
-      router.push(`/dashboard/search?q=${encodeURIComponent(searchInput)}`);
+    const term = searchInput.trim();
+    if (term.length >= MIN_QUERY_LENGTH) {
+      router.push(`/search?q=${encodeURIComponent(term.slice(0, MAX_QUERY_LENGTH))}`);
     }
   };
 
@@ -78,15 +93,27 @@ function SearchResults() {
               onChange={(e) => setSearchInput(e.target.value)}
               placeholder="Search alumni, jobs, events..."
               className="pl-10 h-12 text-lg rounded-full"
+              maxLength={MAX_QUERY_LENGTH}
+              aria-label="Search"
             />
           </div>
           <Button type="submit" size="lg" className="rounded-full px-8">
             Search
           </Button>
         </form>
+        {searchInput.trim().length > 0 && searchInput.trim().length < MIN_QUERY_LENGTH && (
+          <p className="text-xs text-muted-foreground mt-2">Type at least {MIN_QUERY_LENGTH} characters to search.</p>
+        )}
       </div>
 
-      {loading ? (
+      {error ? (
+        <div role="alert" className="flex flex-col items-center justify-center py-16 text-center">
+          <p className="text-destructive font-medium mb-3">{error}</p>
+          <Button variant="outline" onClick={() => handleSearch(query)}>
+            Try again
+          </Button>
+        </div>
+      ) : loading ? (
         <div className="flex flex-col items-center justify-center py-20">
           <Loader2 className="h-12 w-12 animate-spin text-primary mb-4" />
           <p className="text-muted-foreground">Searching the network...</p>
@@ -122,10 +149,10 @@ function SearchResults() {
                   </div>
                   <div className="grid gap-4 sm:grid-cols-2">
                     {results.users.map((user: any) => (
-                      <Card key={user.id} className="hover:border-primary/50 transition-colors cursor-pointer" onClick={() => router.push(`/dashboard/profile/${user.id}`)}>
+                      <Card key={user.id} className="hover:border-primary/50 transition-colors cursor-pointer" onClick={() => router.push(`/profile/${user.id}`)}>
                         <CardContent className="p-4 flex items-center gap-4">
                           <Avatar className="h-12 w-12">
-                            <AvatarImage src={user.profilePhotoUrl} />
+                            <AvatarImage src={user.profilePhotoUrl ?? undefined} />
                             <AvatarFallback>{getInitials(user.fullName)}</AvatarFallback>
                           </Avatar>
                           <div className="flex-1 min-w-0">
@@ -154,7 +181,7 @@ function SearchResults() {
                   </div>
                   <div className="grid gap-4">
                     {results.jobs.map((job: any) => (
-                      <Card key={job.id} className="hover:border-primary/50 transition-colors cursor-pointer" onClick={() => router.push(`/dashboard/jobs/${job.id}`)}>
+                      <Card key={job.id} className="hover:border-primary/50 transition-colors cursor-pointer" onClick={() => router.push(`/jobs/${job.id}`)}>
                         <CardContent className="p-4 flex items-center justify-between">
                           <div className="flex items-center gap-4">
                             <div className="h-12 w-12 bg-secondary rounded-md flex items-center justify-center">
@@ -162,10 +189,10 @@ function SearchResults() {
                             </div>
                             <div>
                               <h3 className="font-bold">{job.title}</h3>
-                              <p className="text-sm text-muted-foreground">{job.company} • {job.location}</p>
+                              <p className="text-sm text-muted-foreground">{[job.company, job.location || (job.workplaceType === 'REMOTE' ? 'Remote' : null)].filter(Boolean).join(' • ')}</p>
                             </div>
                           </div>
-                          <Badge>{job.type}</Badge>
+                          <Badge>{String(job.jobType ?? job.type ?? '').replace(/_/g, ' ')}</Badge>
                         </CardContent>
                       </Card>
                     ))}
@@ -186,7 +213,7 @@ function SearchResults() {
                   </div>
                   <div className="grid gap-4 sm:grid-cols-2">
                     {results.events.map((event: any) => (
-                      <Card key={event.id} className="hover:border-primary/50 transition-colors cursor-pointer" onClick={() => router.push(`/dashboard/events/${event.id}`)}>
+                      <Card key={event.id} className="hover:border-primary/50 transition-colors cursor-pointer" onClick={() => router.push(`/events/${event.id}`)}>
                         <CardContent className="p-4 flex gap-4">
                           <div className="h-16 w-16 bg-primary/10 rounded-md flex flex-col items-center justify-center text-primary shrink-0">
                             <span className="text-xs font-bold uppercase">{new Date(event.startDate).toLocaleDateString('en-US', { month: 'short' })}</span>
@@ -195,7 +222,7 @@ function SearchResults() {
                           <div className="min-w-0">
                             <h3 className="font-bold truncate">{event.title}</h3>
                             <p className="text-xs text-muted-foreground flex items-center gap-1 mt-1">
-                              <MapPin className="h-3 w-3" /> {event.location || 'Online'}
+                              <MapPin className="h-3 w-3" /> {event.eventType === 'ONLINE' ? 'Online' : getEventLocation(event) || 'Location TBD'}
                             </p>
                           </div>
                         </CardContent>
@@ -209,9 +236,9 @@ function SearchResults() {
             <TabsContent value="users" className="mt-6">
               <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-3">
                 {results.users.map((user: any) => (
-                  <Card key={user.id} className="text-center p-6 hover:shadow-md transition-shadow cursor-pointer" onClick={() => router.push(`/dashboard/profile/${user.id}`)}>
+                  <Card key={user.id} className="text-center p-6 hover:shadow-md transition-shadow cursor-pointer" onClick={() => router.push(`/profile/${user.id}`)}>
                     <Avatar className="h-20 w-20 mx-auto mb-4">
-                      <AvatarImage src={user.profilePhotoUrl} />
+                      <AvatarImage src={user.profilePhotoUrl ?? undefined} />
                       <AvatarFallback className="text-xl">{getInitials(user.fullName)}</AvatarFallback>
                     </Avatar>
                     <h3 className="font-bold text-lg">{user.fullName}</h3>

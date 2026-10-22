@@ -43,6 +43,7 @@ export function LatestNews() {
             title: article.title,
             excerpt: article.summary || article.content.substring(0, 150) + '...',
             cta: 'Read More',
+            href: article.slug ? `/news/${encodeURIComponent(article.slug)}` : '/news',
             image: article.coverImageUrl || (article.id === data[0].id ? FALLBACK_STORIES[0].image : FALLBACK_STORIES[1].image),
           }));
           setStories(formattedStories);
@@ -81,7 +82,7 @@ export function LatestNews() {
                   </span>
                   <h3 className="mb-4 font-headline text-3xl leading-snug text-primary">{stories[0].title}</h3>
                   <p className="mb-6 text-sm leading-relaxed text-slate-600 font-body">{stories[0].excerpt}</p>
-                  <Link href="/news" className="border-b-2 border-primary pb-1 text-xs font-bold uppercase tracking-widest text-primary font-label">
+                  <Link href={stories[0].href || '/news'} className="border-b-2 border-primary pb-1 text-xs font-bold uppercase tracking-widest text-primary font-label">
                     {stories[0].cta}
                   </Link>
                 </div>
@@ -106,7 +107,7 @@ export function LatestNews() {
                   </span>
                   <h3 className="mb-4 font-headline text-3xl leading-snug text-primary">{stories[1].title}</h3>
                   <p className="mb-6 text-sm leading-relaxed text-slate-600 font-body">{stories[1].excerpt}</p>
-                  <Link href="/news" className="border-b-2 border-primary pb-1 text-xs font-bold uppercase tracking-widest text-primary font-label">
+                  <Link href={stories[1].href || '/news'} className="border-b-2 border-primary pb-1 text-xs font-bold uppercase tracking-widest text-primary font-label">
                     {stories[1].cta}
                   </Link>
                 </div>

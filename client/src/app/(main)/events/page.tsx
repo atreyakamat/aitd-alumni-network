@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { eventApi } from '@/lib/api';
+import { eventApi, getApiErrorMessage, readPaginated } from '@/lib/api';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -20,6 +20,8 @@ import {
 } from 'lucide-react';
 import { formatDate } from '@/lib/utils';
 import { useAuth } from '@/context/auth-context';
+import { isChapterAdminOrAbove } from '@/lib/roles';
+import { CreateEventDialog } from '@/components/events/CreateEventDialog';
 import Link from 'next/link';
 import { LoadingSpinner } from '@/components/ui/loading';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -64,10 +66,12 @@ export default function EventsPage() {
     },
   });
 
-  const events = data?.items || [];
-  const pagination = data || { total: 0, pages: 0, page: 1 };
+  const { items: events, total, totalPages } = readPaginated(data);
+  const pagination = { total, pages: totalPages };
 
-  const canCreateEvent = user?.role === 'ADMIN' || user?.role === 'SUPER_ADMIN' || user?.role === 'SUPERADMIN';
+  // Chapter admins create events for their chapter; admins for anything.
+  const canCreateEvent = isChapterAdminOrAbove(user);
+  const [createOpen, setCreateOpen] = useState(false);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -143,12 +147,10 @@ export default function EventsPage() {
           </p>
         </div>
         {canCreateEvent && (
-          <Link href="/admin/events/new">
-            <Button>
-              <Plus className="h-4 w-4 mr-2" />
-              Create Event
-            </Button>
-          </Link>
+          <Button onClick={() => setCreateOpen(true)}>
+            <Plus className="h-4 w-4 mr-2" />
+            Create Event
+          </Button>
         )}
       </div>
 
@@ -197,7 +199,7 @@ export default function EventsPage() {
           <AlertCircle className="h-4 w-4" />
           <AlertTitle>Error</AlertTitle>
           <AlertDescription>
-            {(error as any)?.response?.data?.error || 'Failed to load events. Please try again later.'}
+            {getApiErrorMessage(error, 'Failed to load events. Please try again later.')}
           </AlertDescription>
         </Alert>
       ) : events.length === 0 ? (
@@ -240,6 +242,7 @@ export default function EventsPage() {
           )}
         </>
       )}
+      {canCreateEvent && <CreateEventDialog open={createOpen} onOpenChange={setCreateOpen} />}
     </div>
   );
 }

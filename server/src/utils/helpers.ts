@@ -50,7 +50,11 @@ export const sanitizeHtml = (html: string): string => {
     .replace(/javascript:/gi, '');
 };
 
-export const paginationHelper = (page: number = 1, limit: number = 12) => {
+export const MAX_PAGE_SIZE = 100;
+
+export const paginationHelper = (rawPage: number = 1, rawLimit: number = 12) => {
+  const page = Number.isFinite(rawPage) ? Math.max(1, Math.floor(rawPage)) : 1;
+  const limit = Number.isFinite(rawLimit) ? Math.min(MAX_PAGE_SIZE, Math.max(1, Math.floor(rawLimit))) : 12;
   const skip = (page - 1) * limit;
   return {
     skip,
@@ -79,3 +83,9 @@ export const buildPaginationResponse = <T>(
     },
   };
 };
+
+/**
+ * Case-insensitive substring filter. PostgreSQL compares text case-sensitively, so every
+ * user-facing search goes through this rather than a bare `{ contains }`.
+ */
+export const ilike = (value: string) => ({ contains: value, mode: 'insensitive' as const });

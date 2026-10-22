@@ -1,0 +1,12 @@
+**/node_modules
+**/.next
+**/dist
+**/coverage
+**/.env
+**/.env.*
+!**/.env.example
+.git
+server/uploads
+**/.local-pg
+*.log
+server/prisma/mysql-legacy

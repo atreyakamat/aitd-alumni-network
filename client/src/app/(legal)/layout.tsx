@@ -52,9 +52,9 @@ export default function LegalLayout({
             <Link href="/terms" className="hover:text-[#002045]">
               Terms of Service
             </Link>
-            <a href="mailto:contact@aitdconnection.aitd.edu" className="hover:text-[#002045]">
+            <Link href="/contact" className="hover:text-[#002045]">
               Contact Us
-            </a>
+            </Link>
           </div>
         </div>
       </footer>

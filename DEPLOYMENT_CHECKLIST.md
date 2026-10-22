@@ -1,3 +1,5 @@
+> **Superseded (2026-10-18):** this guide describes the old MySQL shared-host deployment. The platform now runs on PostgreSQL. Use [docs/DOCKER.md](docs/DOCKER.md).
+
 # 🚀 QUICK DEPLOYMENT CHECKLIST - aitd.stixnvibes.com
 
 ## ✅ Pre-Deployment Status
@@ -231,7 +233,7 @@ NEXT_PUBLIC_API_URL=https://api.aitd.stixnvibes.com/api
 
 ### Backend (Railway/Render Dashboard)
 ```
-DATABASE_URL=mysql://aitdgki7_techurja:AitdTech%402026@119.18.54.49:3306/aitdgki7_techurja
+DATABASE_URL=postgresql://<user>:<password>@<host>:5432/<database>   (credentials removed; never commit them)
 REDIS_URL=redis://localhost:6379
 JWT_SECRET=aitd-connection-secret-2026
 JWT_REFRESH_SECRET=aitd-connection-refresh-secret-2026

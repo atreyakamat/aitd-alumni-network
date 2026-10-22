@@ -1,160 +1,142 @@
 'use client';
 
 import { useState } from 'react';
+import Image from 'next/image';
+import Link from 'next/link';
+import { keepPreviousData, useQuery } from '@tanstack/react-query';
+import { AlertCircle, ArrowRight, Clock, Eye, Newspaper, Search, User } from 'lucide-react';
+import { getApiErrorMessage, newsApi, readPaginated } from '@/lib/api';
+import { NEWS_CATEGORIES, NEWS_CATEGORY_COLORS, newsCategoryLabel, newsExcerpt } from '@/lib/news';
+import { useDebouncedValue } from '@/hooks/use-debounced-value';
+import { formatDate } from '@/lib/utils';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import { Search, Clock, User, ArrowRight } from 'lucide-react';
-import { formatDate } from '@/lib/utils';
-import Link from 'next/link';
+import { Skeleton } from '@/components/ui/skeleton';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import type { NewsArticle } from '@/types';
 
-const categories = [
-  'All Categories',
-  'Alumni Spotlight',
-  'College News',
-  'Industry',
-  'Events',
-  'General',
-];
+const ALL = 'ALL';
+const PAGE_SIZE = 12;
+const SEARCH_DEBOUNCE_MS = 300;
 
-// Mock data
-const articles = [
-  {
-    id: '1',
-    slug: 'priya-sharma-startup-success',
-    title: 'Alumni Spotlight: How Priya Sharma Built a $100M Startup',
-    excerpt:
-      'From college dorm to Silicon Valley - the inspiring journey of our 2015 batch alumna who founded TechVentures.',
-    coverImageUrl: null,
-    category: 'ALUMNI_SPOTLIGHT',
-    author: {
-      fullName: 'Editorial Team',
-    },
-    publishedAt: '2023-12-28T10:00:00Z',
-    viewsCount: 1250,
-    tags: ['success-story', 'entrepreneurship', 'tech'],
-  },
-  {
-    id: '2',
-    slug: 'new-research-wing-inauguration',
-    title: 'New Research Wing Inaugurated by Distinguished Alumnus',
-    excerpt:
-      'Dr. Rajesh Patel, PhD (2010), inaugurates the state-of-the-art AI research facility at our campus.',
-    coverImageUrl: null,
-    category: 'COLLEGE_NEWS',
-    author: {
-      fullName: 'College Communications',
-    },
-    publishedAt: '2023-12-25T10:00:00Z',
-    viewsCount: 890,
-    tags: ['campus', 'research', 'ai'],
-  },
-  {
-    id: '3',
-    slug: 'donation-drive-milestone',
-    title: 'Annual Donation Drive Crosses ₹1 Crore Milestone',
-    excerpt:
-      'Thanks to generous contributions from our alumni community worldwide, we have achieved a new record.',
-    coverImageUrl: null,
-    category: 'GENERAL',
-    author: {
-      fullName: 'Alumni Association',
-    },
-    publishedAt: '2023-12-20T10:00:00Z',
-    viewsCount: 650,
-    tags: ['donation', 'milestone', 'community'],
-  },
-  {
-    id: '4',
-    slug: 'tech-industry-trends-2024',
-    title: 'Tech Industry Trends for 2024: What Alumni Should Know',
-    excerpt:
-      'Industry experts share insights on emerging technologies and career opportunities in the coming year.',
-    coverImageUrl: null,
-    category: 'INDUSTRY',
-    author: {
-      fullName: 'Tech Committee',
-    },
-    publishedAt: '2023-12-18T10:00:00Z',
-    viewsCount: 2100,
-    tags: ['tech', 'trends', 'career'],
-  },
-];
+const articleHref = (article: Pick<NewsArticle, 'slug' | 'id'>) => `/news/${encodeURIComponent(article.slug || article.id)}`;
 
-const categoryColors: Record<string, string> = {
-  ALUMNI_SPOTLIGHT: 'bg-amber-100 text-amber-700',
-  COLLEGE_NEWS: 'bg-blue-100 text-blue-700',
-  INDUSTRY: 'bg-purple-100 text-purple-700',
-  EVENTS: 'bg-green-100 text-green-700',
-  GENERAL: 'bg-gray-100 text-gray-700',
-};
+function Cover({ article, large }: { article: NewsArticle; large?: boolean }) {
+  if (article.featuredImage) {
+    return (
+      <div className={`relative ${large ? 'aspect-video md:aspect-auto md:min-h-[280px]' : 'aspect-video'} bg-muted`}>
+        <Image src={article.featuredImage} alt="" fill className="object-cover" unoptimized />
+      </div>
+    );
+  }
+  return (
+    <div
+      className={`${large ? 'aspect-video md:aspect-auto md:min-h-[280px]' : 'aspect-video'} bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center`}
+    >
+      <Newspaper className={`${large ? 'h-16 w-16' : 'h-10 w-10'} text-primary/40`} aria-hidden="true" />
+    </div>
+  );
+}
 
-const categoryLabels: Record<string, string> = {
-  ALUMNI_SPOTLIGHT: 'Alumni Spotlight',
-  COLLEGE_NEWS: 'College News',
-  INDUSTRY: 'Industry',
-  EVENTS: 'Events',
-  GENERAL: 'General',
-};
+function NewsSkeleton() {
+  return (
+    <div className="space-y-6" role="status" aria-label="Loading articles">
+      <Card className="overflow-hidden">
+        <div className="grid md:grid-cols-2">
+          <Skeleton className="aspect-video md:aspect-auto md:min-h-[280px] rounded-none" />
+          <div className="p-6 space-y-3">
+            <Skeleton className="h-5 w-24" />
+            <Skeleton className="h-8 w-3/4" />
+            <Skeleton className="h-4 w-full" />
+            <Skeleton className="h-4 w-5/6" />
+            <Skeleton className="h-10 w-40" />
+          </div>
+        </div>
+      </Card>
+      <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {Array.from({ length: 3 }, (_, i) => (
+          <Card key={i} className="overflow-hidden">
+            <Skeleton className="aspect-video rounded-none" />
+            <CardContent className="p-6 space-y-3">
+              <Skeleton className="h-5 w-20" />
+              <Skeleton className="h-5 w-full" />
+              <Skeleton className="h-4 w-2/3" />
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+    </div>
+  );
+}
 
 export default function NewsPage() {
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState('All Categories');
+  const [category, setCategory] = useState(ALL);
+  const search = useDebouncedValue(searchQuery.trim(), SEARCH_DEBOUNCE_MS);
+  // The page belongs to one search term: a new term starts again at page 1
+  // without an extra request for the old page.
+  const [pager, setPager] = useState({ search: '', page: 1 });
+  const page = pager.search === search ? pager.page : 1;
+  const setPage = (next: number | ((current: number) => number)) =>
+    setPager({ search, page: typeof next === 'function' ? next(page) : next });
 
-  const filteredArticles = articles.filter((article) => {
-    const matchesSearch =
-      article.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      article.excerpt.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesCategory =
-      selectedCategory === 'All Categories' ||
-      categoryLabels[article.category] === selectedCategory;
-    return matchesSearch && matchesCategory;
+  const { data, isLoading, isError, error, refetch, isFetching } = useQuery({
+    queryKey: ['news', 'list', category, search, page],
+    queryFn: async () =>
+      (
+        await newsApi.getArticles({
+          page,
+          limit: PAGE_SIZE,
+          category: category === ALL ? undefined : category,
+          search: search || undefined,
+        })
+      ).data,
+    placeholderData: keepPreviousData,
   });
 
-  // Featured article (first one)
-  const featuredArticle = filteredArticles[0];
-  const otherArticles = filteredArticles.slice(1);
+  const { items, totalPages } = readPaginated<NewsArticle>(data);
+  const [featured, ...others] = items;
 
   return (
     <div className="space-y-6">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold">News & Stories</h1>
-          <p className="text-muted-foreground">
-            Stay updated with alumni achievements and college news
-          </p>
+          <p className="text-muted-foreground">Stay updated with alumni achievements and institute news</p>
         </div>
       </div>
 
-      {/* Filters */}
       <Card>
         <CardContent className="pt-6">
           <div className="flex flex-col md:flex-row gap-4">
             <div className="flex-1 relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" aria-hidden="true" />
               <Input
+                aria-label="Search articles"
                 placeholder="Search articles..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="pl-10"
               />
             </div>
-            <Select value={selectedCategory} onValueChange={setSelectedCategory}>
-              <SelectTrigger className="w-full md:w-[200px]">
+            <Select
+              value={category}
+              onValueChange={(val) => {
+                setCategory(val);
+                setPage(1);
+              }}
+            >
+              <SelectTrigger className="w-full md:w-[200px]" aria-label="Filter by category">
                 <SelectValue placeholder="Category" />
               </SelectTrigger>
               <SelectContent>
-                {categories.map((cat) => (
-                  <SelectItem key={cat} value={cat}>
-                    {cat}
+                <SelectItem value={ALL}>All categories</SelectItem>
+                {NEWS_CATEGORIES.map((c) => (
+                  <SelectItem key={c.value} value={c.value}>
+                    {c.label}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -163,86 +145,111 @@ export default function NewsPage() {
         </CardContent>
       </Card>
 
-      {filteredArticles.length === 0 ? (
-        <div className="text-center py-12">
-          <p className="text-muted-foreground">No articles found</p>
+      {isLoading ? (
+        <NewsSkeleton />
+      ) : isError ? (
+        <Alert variant="destructive">
+          <AlertCircle className="h-4 w-4" />
+          <AlertTitle>Error</AlertTitle>
+          <AlertDescription className="flex flex-col sm:flex-row sm:items-center gap-3">
+            <span>{getApiErrorMessage(error, 'Failed to load news. Please try again later.')}</span>
+            <Button variant="outline" size="sm" onClick={() => refetch()} disabled={isFetching}>
+              Retry
+            </Button>
+          </AlertDescription>
+        </Alert>
+      ) : !featured ? (
+        <div className="text-center py-12 border rounded-lg bg-muted/20">
+          <Newspaper className="h-12 w-12 mx-auto text-muted-foreground mb-4 opacity-20" aria-hidden="true" />
+          <h3 className="text-lg font-medium">No articles found</h3>
+          <p className="text-muted-foreground">
+            {searchQuery || category !== ALL ? 'Try adjusting your search or category.' : 'Check back soon for news and stories.'}
+          </p>
         </div>
       ) : (
         <>
-          {/* Featured Article */}
-          {featuredArticle && (
-            <Card className="overflow-hidden hover:shadow-lg transition-shadow">
-              <div className="grid md:grid-cols-2 gap-0">
-                <div className="aspect-video md:aspect-auto bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center">
-                  <div className="text-6xl">📰</div>
+          <Card className="overflow-hidden hover:shadow-lg transition-shadow">
+            <div className="grid md:grid-cols-2 gap-0">
+              <Cover article={featured} large />
+              <CardContent className="p-6 flex flex-col justify-center">
+                <Badge className={`w-fit mb-3 ${NEWS_CATEGORY_COLORS[featured.category] ?? 'bg-gray-100 text-gray-700'}`}>
+                  {newsCategoryLabel(featured.category)}
+                </Badge>
+                <h2 className="text-2xl font-bold mb-3">{featured.title}</h2>
+                <p className="text-muted-foreground mb-4">{newsExcerpt(featured)}</p>
+                <div className="flex flex-wrap items-center gap-4 text-sm text-muted-foreground mb-4">
+                  {featured.author?.fullName && (
+                    <div className="flex items-center gap-1">
+                      <User className="h-4 w-4" aria-hidden="true" />
+                      <span>{featured.author.fullName}</span>
+                    </div>
+                  )}
+                  {featured.publishedAt && (
+                    <div className="flex items-center gap-1">
+                      <Clock className="h-4 w-4" aria-hidden="true" />
+                      <span>{formatDate(featured.publishedAt)}</span>
+                    </div>
+                  )}
+                  {featured.readingTime ? <span>{featured.readingTime} min read</span> : null}
                 </div>
-                <CardContent className="p-6 flex flex-col justify-center">
-                  <Badge
-                    className={`w-fit mb-3 ${categoryColors[featuredArticle.category]}`}
-                  >
-                    {categoryLabels[featuredArticle.category]}
-                  </Badge>
-                  <h2 className="text-2xl font-bold mb-3">
-                    {featuredArticle.title}
-                  </h2>
-                  <p className="text-muted-foreground mb-4">
-                    {featuredArticle.excerpt}
-                  </p>
-                  <div className="flex items-center gap-4 text-sm text-muted-foreground mb-4">
-                    <div className="flex items-center gap-1">
-                      <User className="h-4 w-4" />
-                      <span>{featuredArticle.author.fullName}</span>
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <Clock className="h-4 w-4" />
-                      <span>{formatDate(featuredArticle.publishedAt)}</span>
-                    </div>
-                  </div>
-                  <Link href={`/dashboard/news/${featuredArticle.slug}`}>
-                    <Button>
-                      Read Full Story
-                      <ArrowRight className="ml-2 h-4 w-4" />
-                    </Button>
+                <Button asChild className="w-fit">
+                  <Link href={articleHref(featured)}>
+                    Read Full Story
+                    <ArrowRight className="ml-2 h-4 w-4" />
                   </Link>
-                </CardContent>
-              </div>
-            </Card>
-          )}
+                </Button>
+              </CardContent>
+            </div>
+          </Card>
 
-          {/* Other Articles */}
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {otherArticles.map((article) => (
-              <Card
-                key={article.id}
-                className="overflow-hidden hover:shadow-md transition-shadow"
-              >
-                <div className="aspect-video bg-gradient-to-br from-primary/10 to-primary/5 flex items-center justify-center">
-                  <div className="text-4xl">📰</div>
-                </div>
-                <CardContent className="p-6">
-                  <Badge className={`mb-3 ${categoryColors[article.category]}`}>
-                    {categoryLabels[article.category]}
-                  </Badge>
-                  <h3 className="font-semibold text-lg mb-2 line-clamp-2">
-                    {article.title}
-                  </h3>
-                  <p className="text-sm text-muted-foreground mb-4 line-clamp-2">
-                    {article.excerpt}
-                  </p>
-                  <div className="flex items-center justify-between text-sm text-muted-foreground">
-                    <span>{formatDate(article.publishedAt)}</span>
-                    <span>{article.viewsCount} views</span>
-                  </div>
-                  <Link href={`/dashboard/news/${article.slug}`}>
-                    <Button variant="outline" className="w-full mt-4">
-                      Read More
+          {others.length > 0 && (
+            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {others.map((article) => (
+                <Card key={article.id} className="overflow-hidden hover:shadow-md transition-shadow flex flex-col">
+                  <Cover article={article} />
+                  <CardContent className="p-6 flex flex-col flex-1">
+                    <Badge className={`w-fit mb-3 ${NEWS_CATEGORY_COLORS[article.category] ?? 'bg-gray-100 text-gray-700'}`}>
+                      {newsCategoryLabel(article.category)}
+                    </Badge>
+                    <h3 className="font-semibold text-lg mb-2 line-clamp-2">{article.title}</h3>
+                    <p className="text-sm text-muted-foreground mb-4 line-clamp-2 flex-1">{newsExcerpt(article)}</p>
+                    <div className="flex items-center justify-between text-sm text-muted-foreground">
+                      <span>{article.publishedAt ? formatDate(article.publishedAt) : ''}</span>
+                      <span className="flex items-center gap-1">
+                        <Eye className="h-3.5 w-3.5" aria-hidden="true" />
+                        {article.viewCount ?? 0} views
+                      </span>
+                    </div>
+                    <Button asChild variant="outline" className="w-full mt-4">
+                      <Link href={articleHref(article)} aria-label={`Read more: ${article.title}`}>
+                        Read More
+                      </Link>
                     </Button>
-                  </Link>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
         </>
+      )}
+
+      {!isLoading && !isError && totalPages > 1 && (
+        <div className="flex justify-center gap-2 mt-8">
+          <Button variant="outline" size="sm" onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1}>
+            Previous
+          </Button>
+          <div className="flex items-center px-4 text-sm font-medium">
+            Page {page} of {totalPages}
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+            disabled={page >= totalPages}
+          >
+            Next
+          </Button>
+        </div>
       )}
     </div>
   );

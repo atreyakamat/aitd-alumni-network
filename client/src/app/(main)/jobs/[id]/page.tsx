@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { jobApi } from '@/lib/api';
+import { jobApi, getApiErrorMessage } from '@/lib/api';
 import { useAuth } from '@/context/auth-context';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -18,12 +18,12 @@ import {
   ChevronLeft,
   ExternalLink,
   Share2,
-  Bookmark,
   Loader2,
   AlertCircle
 } from 'lucide-react';
 import { getInitials, formatDate, formatCurrency } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
+import { shareLinkWithToast } from '@/lib/share';
 
 export default function JobDetailsPage() {
   const params = useParams();
@@ -47,7 +47,7 @@ export default function JobDetailsPage() {
       const response = await jobApi.getJob(id as string);
       setJob(response.data.data);
     } catch (err: any) {
-      setError(err.response?.data?.error || 'Failed to load job details');
+      setError(getApiErrorMessage(err, 'Failed to load job details'));
     } finally {
       setLoading(false);
     }
@@ -108,15 +108,18 @@ export default function JobDetailsPage() {
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-2 mb-1">
                     <h1 className="text-2xl font-bold">{job.title}</h1>
-                    <Badge className={jobTypeColors[job.type]}>
-                      {jobTypeLabels[job.type]}
+                    <Badge className={jobTypeColors[job.jobType ?? job.type]}>
+                      {jobTypeLabels[job.jobType ?? job.type] ?? job.jobType}
                     </Badge>
+                    {job.status && job.status !== 'PUBLISHED' && (
+                      <Badge variant="warning">{job.status === 'PENDING_REVIEW' ? 'Pending review' : String(job.status).toLowerCase()}</Badge>
+                    )}
                   </div>
                   <p className="text-lg text-primary font-medium">{job.company}</p>
                   <div className="flex flex-wrap gap-4 mt-2 text-sm text-muted-foreground">
                     <div className="flex items-center gap-1">
                       <MapPin className="h-4 w-4" />
-                      <span>{job.location} {job.isRemote && '(Remote)'}</span>
+                      <span>{job.location || 'Location not specified'}{(job.workplaceType === 'REMOTE' || job.isRemote) && ' (Remote)'}{job.workplaceType === 'HYBRID' && ' (Hybrid)'}</span>
                     </div>
                     <div className="flex items-center gap-1">
                       <Clock className="h-4 w-4" />
@@ -127,14 +130,29 @@ export default function JobDetailsPage() {
               </div>
 
               <div className="flex flex-wrap gap-3 mb-8">
-                <Button className="flex-1 sm:flex-none">
-                  Apply Now
-                  <ExternalLink className="h-4 w-4 ml-2" />
-                </Button>
-                <Button variant="outline" size="icon">
-                  <Bookmark className="h-4 w-4" />
-                </Button>
-                <Button variant="outline" size="icon">
+                {job.applicationLink || job.applicationUrl ? (
+                  <Button className="flex-1 sm:flex-none" asChild>
+                    <a href={job.applicationLink || job.applicationUrl} target="_blank" rel="noopener noreferrer nofollow">
+                      Apply Now
+                      <ExternalLink className="h-4 w-4 ml-2" />
+                    </a>
+                  </Button>
+                ) : (
+                  <Button
+                    className="flex-1 sm:flex-none"
+                    onClick={() => job.postedBy?.id && router.push(`/messages?u=${job.postedBy.id}`)}
+                    disabled={!job.postedBy?.id}
+                  >
+                    Message the poster to apply
+                  </Button>
+                )}
+                <Button
+                  variant="outline"
+                  size="icon"
+                  aria-label="Share job"
+                  title="Share job"
+                  onClick={() => shareLinkWithToast({ title: job.title, url: window.location.href }, toast)}
+                >
                   <Share2 className="h-4 w-4" />
                 </Button>
               </div>
@@ -147,6 +165,16 @@ export default function JobDetailsPage() {
                   </div>
                 </section>
 
+                {Array.isArray(job.skills) && job.skills.length > 0 && (
+                  <section>
+                    <h2 className="text-xl font-bold mb-4">Skills</h2>
+                    <div className="flex flex-wrap gap-2">
+                      {job.skills.map((skill: string) => (
+                        <Badge key={skill} variant="secondary">{skill}</Badge>
+                      ))}
+                    </div>
+                  </section>
+                )}
                 {job.requirements && (
                   <section>
                     <h2 className="text-xl font-bold mb-4">Requirements</h2>
@@ -212,7 +240,7 @@ export default function JobDetailsPage() {
             <CardContent>
               <div className="flex items-center gap-3 mb-4">
                 <Avatar className="h-12 w-12 cursor-pointer" onClick={() => router.push(`/profile/${job.postedBy.id}`)}>
-                  <AvatarImage src={job.postedBy.profilePhotoUrl} />
+                  <AvatarImage src={job.postedBy.profilePhotoUrl ?? undefined} />
                   <AvatarFallback>{getInitials(job.postedBy.fullName)}</AvatarFallback>
                 </Avatar>
                 <div>

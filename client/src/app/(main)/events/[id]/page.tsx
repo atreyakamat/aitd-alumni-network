@@ -1,9 +1,11 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import Image from 'next/image';
-import { useParams, useRouter } from 'next/navigation';
-import { eventApi } from '@/lib/api';
+import Link from 'next/link';
+import { useParams, usePathname, useRouter } from 'next/navigation';
+import { eventApi, getApiErrorMessage } from '@/lib/api';
+import { getEventCapacity, getEventLocation, getRsvpErrorMessage, isVirtualEvent, normalizeAttendee, type AttendeeView } from '@/lib/events';
 import { useAuth } from '@/context/auth-context';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -24,60 +26,71 @@ import {
 } from 'lucide-react';
 import { getInitials, formatDate } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
+import { buildLoginHref } from '@/lib/public-paths';
+import { shareLinkWithToast } from '@/lib/share';
 
 export default function EventDetailsPage() {
   const params = useParams();
   const id = params?.id as string;
   const router = useRouter();
-  const { user } = useAuth();
+  const pathname = usePathname();
+  const { user, isAuthenticated } = useAuth();
   const { toast } = useToast();
   const [event, setEvent] = useState<any>(null);
-  const [attendees, setAttendees] = useState<any[]>([]);
+  const [attendees, setAttendees] = useState<AttendeeView[]>([]);
   const [loading, setLoading] = useState(true);
   const [rsvping, setRsvping] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const fetchEventDetails = useCallback(async () => {
+    setLoading(true);
+    try {
+      // The attendee list is members-only; anonymous visitors just see the event.
+      const [eventRes, attendeesRes] = await Promise.all([
+        eventApi.getEvent(id as string),
+        isAuthenticated ? eventApi.getAttendees(id as string) : Promise.resolve(null),
+      ]);
+      setEvent(eventRes.data.data);
+      setAttendees((attendeesRes?.data?.data || []).map(normalizeAttendee));
+    } catch (err: any) {
+      setError(getApiErrorMessage(err, 'Failed to load event details'));
+    } finally {
+      setLoading(false);
+    }
+  }, [id, isAuthenticated]);
 
   useEffect(() => {
     if (id) {
       fetchEventDetails();
     }
-  }, [id]);
-
-  const fetchEventDetails = async () => {
-    setLoading(true);
-    try {
-      const [eventRes, attendeesRes] = await Promise.all([
-        eventApi.getEvent(id as string),
-        eventApi.getAttendees(id as string)
-      ]);
-      setEvent(eventRes.data.data);
-      setAttendees(attendeesRes.data.data || []);
-    } catch (err: any) {
-      setError(err.response?.data?.error || 'Failed to load event details');
-    } finally {
-      setLoading(false);
-    }
-  };
+  }, [id, fetchEventDetails]);
 
   const handleRSVP = async () => {
+    if (!isAuthenticated) {
+      router.push(buildLoginHref(pathname || `/events/${id}`));
+      return;
+    }
     setRsvping(true);
     try {
-      await eventApi.rsvpEvent(id as string);
+      const res = await eventApi.rsvpEvent(id as string);
+      const rsvped = res.data?.data?.rsvped;
       toast({
-        title: 'Success!',
-        description: 'Your RSVP has been recorded.',
+        title: rsvped === false ? 'RSVP cancelled' : "You're registered!",
+        description: rsvped === false ? 'You are no longer on the attendee list.' : 'Your RSVP has been recorded.',
       });
       fetchEventDetails(); // Refresh to update attendee list and status
     } catch (err: any) {
       toast({
         variant: 'destructive',
-        title: 'Error',
-        description: err.response?.data?.error || 'Failed to RSVP',
+        title: 'RSVP not updated',
+        description: getRsvpErrorMessage(err),
       });
     } finally {
       setRsvping(false);
     }
   };
+
+  const handleShare = () => shareLinkWithToast({ title: event?.title, url: window.location.href }, toast);
 
   if (loading) {
     return (
@@ -101,12 +114,29 @@ export default function EventDetailsPage() {
 
   const isAttending = attendees.some(a => a.userId === user?.id);
   const isPast = new Date(event.startDate) < new Date();
+  const capacity = getEventCapacity(event);
+  const spotsTaken = typeof event.rsvpCount === 'number' ? event.rsvpCount : attendees.length;
+  const isFull = capacity !== null && spotsTaken >= capacity;
+  const coverImage = event.bannerUrl || event.coverImageUrl;
+  const isVirtual = isVirtualEvent(event);
+  const locationText = getEventLocation(event);
+  const joinLink: string | undefined = event.joinLink || event.virtualLink;
+  const organizer: { id?: string; fullName?: string; profilePhotoUrl?: string | null } | null = event.createdBy ?? null;
+  const organizerId: string | undefined = organizer?.id || event.createdById || undefined;
+  const isOrganizer = !!organizerId && organizerId === user?.id;
+  const contactOrganizerHref = !organizerId || isOrganizer
+    ? null
+    : isAuthenticated
+      ? `/messages?u=${encodeURIComponent(organizerId)}`
+      : buildLoginHref(pathname || `/events/${id}`);
 
   return (
     <div className="max-w-5xl mx-auto space-y-6">
-      <Button variant="ghost" className="mb-2" onClick={() => router.back()}>
-        <ChevronLeft className="h-4 w-4 mr-2" />
-        Back to Events
+      <Button variant="ghost" className="mb-2" asChild>
+        <Link href="/events">
+          <ChevronLeft className="h-4 w-4 mr-2" />
+          Back to Events
+        </Link>
       </Button>
 
       <div className="grid lg:grid-cols-3 gap-6">
@@ -114,9 +144,9 @@ export default function EventDetailsPage() {
         <div className="lg:col-span-2 space-y-6">
           <Card className="overflow-hidden">
             <div className="h-64 bg-muted relative">
-              {event.coverImageUrl ? (
+              {coverImage ? (
                 <Image 
-                  src={event.coverImageUrl} 
+                  src={coverImage} 
                   alt={event.title} 
                   fill 
                   className="object-cover" 
@@ -137,7 +167,7 @@ export default function EventDetailsPage() {
             <CardContent className="pt-6">
               <div className="flex justify-between items-start mb-4">
                 <h1 className="text-3xl font-bold">{event.title}</h1>
-                <Button variant="outline" size="icon">
+                <Button variant="outline" size="icon" onClick={handleShare} aria-label="Share event" title="Share event">
                   <Share2 className="h-4 w-4" />
                 </Button>
               </div>
@@ -169,7 +199,7 @@ export default function EventDetailsPage() {
                   </div>
                   <div>
                     <p className="text-xs font-medium">Location</p>
-                    <p className="text-sm font-semibold text-foreground">{event.isVirtual ? 'Virtual Event' : (event.venue || event.location)}</p>
+                    <p className="text-sm font-semibold text-foreground">{isVirtual ? 'Virtual Event' : locationText || 'Location TBD'}</p>
                   </div>
                 </div>
               </div>
@@ -182,14 +212,14 @@ export default function EventDetailsPage() {
                   </div>
                 </section>
 
-                {event.isVirtual && event.virtualLink && (
+                {event.eventType !== 'OFFLINE' && joinLink && (
                   <section className="p-4 bg-primary/5 rounded-lg border border-primary/10">
                     <h3 className="font-bold flex items-center gap-2 mb-2 text-primary">
                       <Globe className="h-4 w-4" />
                       Virtual Meeting Link
                     </h3>
                     <p className="text-sm mb-3">This is a virtual event. You can join using the link below.</p>
-                    <Button variant="outline" className="w-full sm:w-auto" onClick={() => window.open(event.virtualLink, '_blank')}>
+                    <Button variant="outline" className="w-full sm:w-auto" onClick={() => window.open(joinLink, '_blank', 'noopener,noreferrer')}>
                       Join Meeting
                     </Button>
                   </section>
@@ -203,20 +233,27 @@ export default function EventDetailsPage() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Users className="h-5 w-5" />
-                Attendees ({attendees.length})
+                Attendees{isAuthenticated ? ` (${attendees.length})` : ''}
               </CardTitle>
             </CardHeader>
             <CardContent>
-              {attendees.length > 0 ? (
+              {!isAuthenticated ? (
+                <p className="text-center py-8 text-muted-foreground">
+                  <Link href={buildLoginHref(pathname || `/events/${id}`)} className="font-medium text-primary hover:underline">
+                    Sign in
+                  </Link>{' '}
+                  to see who&apos;s attending.
+                </p>
+              ) : attendees.length > 0 ? (
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
                   {attendees.map((attendee) => (
-                    <div key={attendee.id} className="flex flex-col items-center text-center p-2 rounded-lg hover:bg-secondary/50 transition-colors cursor-pointer" onClick={() => router.push(`/profile/${attendee.user.id}`)}>
+                    <div key={attendee.userId} className="flex flex-col items-center text-center p-2 rounded-lg hover:bg-secondary/50 transition-colors cursor-pointer" onClick={() => router.push(`/profile/${attendee.userId}`)}>
                       <Avatar className="h-12 w-12 mb-2">
-                        <AvatarImage src={attendee.user.profilePhotoUrl} />
-                        <AvatarFallback>{getInitials(attendee.user.fullName)}</AvatarFallback>
+                        <AvatarImage src={attendee.profilePhotoUrl ?? undefined} />
+                        <AvatarFallback>{getInitials(attendee.fullName)}</AvatarFallback>
                       </Avatar>
-                      <p className="text-xs font-medium truncate w-full">{attendee.user.fullName}</p>
-                      <p className="text-[10px] text-muted-foreground">Class of {attendee.user.batchYear}</p>
+                      <p className="text-xs font-medium truncate w-full">{attendee.fullName}</p>
+                      <p className="text-[10px] text-muted-foreground">{attendee.batchYear ? `Class of ${attendee.batchYear}` : ''}</p>{attendee.email && <p className="text-[10px] text-muted-foreground truncate w-full">{attendee.email}</p>}
                     </div>
                   ))}
                 </div>
@@ -237,17 +274,25 @@ export default function EventDetailsPage() {
             <CardContent className="space-y-4">
               <div className="flex justify-between text-sm mb-2">
                 <span className="text-muted-foreground">Capacity</span>
-                <span className="font-medium">{event.maxAttendees ? `${attendees.length} / ${event.maxAttendees}` : 'Unlimited'}</span>
+                <span className="font-medium">{capacity ? `${spotsTaken} / ${capacity}` : 'Unlimited'}</span>
               </div>
               
               <Button 
                 className="w-full" 
                 size="lg" 
-                disabled={rsvping || isPast || (event.maxAttendees && attendees.length >= event.maxAttendees && !isAttending)}
+                disabled={rsvping || isPast || (isFull && !isAttending)}
                 onClick={handleRSVP}
               >
                 {rsvping ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
-                {isPast ? 'Event Ended' : isAttending ? 'Change RSVP' : 'Register for Event'}
+                {isPast
+                  ? 'Event Ended'
+                  : isAttending
+                    ? 'Cancel RSVP'
+                    : isFull
+                      ? 'Event Full'
+                      : isAuthenticated
+                        ? 'Register for Event'
+                        : 'Sign in to RSVP'}
               </Button>
               
               {isPast && (
@@ -258,7 +303,7 @@ export default function EventDetailsPage() {
             </CardContent>
           </Card>
 
-          {!event.isVirtual && (event.venue || event.location) && (
+          {!isVirtual && locationText && (
             <Card>
               <CardHeader>
                 <CardTitle className="text-lg flex items-center gap-2">
@@ -269,8 +314,8 @@ export default function EventDetailsPage() {
               <CardContent className="space-y-3">
                 <p className="text-sm font-semibold">{event.venue}</p>
                 <p className="text-sm text-muted-foreground">{event.address}</p>
-                <p className="text-sm text-muted-foreground">{event.city}, {event.state}</p>
-                <Button variant="outline" className="w-full" onClick={() => window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${event.venue} ${event.address} ${event.city}`)}`, '_blank')}>
+                <p className="text-sm text-muted-foreground">{[event.city, event.state].filter(Boolean).join(', ')}</p>
+                <Button variant="outline" className="w-full" onClick={() => window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent([event.venue, event.address, event.city].filter(Boolean).join(' '))}`, '_blank')}>
                   Get Directions
                 </Button>
               </CardContent>
@@ -284,16 +329,23 @@ export default function EventDetailsPage() {
             <CardContent>
               <div className="flex items-center gap-3 mb-4">
                 <Avatar className="h-10 w-10">
-                  <AvatarFallback className="bg-primary/10 text-primary">AC</AvatarFallback>
+                  {organizer?.profilePhotoUrl && <AvatarImage src={organizer.profilePhotoUrl} alt="" />}
+                  <AvatarFallback className="bg-primary/10 text-primary">
+                    {organizer?.fullName ? getInitials(organizer.fullName) : 'AC'}
+                  </AvatarFallback>
                 </Avatar>
                 <div>
-                  <h4 className="font-bold">Alumni Association</h4>
-                  <p className="text-xs text-muted-foreground">Official Event Organizer</p>
+                  <h4 className="font-bold">{organizer?.fullName || 'Alumni Association'}</h4>
+                  <p className="text-xs text-muted-foreground">
+                    {event.chapter?.name ? `${event.chapter.name} chapter` : 'Official Event Organizer'}
+                  </p>
                 </div>
               </div>
-              <Button variant="outline" className="w-full">
-                Contact Organizer
-              </Button>
+              {contactOrganizerHref && (
+                <Button variant="outline" className="w-full" asChild>
+                  <Link href={contactOrganizerHref}>Contact Organizer</Link>
+                </Button>
+              )}
             </CardContent>
           </Card>
         </div>

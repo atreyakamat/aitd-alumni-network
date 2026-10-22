@@ -21,6 +21,8 @@ interface EmailOptions {
   subject: string;
   html: string;
   text?: string;
+  /** e.g. a PDF receipt for a guest donor. */
+  attachments?: { filename: string; content: Buffer; contentType?: string }[];
 }
 
 export const sendEmail = async (options: EmailOptions): Promise<void> => {
@@ -42,6 +44,7 @@ export const sendEmail = async (options: EmailOptions): Promise<void> => {
       subject: options.subject,
       html: options.html,
       text: options.text,
+      attachments: options.attachments,
     });
     console.log(`Email sent to ${options.to}`);
   } catch (error) {
@@ -148,6 +151,35 @@ export const sendWelcomeEmail = async (
         </p>
       </div>
     `,
+  });
+};
+
+const escapeEmailHtml = (value: string) =>
+  value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+
+/** Security notice after a signed-in password change (all other sessions were signed out). */
+export const sendPasswordChangedEmail = async (email: string, name: string): Promise<void> => {
+  const resetUrl = `${config.frontendUrl}/forgot-password`;
+  await sendEmail({
+    to: email,
+    subject: 'Your AITD Connection password was changed',
+    html: `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <h1 style="color: #0A66C2;">Password changed</h1>
+        <p>Hi ${escapeEmailHtml(name)},</p>
+        <p>The password for your AITD Connection account was just changed, and every other device was signed out.</p>
+        <p>If this was you, no further action is needed.</p>
+        <p><strong>If you did not make this change</strong>, reset your password immediately and contact support:</p>
+        <a href="${resetUrl}"
+           style="display: inline-block; background-color: #0A66C2; color: white; padding: 12px 24px;
+                  text-decoration: none; border-radius: 6px; margin: 20px 0;">
+          Reset Password
+        </a>
+        <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;" />
+        <p style="color: #999; font-size: 12px;">This is an automated security notice.</p>
+      </div>
+    `,
+    text: `Hi ${name}, the password for your AITD Connection account was just changed and every other device was signed out. If this was not you, reset your password immediately at ${resetUrl} and contact support.`,
   });
 };
 

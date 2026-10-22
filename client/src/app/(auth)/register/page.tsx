@@ -2,16 +2,19 @@
 
 import Link from 'next/link';
 import Image from 'next/image';
-import { useState } from 'react';
+import { Suspense, useState } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
+import { passwordSchema } from '@/lib/auth';
+import { authApi, getApiErrorMessage, getApiFieldErrors } from '@/lib/api';
+import { buildLoginHref, getSafeNextPath } from '@/lib/public-paths';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { useAuth } from '@/context/auth-context';
 import { useToast } from '@/hooks/use-toast';
 import { Eye, EyeOff, Loader2 } from 'lucide-react';
 
@@ -33,13 +36,7 @@ const batchYears = Array.from({ length: 50 }, (_, i) => currentYear - i);
 const registerSchema = z.object({
   fullName: z.string().min(2, 'Full name must be at least 2 characters'),
   email: z.string().email('Please enter a valid email'),
-  password: z
-    .string()
-    .min(8, 'Password must be at least 8 characters')
-    .regex(
-      /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/,
-      'Password must contain at least one uppercase letter, one lowercase letter, and one number'
-    ),
+  password: passwordSchema,
   confirmPassword: z.string(),
   batchYear: z.number({ required_error: 'Please select your batch year' }),
   department: z.string({ required_error: 'Please select your department' }),
@@ -52,17 +49,23 @@ const registerSchema = z.object({
 
 type RegisterFormData = z.infer<typeof registerSchema>;
 
-export default function RegisterPage() {
+const registerSchemaShape = registerSchema._def.schema.shape;
+
+function RegisterForm() {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const { register: registerUser } = useAuth();
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  // Where to land once signed in; carried through the login page. Only safe relative paths survive.
+  const nextPath = getSafeNextPath(searchParams?.get('next'));
   const { toast } = useToast();
 
   const {
     register,
     handleSubmit,
     setValue,
+    setError,
     watch,
     formState: { errors },
   } = useForm<RegisterFormData>({
@@ -75,7 +78,7 @@ export default function RegisterPage() {
   const onSubmit = async (data: RegisterFormData) => {
     setIsLoading(true);
     try {
-      await registerUser({
+      await authApi.register({
         email: data.email,
         password: data.password,
         fullName: data.fullName,
@@ -88,11 +91,20 @@ export default function RegisterPage() {
         title: 'Registration successful!',
         description: 'Please check your email to verify your account.',
       });
+      router.push(buildLoginHref(nextPath, { registered: 'true' }));
     } catch (error: any) {
+      const fieldErrors = getApiFieldErrors(error);
+      for (const [field, message] of Object.entries(fieldErrors)) {
+        if (field in registerSchemaShape) {
+          setError(field as keyof RegisterFormData, { type: 'server', message });
+        }
+      }
       toast({
         variant: 'destructive',
         title: 'Registration failed',
-        description: error.response?.data?.error || 'Something went wrong. Please try again.',
+        description: Object.keys(fieldErrors).length
+          ? 'Please fix the highlighted fields.'
+          : getApiErrorMessage(error, 'Something went wrong. Please try again.'),
       });
     } finally {
       setIsLoading(false);
@@ -175,7 +187,7 @@ export default function RegisterPage() {
                 <div className="space-y-2">
                   <Label>Batch Year</Label>
                   <Select onValueChange={(value) => setValue('batchYear', parseInt(value))}>
-                    <SelectTrigger>
+                    <SelectTrigger aria-label="Batch year">
                       <SelectValue placeholder="Select year" />
                     </SelectTrigger>
                     <SelectContent>
@@ -194,7 +206,7 @@ export default function RegisterPage() {
                 <div className="space-y-2">
                   <Label>Degree</Label>
                   <Select onValueChange={(value) => setValue('degree', value)}>
-                    <SelectTrigger>
+                    <SelectTrigger aria-label="Degree">
                       <SelectValue placeholder="Select degree" />
                     </SelectTrigger>
                     <SelectContent>
@@ -214,7 +226,7 @@ export default function RegisterPage() {
               <div className="space-y-2">
                 <Label>Department</Label>
                 <Select onValueChange={(value) => setValue('department', value)}>
-                  <SelectTrigger>
+                  <SelectTrigger aria-label="Department">
                     <SelectValue placeholder="Select department" />
                   </SelectTrigger>
                   <SelectContent>
@@ -290,7 +302,7 @@ export default function RegisterPage() {
 
             <p className="mt-6 text-center text-sm text-muted-foreground font-body">
               Already have an account?{' '}
-              <Link href="/login" className="text-primary hover:underline font-medium">
+              <Link href={buildLoginHref(nextPath)} className="text-primary hover:underline font-medium">
                 Sign in
               </Link>
             </p>
@@ -299,5 +311,14 @@ export default function RegisterPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function RegisterPage() {
+  // useSearchParams needs a Suspense boundary for static rendering.
+  return (
+    <Suspense fallback={null}>
+      <RegisterForm />
+    </Suspense>
   );
 }

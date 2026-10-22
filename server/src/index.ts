@@ -1,114 +1,57 @@
-import express from 'express';
-import cors from 'cors';
-import helmet from 'helmet';
 import dotenv from 'dotenv';
-import path from 'path';
-import passport from 'passport';
-import { createServer } from 'http';
-import { rateLimit } from 'express-rate-limit';
-import routes from './routes';
-import prisma from './config/database';
-import { errorHandler } from './middleware/errorHandler';
-import { notFoundHandler } from './middleware/notFoundHandler';
-import { initSocket } from './utils/socket';
-import './config/passport'; // Initialize passport strategies
-
 dotenv.config();
 
-const app = express();
-const server = createServer(app);
+import { createServer } from 'http';
+import { createApp } from './app';
+import { initSocket } from './utils/socket';
+import { createShutdown } from './utils/shutdown';
+import prisma from './config/database';
+import redis from './config/redis';
+
 const PORT = process.env.PORT || 5000;
 const DATABASE_URL = process.env.DATABASE_URL || '';
 
 if (!DATABASE_URL) {
-  throw new Error('DATABASE_URL is required. Configure a MySQL connection string before starting the server.');
+  throw new Error('DATABASE_URL is required. Configure a PostgreSQL connection string before starting the server.');
 }
 
-if (!DATABASE_URL.toLowerCase().startsWith('mysql://')) {
-  throw new Error('DATABASE_URL must use MySQL (mysql://...) for this project.');
+if (!/^postgres(ql)?:\/\//i.test(DATABASE_URL)) {
+  throw new Error('DATABASE_URL must use PostgreSQL (postgresql://...) for this project.');
 }
+
+if (process.env.NODE_ENV === 'production') {
+  const weak = (s?: string) => !s || s.startsWith('default-') || s.length < 32;
+  if (weak(process.env.JWT_SECRET) || weak(process.env.JWT_REFRESH_SECRET)) {
+    throw new Error('JWT_SECRET and JWT_REFRESH_SECRET must be set to strong (32+ char) values in production.');
+  }
+}
+
+const app = createApp();
+const server = createServer(app);
 
 // Initialize Socket.io
-initSocket(server);
+const io = initSocket(server);
 
-// Security middleware
-app.use(helmet({
-  crossOriginResourcePolicy: false, // Allow loading images from local server
-}));
-app.use(cors({
-  origin: (origin, callback) => {
-    const allowedOrigins = process.env.CORS_ORIGINS?.split(',').map(o => o.trim()) || ['http://localhost:3000'];
-    if (!origin || allowedOrigins.includes(origin)) {
-      callback(null, true);
-    } else {
-      callback(new Error('Not allowed by CORS'));
-    }
-  },
-  credentials: true,
-}));
-
-// Initialize Passport
-app.use(passport.initialize());
-
-// Rate limiting
-const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100, // Limit each IP to 100 requests per windowMs
-  message: { error: 'Too many requests, please try again later.' },
+const shutdown = createShutdown({
+  server,
+  io,
+  prisma,
+  redis,
+  // Docker's default stop grace period is 10s
+  timeoutMs: Number(process.env.SHUTDOWN_TIMEOUT_MS) || 8000,
+  exit: (code) => process.exit(code),
+  log: (message) => console.log(message),
 });
-app.use('/api/', limiter);
-
-// Auth endpoints have stricter rate limiting
-const authLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 10,
-  message: { error: 'Too many authentication attempts, please try again later.' },
-});
-app.use('/api/auth/login', authLimiter);
-app.use('/api/auth/register', authLimiter);
-app.use('/api/auth/forgot-password', authLimiter);
-
-// Body parsing
-app.use(express.json({ limit: '10mb' }));
-app.use(express.urlencoded({ extended: true, limit: '10mb' }));
-
-// Static files
-app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')));
-
-// Health check
-app.get('/health', async (_req, res) => {
-  try {
-    await prisma.$queryRaw`SELECT 1`;
-    res.json({
-      status: 'ok',
-      database: 'mysql',
-      databaseStatus: 'up',
-      timestamp: new Date().toISOString(),
-    });
-  } catch {
-    res.status(503).json({
-      status: 'degraded',
-      database: 'mysql',
-      databaseStatus: 'down',
-      timestamp: new Date().toISOString(),
-    });
-  }
+process.on('SIGTERM', () => void shutdown('SIGTERM'));
+process.on('SIGINT', () => void shutdown('SIGINT'));
+process.on('unhandledRejection', (reason) => {
+  console.error('Unhandled promise rejection:', reason);
 });
 
-// API Routes
-app.use('/api', routes);
-
-// Error handling
-app.use(notFoundHandler);
-app.use(errorHandler);
-
-if (process.env.NODE_ENV !== 'test') {
-  server.listen(PORT, () => {
-    console.log(`🚀 Server running on http://localhost:${PORT}`);
-    console.log(`📝 Health check: http://localhost:${PORT}/health`);
-    console.log(`📁 Uploads: http://localhost:${PORT}/uploads`);
-  });
-}
+server.listen(PORT, () => {
+  console.log(`🚀 Server running on http://localhost:${PORT}`);
+  console.log(`📝 Health check: http://localhost:${PORT}/health`);
+  console.log(`📁 Uploads: http://localhost:${PORT}/uploads`);
+});
 
 export default app;
-

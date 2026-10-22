@@ -26,7 +26,12 @@ import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Progress } from '@/components/ui/progress';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { donationApi, api } from '@/lib/api';
+import { donationApi } from '@/lib/api';
+import { getPaymentErrorMessage, openRazorpayCheckout } from '@/lib/payments';
+import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/context/auth-context';
+import { shareLinkWithToast } from '@/lib/share';
+import Link from 'next/link';
 
 interface Donor {
   id: string;
@@ -91,6 +96,8 @@ const getRankIcon = (index: number) => {
 };
 
 export default function DonationsPage() {
+  const { toast } = useToast();
+  const { user } = useAuth();
   const [donations, setDonations] = useState<Donation[]>([]);
   const [featuredDonors, setFeaturedDonors] = useState<any[]>([]);
   const [chapterDonations, setChapterDonations] = useState<ChapterDonation[]>([]);
@@ -99,6 +106,8 @@ export default function DonationsPage() {
   const [activeTab, setActiveTab] = useState('wall');
   const [donationAmount, setDonationAmount] = useState<number>(1000);
   const [showDonateModal, setShowDonateModal] = useState(false);
+  const [guestName, setGuestName] = useState('');
+  const [guestEmail, setGuestEmail] = useState('');
 
   useEffect(() => {
     loadData();
@@ -124,47 +133,61 @@ export default function DonationsPage() {
     }
   };
 
+  const [donating, setDonating] = useState(false);
+
   const handleDonate = async (amount: number) => {
+    if (donating) return;
+    if (!Number.isFinite(amount) || amount <= 0) {
+      toast({ title: 'Enter a donation amount', variant: 'destructive' });
+      return;
+    }
+    setDonating(true);
     try {
-      const response = await api.post('/api/donations/create-order', {
-        amount,
-        isAnonymous: false,
-      });
-      
-      const { orderId, amount: orderAmount, currency } = response.data.data;
-      
-      // Load Razorpay script
-      const script = document.createElement('script');
-      script.src = 'https://checkout.razorpay.com/v1/checkout.js';
-      script.async = true;
-      document.body.appendChild(script);
-      
-      script.onload = () => {
-        const options = {
-          key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
-          amount: orderAmount,
-          currency,
-          name: 'AITD Connection',
-          description: 'Donation to Alumni Network',
-          order_id: orderId,
-          handler: async function (response: any) {
-            await api.post('/api/donations/verify-payment', {
-              razorpayOrderId: response.razorpay_order_id,
-              razorpayPaymentId: response.razorpay_payment_id,
-              razorpaySignature: response.razorpay_signature,
-              amount,
+      // Guests may leave a name/e-mail: the receipt is e-mailed to them (members get theirs in Settings).
+      const guest: { donorName?: string; donorEmail?: string } = user
+        ? {}
+        : { donorName: guestName.trim() || undefined, donorEmail: guestEmail.trim() || undefined };
+      const response = await donationApi.createOrder({ amount, isAnonymous: false, ...guest });
+      const order = response.data.data;
+
+      await openRazorpayCheckout(order, {
+        description: 'Donation to Alumni Network',
+        prefill: user
+          ? { name: user.fullName, email: user.email }
+          : guest.donorName || guest.donorEmail
+            ? { name: guest.donorName, email: guest.donorEmail }
+            : undefined,
+        onDismiss: () => setDonating(false),
+        onSuccess: async (verification) => {
+          try {
+            await donationApi.verifyPayment(verification);
+            toast({
+              title: 'Thank you!',
+              description: user
+                ? 'Your donation was received. A receipt is available in Settings.'
+                : guest.donorEmail
+                  ? `Your donation was received. A receipt has been e-mailed to ${guest.donorEmail}.`
+                  : 'Your donation was received. Sign in or join to keep receipts in your account.',
             });
             loadData();
-          },
-          prefill: {},
-          theme: { color: '#002045' },
-        };
-        
-        const rzp = new (window as any).Razorpay(options);
-        rzp.open();
-      };
-    } catch (error) {
-      console.error('Failed to initiate payment:', error);
+          } catch (err) {
+            toast({
+              title: 'Payment verification failed',
+              description: getPaymentErrorMessage(err, 'If you were charged, contact support with your payment ID.'),
+              variant: 'destructive',
+            });
+          } finally {
+            setDonating(false);
+          }
+        },
+      });
+    } catch (err) {
+      toast({
+        title: 'Could not start payment',
+        description: getPaymentErrorMessage(err, 'Please try again in a moment.'),
+        variant: 'destructive',
+      });
+      setDonating(false);
     }
   };
 
@@ -256,10 +279,32 @@ export default function DonationsPage() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.6, delay: 0.4 }}
             >
+              {!user && (
+                <div className="mx-auto mb-4 grid max-w-md gap-3 sm:grid-cols-2">
+                  <Input
+                    aria-label="Your name (optional)"
+                    placeholder="Your name (optional)"
+                    maxLength={100}
+                    value={guestName}
+                    onChange={(e) => setGuestName(e.target.value)}
+                    className="border-white/30 bg-white/10 text-white placeholder:text-blue-200"
+                  />
+                  <Input
+                    type="email"
+                    aria-label="E-mail for your receipt (optional)"
+                    placeholder="E-mail for your receipt"
+                    maxLength={254}
+                    value={guestEmail}
+                    onChange={(e) => setGuestEmail(e.target.value)}
+                    className="border-white/30 bg-white/10 text-white placeholder:text-blue-200"
+                  />
+                </div>
+              )}
               <Button
                 size="lg"
                 className="bg-amber-500 hover:bg-amber-600 text-white px-8 py-6 text-lg"
                 onClick={() => handleDonate(donationAmount)}
+                disabled={donating}
               >
                 <Heart className="h-5 w-5 mr-2" />
                 Donate {formatCurrency(donationAmount)}
@@ -424,7 +469,8 @@ export default function DonationsPage() {
                 <Heart className="h-12 w-12 text-gray-300 mx-auto mb-4" />
                 <h3 className="text-lg font-medium text-gray-900 mb-2">No donations yet</h3>
                 <p className="text-gray-500 mb-4">Be the first to contribute!</p>
-                <Button onClick={() => handleDonate(1000)}>
+                <Button onClick={() => handleDonate(1000)}
+                disabled={donating}>
                   <Heart className="h-4 w-4 mr-2" />
                   Donate Now
                 </Button>
@@ -622,8 +668,10 @@ export default function DonationsPage() {
                         <p className="text-2xl font-bold text-amber-600">
                           {formatCurrency(chapter.totalDonations)}
                         </p>
-                        <Button variant="ghost" size="sm">
-                          View All
+                        <Button variant="ghost" size="sm" asChild>
+                          <Link href={`/chapters/${encodeURIComponent(chapter.id)}`} aria-label={`View ${chapter.name} chapter`}>
+                            View chapter
+                          </Link>
                         </Button>
                       </div>
                     </CardContent>
@@ -658,6 +706,7 @@ export default function DonationsPage() {
               size="lg"
               className="bg-amber-500 hover:bg-amber-600 text-white"
               onClick={() => handleDonate(5000)}
+                disabled={donating}
             >
               <Heart className="h-5 w-5 mr-2" />
               Donate Now
@@ -666,6 +715,9 @@ export default function DonationsPage() {
               size="lg"
               variant="outline"
               className="border-white/30 text-white hover:bg-white/10"
+              onClick={() =>
+                shareLinkWithToast({ title: 'Support AITD — donate', url: `${window.location.origin}/donations` }, toast)
+              }
             >
               <Share2 className="h-5 w-5 mr-2" />
               Share Campaign

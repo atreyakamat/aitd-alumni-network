@@ -3,8 +3,8 @@
 import Link from 'next/link';
 import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { useRouter } from 'next/navigation';
-import { platformApi } from '@/lib/api';
+import { platformApi, getApiErrorMessage } from '@/lib/api';
+import { isAdmin } from '@/lib/roles';
 import { useAuth } from '@/context/auth-context';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -19,14 +19,9 @@ const statusVariant: Record<string, 'default' | 'secondary' | 'outline'> = {
 };
 
 export default function AdminControlPage() {
+  // Access is gated by admin/layout.tsx (RequireRole min="ADMIN").
   const { user, isLoading: authLoading } = useAuth();
-  const router = useRouter();
-
-  const canAccess = user?.role === 'ADMIN' || user?.role === 'SUPER_ADMIN' || user?.role === 'SUPERADMIN';
-
-  if (!authLoading && !canAccess) {
-    router.push('/dashboard');
-  }
+  const canAccess = isAdmin(user);
 
   const { data, isLoading, isError, error, refetch } = useQuery({
     queryKey: ['platform-readiness'],
@@ -52,7 +47,7 @@ export default function AdminControlPage() {
         <AlertCircle className="h-4 w-4" />
         <AlertTitle>Could not load platform readiness</AlertTitle>
         <AlertDescription>
-          {(error as any)?.response?.data?.error || 'Please try again.'}
+          {getApiErrorMessage(error, 'Please try again.')}
           <Button variant="outline" size="sm" className="ml-3" onClick={() => refetch()}>
             Retry
           </Button>

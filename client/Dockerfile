@@ -1,25 +1,32 @@
-# Client Dockerfile
+# Client Dockerfile — build from the repository root (npm workspaces):
+#   docker build -f client/Dockerfile --build-arg NEXT_PUBLIC_API_URL=https://api.example.com/api -t aitd-web .
 FROM node:20-alpine AS base
 
-# Install dependencies only when needed
+# Install workspace dependencies from the root lockfile
 FROM base AS deps
 WORKDIR /app
-
 COPY package.json package-lock.json ./
-RUN npm ci
+COPY client/package.json ./client/
+COPY server/package.json ./server/
+RUN npm ci --workspace=client --include-workspace-root=false
 
-# Rebuild the source code only when needed
+# Build
 FROM base AS builder
 WORKDIR /app
-
 COPY --from=deps /app/node_modules ./node_modules
-COPY . .
+COPY client ./client
+WORKDIR /app/client
 
-# Build arguments for environment variables
 ARG NEXT_PUBLIC_API_URL
+ARG NEXT_PUBLIC_MAP_TILE_URL=""
+ARG NEXT_PUBLIC_MAP_TILE_ATTRIBUTION=""
 ENV NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
+ENV NEXT_PUBLIC_MAP_TILE_URL=${NEXT_PUBLIC_MAP_TILE_URL}
+ENV NEXT_PUBLIC_MAP_TILE_ATTRIBUTION=${NEXT_PUBLIC_MAP_TILE_ATTRIBUTION}
+ENV NEXT_OUTPUT=standalone
+ENV NEXT_TELEMETRY_DISABLED=1
 
-RUN npm run build
+RUN mkdir -p public && npm run build
 
 # Production image
 FROM base AS runner
@@ -28,13 +35,12 @@ WORKDIR /app
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
 
-RUN addgroup --system --gid 1001 nodejs
-RUN adduser --system --uid 1001 nextjs
+RUN addgroup --system --gid 1001 nodejs && adduser --system --uid 1001 nextjs
 
-# Copy built application
-COPY --from=builder /app/public ./public
-COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
-COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
+# Standalone output mirrors the monorepo layout (client/server.js)
+COPY --from=builder --chown=nextjs:nodejs /app/client/.next/standalone ./
+COPY --from=builder --chown=nextjs:nodejs /app/client/.next/static ./client/.next/static
+COPY --from=builder --chown=nextjs:nodejs /app/client/public ./client/public
 
 USER nextjs
 
@@ -43,4 +49,4 @@ EXPOSE 3000
 ENV PORT=3000
 ENV HOSTNAME="0.0.0.0"
 
-CMD ["node", "server.js"]
+CMD ["node", "client/server.js"]

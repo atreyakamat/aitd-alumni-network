@@ -13,10 +13,6 @@ import { Badge } from '@/components/ui/badge';
 import { 
   Send, 
   Search, 
-  MoreVertical, 
-  Phone, 
-  Video, 
-  Image as ImageIcon,
   Loader2,
   ChevronLeft,
   MessageSquare
@@ -218,11 +214,13 @@ function ChatContent() {
                   </p>
                 </div>
               </div>
-              <div className="flex items-center gap-1">
-                <Button variant="ghost" size="icon"><Phone className="h-4 w-4" /></Button>
-                <Button variant="ghost" size="icon"><Video className="h-4 w-4" /></Button>
-                <Button variant="ghost" size="icon"><MoreVertical className="h-4 w-4" /></Button>
-              </div>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => router.push(`/profile/${activeConversation.partner.id}`)}
+              >
+                View profile
+              </Button>
             </div>
 
             {/* Message List */}
@@ -267,9 +265,6 @@ function ChatContent() {
             {/* Input Area */}
             <div className="p-4 border-t bg-card">
               <form onSubmit={handleSendMessage} className="flex gap-2">
-                <Button type="button" variant="ghost" size="icon" className="shrink-0">
-                  <ImageIcon className="h-5 w-5 text-muted-foreground" />
-                </Button>
                 <Input
                   value={newMessage}
                   onChange={(e) => setNewMessage(e.target.value)}

@@ -1,5 +1,17 @@
 import { Request, Response, NextFunction } from 'express';
 import prisma from '../config/database';
+import { ilike } from '../utils/helpers';
+
+export const SEARCH_MIN_QUERY_LENGTH = 2;
+export const SEARCH_MAX_QUERY_LENGTH = 100;
+export const SEARCH_RESULTS_PER_TYPE = 5;
+
+const emptyResults = () => ({
+  users: [],
+  jobs: [],
+  events: [],
+  posts: [],
+});
 
 export const searchController = {
   /**
@@ -8,31 +20,30 @@ export const searchController = {
   async globalSearch(req: Request, res: Response, next: NextFunction) {
     try {
       const { q } = req.query;
-      const query = q as string;
+      // Repeated params (?q=a&q=b) arrive as arrays; only a single string is a valid query.
+      const query = typeof q === 'string' ? q.trim().slice(0, SEARCH_MAX_QUERY_LENGTH) : '';
 
-      if (!query || query.length < 2) {
+      if (query.length < SEARCH_MIN_QUERY_LENGTH) {
         return res.json({
           success: true,
-          data: {
-            users: [],
-            jobs: [],
-            events: [],
-            posts: [],
-          },
+          data: emptyResults(),
         });
       }
 
+      const take = SEARCH_RESULTS_PER_TYPE;
+
       const [users, jobs, events, posts] = await Promise.all([
-        // Search Users
+        // Search Users (same visibility as the directory; no contact/location fields)
         prisma.user.findMany({
           where: {
             OR: [
-              { fullName: { contains: query } },
-              { currentDesignation: { contains: query } },
-              { department: { contains: query } },
-              { skills: { some: { skill: { name: { contains: query } } } } },
+              { fullName: ilike(query) },
+              { currentDesignation: ilike(query) },
+              { department: ilike(query) },
+              { skills: { some: { skill: { name: ilike(query) } } } },
             ],
             isActive: true,
+            isVerified: true,
           },
           select: {
             id: true,
@@ -42,48 +53,75 @@ export const searchController = {
             batchYear: true,
             department: true,
           },
-          take: 5,
+          take,
         }),
 
         // Search Jobs
         prisma.jobOpportunity.findMany({
           where: {
             OR: [
-              { title: { contains: query } },
-              { company: { contains: query } },
-              { description: { contains: query } },
+              { title: ilike(query) },
+              { company: ilike(query) },
+              { description: ilike(query) },
             ],
             status: 'PUBLISHED',
           },
-          take: 5,
+          select: {
+            id: true,
+            title: true,
+            company: true,
+            location: true,
+            workplaceType: true,
+            jobType: true,
+            deadline: true,
+            createdAt: true,
+          },
+          orderBy: { createdAt: 'desc' },
+          take,
         }),
 
-        // Search Events
+        // Search Events (published, public, upcoming only)
         prisma.event.findMany({
           where: {
             OR: [
-              { title: { contains: query } },
-              { description: { contains: query } },
-              { venue: { contains: query } },
-              { address: { contains: query } },
-              { city: { contains: query } },
+              { title: ilike(query) },
+              { description: ilike(query) },
+              { venue: ilike(query) },
+              { address: ilike(query) },
+              { city: ilike(query) },
             ],
+            status: 'PUBLISHED',
+            isPublic: true,
             startDate: { gte: new Date() },
           },
-          take: 5,
+          select: {
+            id: true,
+            title: true,
+            bannerUrl: true,
+            eventType: true,
+            venue: true,
+            city: true,
+            startDate: true,
+            endDate: true,
+          },
+          orderBy: { startDate: 'asc' },
+          take,
         }),
 
-        // Search Posts
+        // Search Posts (published, by active authors)
         prisma.post.findMany({
           where: {
-            content: { contains: query },
+            content: ilike(query),
+            isPublished: true,
+            user: { isActive: true },
           },
           include: {
             user: {
-              select: { fullName: true, profilePhotoUrl: true },
+              select: { id: true, fullName: true, profilePhotoUrl: true },
             },
           },
-          take: 5,
+          orderBy: { createdAt: 'desc' },
+          take,
         }),
       ]);
 

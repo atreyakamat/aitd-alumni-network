@@ -2,13 +2,14 @@ import { Request, Response, NextFunction } from 'express';
 import { postService } from '../services/postService';
 import { uploadToStorage } from '../utils/storage';
 import { invalidateCache } from '../middleware/cache';
+import { isAdminRole } from '../config/permissions';
 
 export class PostController {
   async getFeed(req: Request, res: Response, next: NextFunction) {
     try {
       const page = parseInt(req.query.page as string) || 1;
       const limit = parseInt(req.query.limit as string) || 20;
-      const result = await postService.getFeed(req.user?.id, page, limit);
+      const result = await postService.getFeed(req.user?.id, page, limit, req.user);
       res.json({ success: true, ...result });
     } catch (error) {
       next(error);
@@ -18,7 +19,7 @@ export class PostController {
   async getPost(req: Request, res: Response, next: NextFunction) {
     try {
       const { id } = req.params;
-      const result = await postService.getPost(id, req.user?.id);
+      const result = await postService.getPost(id, req.user);
       res.json({ success: true, data: result });
     } catch (error) {
       next(error);
@@ -38,7 +39,7 @@ export class PostController {
   async updatePost(req: Request, res: Response, next: NextFunction) {
     try {
       const { id } = req.params;
-      const isAdmin = ['ADMIN', 'SUPER_ADMIN'].includes(req.user!.userRole);
+      const isAdmin = isAdminRole(req.user!.userRole);
       const result = await postService.updatePost(req.user!.id, id, req.body, isAdmin);
       await invalidateCache('cache:/api/posts*');
       res.json({ success: true, data: result });
@@ -50,7 +51,7 @@ export class PostController {
   async deletePost(req: Request, res: Response, next: NextFunction) {
     try {
       const { id } = req.params;
-      const isAdmin = ['ADMIN', 'SUPER_ADMIN'].includes(req.user!.userRole);
+      const isAdmin = isAdminRole(req.user!.userRole);
       const result = await postService.deletePost(req.user!.id, id, isAdmin);
       await invalidateCache('cache:/api/posts*');
       res.json({ success: true, data: result });
@@ -73,10 +74,22 @@ export class PostController {
   async addComment(req: Request, res: Response, next: NextFunction) {
     try {
       const { postId } = req.params;
-      const { content, parentId } = req.body;
-      const result = await postService.addComment(req.user!.id, postId, content, parentId);
+      const { content, parentId, mentionIds } = req.body;
+      const result = await postService.addComment(req.user!.id, postId, content, parentId, mentionIds);
       await invalidateCache('cache:/api/posts*');
       res.status(201).json({ success: true, data: result });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async updateComment(req: Request, res: Response, next: NextFunction) {
+    try {
+      const { id } = req.params;
+      // Author-only: admin role is deliberately not forwarded.
+      const result = await postService.updateComment(req.user!.id, id, req.body?.content, req.body?.mentionIds);
+      await invalidateCache('cache:/api/posts*');
+      res.json({ success: true, data: result });
     } catch (error) {
       next(error);
     }
@@ -85,7 +98,7 @@ export class PostController {
   async deleteComment(req: Request, res: Response, next: NextFunction) {
     try {
       const { id } = req.params;
-      const isAdmin = ['ADMIN', 'SUPER_ADMIN'].includes(req.user!.userRole);
+      const isAdmin = isAdminRole(req.user!.userRole);
       const result = await postService.deleteComment(req.user!.id, id, isAdmin);
       await invalidateCache('cache:/api/posts*');
       res.json({ success: true, data: result });

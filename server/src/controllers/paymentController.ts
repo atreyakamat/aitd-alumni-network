@@ -1,9 +1,16 @@
 import { Request, Response, NextFunction } from 'express';
 import { membershipService } from '../services/membershipService';
-import { donationService } from '../services/donationService';
+import { donationService, guestDonorFromMetadata } from '../services/donationService';
 import prisma from '../config/database';
 import { AppError } from '../middleware/errorHandler';
+import { isOwnerOrAdmin } from '../config/permissions';
 import { generateDonationReceipt, generateMembershipReceipt, generateReceiptNumber } from '../utils/pdfReceipt';
+import { logAuditAction } from '../services/auditService';
+
+const toInt = (value: unknown, fallback: number) => {
+  const parsed = parseInt(value as string, 10);
+  return Number.isFinite(parsed) ? parsed : fallback;
+};
 
 // Membership Controller
 export class MembershipController {
@@ -29,6 +36,14 @@ export class MembershipController {
   async createTier(req: Request, res: Response, next: NextFunction) {
     try {
       const result = await membershipService.createTier(req.body);
+      await logAuditAction({
+        userId: req.user?.id,
+        action: 'CREATE',
+        entityType: 'MEMBERSHIP',
+        entityId: result.id,
+        newValues: req.body,
+        ipAddress: req.ip,
+      });
       res.status(201).json({ success: true, data: result });
     } catch (error) {
       next(error);
@@ -39,6 +54,14 @@ export class MembershipController {
     try {
       const { id } = req.params;
       const result = await membershipService.updateTier(id, req.body);
+      await logAuditAction({
+        userId: req.user?.id,
+        action: 'UPDATE',
+        entityType: 'MEMBERSHIP',
+        entityId: id,
+        newValues: req.body,
+        ipAddress: req.ip,
+      });
       res.json({ success: true, data: result });
     } catch (error) {
       next(error);
@@ -56,8 +79,12 @@ export class MembershipController {
 
   async getMembershipHistory(req: Request, res: Response, next: NextFunction) {
     try {
-      const result = await membershipService.getMembershipHistory(req.user!.id);
-      res.json({ success: true, data: result });
+      const result = await membershipService.getMembershipHistory(
+        req.user!.id,
+        toInt(req.query.page, 1),
+        toInt(req.query.limit, 20)
+      );
+      res.json({ success: true, ...result });
     } catch (error) {
       next(error);
     }
@@ -65,7 +92,7 @@ export class MembershipController {
 
   async createOrder(req: Request, res: Response, next: NextFunction) {
     try {
-      const { tierId } = req.body;
+      const { tierId } = req.body || {};
       const result = await membershipService.createOrder(req.user!.id, tierId);
       res.json({ success: true, data: result });
     } catch (error) {
@@ -75,7 +102,7 @@ export class MembershipController {
 
   async verifyPayment(req: Request, res: Response, next: NextFunction) {
     try {
-      const { razorpay_order_id, razorpay_payment_id, razorpay_signature } = req.body;
+      const { razorpay_order_id, razorpay_payment_id, razorpay_signature } = req.body || {};
       const result = await membershipService.verifyPayment(
         req.user!.id,
         razorpay_order_id,
@@ -90,9 +117,7 @@ export class MembershipController {
 
   async getPaidMembers(req: Request, res: Response, next: NextFunction) {
     try {
-      const page = parseInt(req.query.page as string) || 1;
-      const limit = parseInt(req.query.limit as string) || 20;
-      const result = await membershipService.getPaidMembers(page, limit);
+      const result = await membershipService.getPaidMembers(toInt(req.query.page, 1), toInt(req.query.limit, 20));
       res.json({ success: true, ...result });
     } catch (error) {
       next(error);
@@ -113,13 +138,13 @@ export class DonationController {
 
   async verifyPayment(req: Request, res: Response, next: NextFunction) {
     try {
-      const { razorpay_order_id, razorpay_payment_id, razorpay_signature, ...donationData } = req.body;
+      // Every donation detail was stored server-side at order time; only the Razorpay fields are read here.
+      const { razorpay_order_id, razorpay_payment_id, razorpay_signature } = req.body || {};
       const result = await donationService.verifyPayment(
         req.user?.id || null,
         razorpay_order_id,
         razorpay_payment_id,
-        razorpay_signature,
-        donationData
+        razorpay_signature
       );
       res.json({ success: true, data: result });
     } catch (error) {
@@ -129,9 +154,7 @@ export class DonationController {
 
   async getDonorsWall(req: Request, res: Response, next: NextFunction) {
     try {
-      const page = parseInt(req.query.page as string) || 1;
-      const limit = parseInt(req.query.limit as string) || 20;
-      const result = await donationService.getDonorsWall(page, limit);
+      const result = await donationService.getDonorsWall(toInt(req.query.page, 1), toInt(req.query.limit, 20));
       res.json({ success: true, ...result });
     } catch (error) {
       next(error);
@@ -176,8 +199,7 @@ export class DonationController {
 
   async getLeaderboard(req: Request, res: Response, next: NextFunction) {
     try {
-      const limit = req.query.limit ? parseInt(req.query.limit as string) : 10;
-      const result = await donationService.getDonationLeaderboard(limit);
+      const result = await donationService.getDonationLeaderboard(toInt(req.query.limit, 10));
       res.json({ success: true, data: result });
     } catch (error) {
       next(error);
@@ -211,13 +233,21 @@ export class TransactionController {
       }
 
       // Check ownership (admins can access any receipt)
-      if (transaction.userId !== userId && userRole !== 'ADMIN' && userRole !== 'SUPER_ADMIN') {
+      if (!isOwnerOrAdmin({ id: userId, userRole }, transaction.userId)) {
         throw new AppError('Unauthorized access to receipt', 403, 'FORBIDDEN');
       }
 
       if (transaction.status !== 'SUCCESS') {
         throw new AppError('Receipt only available for successful transactions', 400, 'BAD_REQUEST');
       }
+
+      // Guest donations (and records of a deleted user) have no user: use the donor details on the order.
+      // Ownerless receipts are admin-only here; guests receive theirs by e-mail.
+      const party = transaction.user
+        ? { name: transaction.user.fullName, email: transaction.user.email }
+        : transaction.type === 'DONATION'
+          ? guestDonorFromMetadata(transaction.metadata)
+          : { name: 'Deleted User', email: '' };
 
       let pdfBuffer: Buffer;
 
@@ -228,9 +258,9 @@ export class TransactionController {
         }
 
         pdfBuffer = await generateDonationReceipt({
-          receiptNumber: generateReceiptNumber('DON'),
-          donorName: transaction.user.fullName,
-          donorEmail: transaction.user.email,
+          receiptNumber: generateReceiptNumber('DON', transaction.id, transaction.createdAt),
+          donorName: party.name,
+          donorEmail: party.email,
           amount: Number(transaction.amount),
           date: transaction.createdAt,
           paymentId: transaction.gatewayPaymentId || transaction.id,
@@ -245,13 +275,13 @@ export class TransactionController {
         }
 
         pdfBuffer = await generateMembershipReceipt({
-          receiptNumber: generateReceiptNumber('MEM'),
-          memberName: transaction.user.fullName,
-          memberEmail: transaction.user.email,
+          receiptNumber: generateReceiptNumber('MEM', transaction.id, transaction.createdAt),
+          memberName: party.name,
+          memberEmail: party.email,
           membershipTier: membership.tier.name,
           amount: Number(transaction.amount),
           startDate: membership.startDate,
-          endDate: membership.endDate || new Date(), // Fallback for lifetime
+          endDate: membership.endDate, // null → printed as "Lifetime"
           paymentId: transaction.gatewayPaymentId || transaction.id,
         });
       } else {
@@ -259,7 +289,8 @@ export class TransactionController {
       }
 
       res.setHeader('Content-Type', 'application/pdf');
-      res.setHeader('Content-Disposition', `attachment; filename="receipt_${id}.pdf"`);
+      res.setHeader('Content-Disposition', `attachment; filename="receipt_${transaction.id}.pdf"`);
+      res.setHeader('Content-Length', pdfBuffer.length);
       res.send(pdfBuffer);
     } catch (error) {
       next(error);

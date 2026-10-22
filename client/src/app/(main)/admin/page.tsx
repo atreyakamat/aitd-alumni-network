@@ -21,15 +21,19 @@ import {
   Newspaper,
   MessageSquare,
   Heart,
-  ShieldAlert
+  ShieldAlert,
+  UserCog,
+  ClipboardCheck,
+  ScrollText
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { adminApi } from '@/lib/api';
+import { adminApi, getApiErrorMessage } from '@/lib/api';
+import { ExportPanel } from '@/components/admin/ExportPanel';
+import { MentorshipOverviewCard } from '@/components/admin/MentorshipOverviewCard';
 import { useAuth } from '@/context/auth-context';
-import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import {
   LineChart,
@@ -75,23 +79,18 @@ const formatNumber = (value: number) => {
 
 export default function AdminDashboardPage() {
   const { user, isLoading: authLoading } = useAuth();
-  const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [timeRange, setTimeRange] = useState('12m');
   const [stats, setStats] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!authLoading && (!user || (user.role !== 'ADMIN' && user.role !== 'SUPER_ADMIN' && user.role !== 'SUPERADMIN'))) {
-      router.push('/dashboard');
-    }
-  }, [user, authLoading, router]);
-
-  useEffect(() => {
-    if (user && (user.role === 'ADMIN' || user.role === 'SUPER_ADMIN' || user.role === 'SUPERADMIN')) {
+    // Access is gated by admin/layout.tsx (RequireRole min="ADMIN").
+    if (user) {
       loadStats();
     }
-  }, [user, timeRange]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id, timeRange]);
 
   const loadStats = async () => {
     setLoading(true);
@@ -101,7 +100,7 @@ export default function AdminDashboardPage() {
       setStats(response.data.data);
     } catch (err: any) {
       console.error('Failed to load admin stats:', err);
-      setError(err.response?.data?.error || 'Failed to load dashboard statistics');
+      setError(getApiErrorMessage(err, 'Failed to load dashboard statistics'));
     } finally {
       setLoading(false);
     }
@@ -124,7 +123,7 @@ export default function AdminDashboardPage() {
         <Card className="max-w-md w-full">
           <CardContent className="pt-6 text-center">
             <ShieldAlert className="h-12 w-12 text-destructive mx-auto mb-4" />
-            <h3 className="text-xl font-bold mb-2">Access Denied or Error</h3>
+            <h3 className="text-xl font-bold mb-2">Could not load dashboard</h3>
             <p className="text-muted-foreground mb-6">{error}</p>
             <Button onClick={loadStats}>Try Again</Button>
           </CardContent>
@@ -175,7 +174,7 @@ export default function AdminDashboardPage() {
             Overview of platform performance, user growth, and financial metrics.
           </p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
           <Select value={timeRange} onValueChange={setTimeRange}>
             <SelectTrigger className="w-40">
               <SelectValue placeholder="Time Range" />
@@ -188,11 +187,31 @@ export default function AdminDashboardPage() {
             <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
           </Button>
           <Button variant="outline" asChild>
+            <Link href="/admin/users">
+              <UserCog className="h-4 w-4 mr-2" />
+              Users
+            </Link>
+          </Button>
+          <Button variant="outline" asChild>
+            <Link href="/admin/moderation">
+              <ClipboardCheck className="h-4 w-4 mr-2" />
+              Moderation
+            </Link>
+          </Button>
+          <Button variant="outline" asChild>
+            <Link href="/admin/audit">
+              <ScrollText className="h-4 w-4 mr-2" />
+              Audit log
+            </Link>
+          </Button>
+          <Button variant="outline" asChild>
             <Link href="/admin/control">Control Center</Link>
           </Button>
-          <Button>
-            <Download className="h-4 w-4 mr-2" />
-            Export
+          <Button asChild>
+            <a href="#data-exports">
+              <Download className="h-4 w-4 mr-2" />
+              Export
+            </a>
           </Button>
         </div>
       </div>
@@ -460,6 +479,12 @@ export default function AdminDashboardPage() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Mentorship + Exports */}
+      <div className="grid lg:grid-cols-2 gap-6">
+        <MentorshipOverviewCard />
+        <ExportPanel />
+      </div>
 
       {/* Recent Activity */}
       <div className="grid lg:grid-cols-2 gap-6">

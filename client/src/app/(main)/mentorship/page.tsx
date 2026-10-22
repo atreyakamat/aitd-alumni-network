@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import Link from 'next/link';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -12,11 +13,10 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Label } from '@/components/ui/label';
 import { useAuth } from '@/context/auth-context';
 import { useToast } from '@/hooks/use-toast';
-import api from '@/lib/api';
+import api, { getApiErrorMessage } from '@/lib/api';
 import { 
   Users, 
   GraduationCap, 
-  Calendar, 
   MessageSquare, 
   Search, 
   Plus,
@@ -177,7 +177,7 @@ export default function MentorshipPage() {
       const err = error as { response?: { data?: { error?: string } } };
       toast({
         title: 'Error',
-        description: err.response?.data?.error || 'Failed to send request',
+        description: getApiErrorMessage(err, 'Failed to send request'),
         variant: 'destructive',
       });
     }
@@ -444,13 +444,11 @@ export default function MentorshipPage() {
                     )}
                     {request.status === 'ACCEPTED' && (
                       <div className="mt-4 flex gap-2">
-                        <Button variant="outline" size="sm">
-                          <MessageSquare className="h-4 w-4 mr-2" />
-                          Message
-                        </Button>
-                        <Button variant="outline" size="sm">
-                          <Calendar className="h-4 w-4 mr-2" />
-                          Schedule Session
+                        <Button variant="outline" size="sm" asChild>
+                          <Link href={`/messages?u=${encodeURIComponent(request.mentor.id)}`}>
+                            <MessageSquare className="h-4 w-4 mr-2" />
+                            Message
+                          </Link>
                         </Button>
                       </div>
                     )}
@@ -527,13 +525,11 @@ export default function MentorshipPage() {
                       )}
                       {request.status === 'ACCEPTED' && (
                         <div className="mt-4 flex gap-2">
-                          <Button variant="outline" size="sm">
-                            <MessageSquare className="h-4 w-4 mr-2" />
-                            Message
-                          </Button>
-                          <Button variant="outline" size="sm">
-                            <Calendar className="h-4 w-4 mr-2" />
-                            Schedule Session
+                          <Button variant="outline" size="sm" asChild>
+                            <Link href={`/messages?u=${encodeURIComponent(request.mentee.id)}`}>
+                              <MessageSquare className="h-4 w-4 mr-2" />
+                              Message
+                            </Link>
                           </Button>
                         </div>
                       )}

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import Link from 'next/link';
 import { motion } from 'framer-motion';
 import {
   Users,
@@ -28,7 +29,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { adminApi } from '@/lib/api';
+import { adminApi, getApiErrorMessage } from '@/lib/api';
 import {
   LineChart,
   Line,
@@ -51,6 +52,8 @@ interface StatCard {
   title: string;
   value: string | number;
   change: number;
+  /** percent: month-over-month growth; count: absolute number added this month */
+  unit: 'percent' | 'count';
   changeLabel: string;
   icon: any;
   color: string;
@@ -74,7 +77,8 @@ const formatCurrency = (value: number) => {
   }).format(value);
 };
 
-const formatNumber = (value: number) => {
+const formatNumber = (raw: number | null | undefined) => {
+  const value = Number(raw) || 0;
   if (value >= 1000000) return `${(value / 1000000).toFixed(1)}M`;
   if (value >= 1000) return `${(value / 1000).toFixed(1)}K`;
   return value.toString();
@@ -82,46 +86,54 @@ const formatNumber = (value: number) => {
 
 export default function AdminAnalyticsPage() {
   const [loading, setLoading] = useState(true);
-  const [timeRange, setTimeRange] = useState('12m');
+  // The API returns 12 months of monthly series; the range trims them client-side
+  const [timeRange, setTimeRange] = useState<'3m' | '6m' | '12m'>('12m');
   const [stats, setStats] = useState<any>(null);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     loadAnalytics();
-  }, [timeRange]);
+  }, []);
 
   const loadAnalytics = async () => {
     setLoading(true);
+    setError(null);
     try {
       const response = await adminApi.getStats();
       setStats(response.data.data);
-    } catch (error) {
-      console.error('Failed to load analytics:', error);
+    } catch (err) {
+      setError(getApiErrorMessage(err, 'Failed to load analytics'));
     } finally {
       setLoading(false);
     }
   };
+
+  const monthsShown = Number(timeRange.replace('m', ''));
 
   const statCards: StatCard[] = [
     {
       title: 'Total Users',
       value: formatNumber(stats?.users?.total || 0),
       change: stats?.users?.growthPercent || 0,
-      changeLabel: 'vs last month',
+      unit: 'percent',
+      changeLabel: 'new users vs last month',
       icon: Users,
       color: 'bg-blue-500',
     },
     {
-      title: 'Total Revenue',
+      title: 'Total Donations',
       value: formatCurrency(stats?.financial?.donations?.totalAmount || 0),
       change: stats?.financial?.donations?.growthPercent || 0,
-      changeLabel: 'vs last month',
+      unit: 'percent',
+      changeLabel: 'donations vs last month',
       icon: DollarSign,
       color: 'bg-green-500',
     },
     {
-      title: 'Active Events',
+      title: 'Events',
       value: stats?.content?.events?.total || 0,
       change: stats?.content?.events?.newThisMonth || 0,
+      unit: 'count',
       changeLabel: 'new this month',
       icon: Calendar,
       color: 'bg-amber-500',
@@ -130,11 +142,27 @@ export default function AdminAnalyticsPage() {
       title: 'Job Listings',
       value: stats?.content?.jobs?.total || 0,
       change: stats?.content?.jobs?.newThisMonth || 0,
-      changeLabel: 'vs last month',
+      unit: 'count',
+      changeLabel: 'new this month',
       icon: Briefcase,
       color: 'bg-purple-500',
     },
   ];
+
+  if (!loading && error) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+        <div className="text-center space-y-3">
+          <ShieldAlert className="h-8 w-8 text-red-500 mx-auto" />
+          <p className="text-gray-700">{error}</p>
+          <Button variant="outline" onClick={loadAnalytics}>
+            <RefreshCw className="h-4 w-4 mr-2" />
+            Retry
+          </Button>
+        </div>
+      </div>
+    );
+  }
 
   if (loading || !stats) {
     return (
@@ -160,10 +188,10 @@ export default function AdminAnalyticsPage() {
       users: currentCumulative,
       newUsers: item.count
     };
-  });
+  }).slice(-monthsShown);
 
   // Process Revenue Data
-  const revenueData = stats.financial.donations.monthly || [];
+  const revenueData = (stats.financial.donations.monthly || []).slice(-monthsShown);
 
   // Process Batch Distribution
   const batchDistribution = (stats.users.byBatch || []).map((item: any) => ({
@@ -178,23 +206,15 @@ export default function AdminAnalyticsPage() {
     color: COLORS[index % COLORS.length]
   }));
 
-  // Engagement data (using from stats if available, otherwise mock or empty)
   const engagementData = [
     { name: 'Messages', value: stats.engagement.messages.total },
     { name: 'Connections', value: stats.engagement.connections },
     { name: 'Posts', value: stats.content.posts.total },
-    { name: 'Comments', value: stats.content.posts.total * 2 }, // Approximation
+    { name: 'Comments', value: stats.content.comments?.total ?? 0 },
   ];
 
-  const weeklyEngagementData = [
-    { day: 'Mon', posts: Math.floor(stats.content.posts.thisMonth / 10), comments: Math.floor(stats.content.posts.thisMonth / 5), messages: Math.floor(stats.engagement.messages.thisMonth / 10) },
-    { day: 'Tue', posts: Math.floor(stats.content.posts.thisMonth / 8), comments: Math.floor(stats.content.posts.thisMonth / 4), messages: Math.floor(stats.engagement.messages.thisMonth / 8) },
-    { day: 'Wed', posts: Math.floor(stats.content.posts.thisMonth / 12), comments: Math.floor(stats.content.posts.thisMonth / 6), messages: Math.floor(stats.engagement.messages.thisMonth / 12) },
-    { day: 'Thu', posts: Math.floor(stats.content.posts.thisMonth / 9), comments: Math.floor(stats.content.posts.thisMonth / 4.5), messages: Math.floor(stats.engagement.messages.thisMonth / 9) },
-    { day: 'Fri', posts: Math.floor(stats.content.posts.thisMonth / 7), comments: Math.floor(stats.content.posts.thisMonth / 3.5), messages: Math.floor(stats.engagement.messages.thisMonth / 7) },
-    { day: 'Sat', posts: Math.floor(stats.content.posts.thisMonth / 15), comments: Math.floor(stats.content.posts.thisMonth / 7.5), messages: Math.floor(stats.engagement.messages.thisMonth / 15) },
-    { day: 'Sun', posts: Math.floor(stats.content.posts.thisMonth / 20), comments: Math.floor(stats.content.posts.thisMonth / 10), messages: Math.floor(stats.engagement.messages.thisMonth / 20) },
-  ];
+  // Real per-day activity for the last 7 days (oldest first)
+  const weeklyEngagementData = stats.engagement.daily ?? [];
 
   // Location data (using empty if not in stats)
   const locationData = (stats.users.byLocation || []).map((item: any) => ({
@@ -216,13 +236,11 @@ export default function AdminAnalyticsPage() {
             </p>
           </div>
           <div className="flex items-center gap-3">
-            <Select value={timeRange} onValueChange={setTimeRange}>
+            <Select value={timeRange} onValueChange={(v) => setTimeRange(v as '3m' | '6m' | '12m')}>
               <SelectTrigger className="w-40 bg-white">
                 <SelectValue placeholder="Time Range" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="7d">Last 7 days</SelectItem>
-                <SelectItem value="30d">Last 30 days</SelectItem>
                 <SelectItem value="3m">Last 3 months</SelectItem>
                 <SelectItem value="6m">Last 6 months</SelectItem>
                 <SelectItem value="12m">Last 12 months</SelectItem>
@@ -231,9 +249,11 @@ export default function AdminAnalyticsPage() {
             <Button variant="outline" size="icon" onClick={loadAnalytics}>
               <RefreshCw className="h-4 w-4" />
             </Button>
-            <Button>
-              <Download className="h-4 w-4 mr-2" />
-              Export Report
+            <Button asChild>
+              <Link href="/admin">
+                <Download className="h-4 w-4 mr-2" />
+                Data Exports
+              </Link>
             </Button>
           </div>
         </div>
@@ -266,7 +286,7 @@ export default function AdminAnalyticsPage() {
                       ) : (
                         <ArrowDown className="h-3 w-3 mr-1" />
                       )}
-                      {Math.abs(stat.change)}%
+                      {stat.unit === 'percent' ? `${Math.abs(stat.change)}%` : stat.change}
                     </Badge>
                   </div>
                   <div className="mt-4">
@@ -387,7 +407,7 @@ export default function AdminAnalyticsPage() {
                 <Activity className="h-5 w-5 text-purple-500" />
                 Weekly Engagement
               </CardTitle>
-              <CardDescription>Posts, comments, and messages activity</CardDescription>
+              <CardDescription>Posts, comments, and messages over the last 7 days</CardDescription>
             </CardHeader>
             <CardContent>
               <div className="h-72">

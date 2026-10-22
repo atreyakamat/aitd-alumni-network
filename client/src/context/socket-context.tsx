@@ -7,9 +7,7 @@ import { useToast } from '@/hooks/use-toast';
 interface SocketContextType {
   isConnected: boolean;
   unreadMessages: number;
-  unreadNotifications: number;
   resetUnreadMessages: () => void;
-  resetUnreadNotifications: () => void;
 }
 
 const SocketContext = React.createContext<SocketContextType | undefined>(undefined);
@@ -19,9 +17,7 @@ export function SocketProvider({ children }: { children: React.ReactNode }) {
   const {
     isConnected,
     unreadMessages,
-    unreadNotifications,
     resetUnreadMessages,
-    resetUnreadNotifications,
   } = useSocket();
 
   // Show toast for new notifications
@@ -43,9 +39,7 @@ export function SocketProvider({ children }: { children: React.ReactNode }) {
   const value = {
     isConnected,
     unreadMessages,
-    unreadNotifications,
     resetUnreadMessages,
-    resetUnreadNotifications,
   };
 
   return <SocketContext.Provider value={value}>{children}</SocketContext.Provider>;

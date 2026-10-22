@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { userApi, networkApi } from '@/lib/api';
+import { userApi, networkApi, getApiErrorMessage } from '@/lib/api';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -217,7 +217,7 @@ export default function DirectoryPage() {
           <AlertCircle className="h-4 w-4" />
           <AlertTitle>Error</AlertTitle>
           <AlertDescription>
-            {(error as any)?.response?.data?.error || 'Failed to load alumni directory. Please try again later.'}
+            {getApiErrorMessage(error, 'Failed to load alumni directory. Please try again later.')}
           </AlertDescription>
         </Alert>
       ) : alumni.length === 0 ? (

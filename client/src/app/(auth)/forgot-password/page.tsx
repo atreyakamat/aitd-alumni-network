@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useState } from 'react';
-import { authApi } from '@/lib/api';
+import { authApi, getApiErrorMessage } from '@/lib/api';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -27,7 +27,7 @@ export default function ForgotPasswordPage() {
       toast({
         variant: 'destructive',
         title: 'Unable to process request',
-        description: error?.response?.data?.error || 'Please try again.',
+        description: getApiErrorMessage(error, 'Please try again.'),
       });
     } finally {
       setIsSubmitting(false);

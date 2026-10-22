@@ -1,0 +1,9 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "isolatedModules": true,
+    "noEmit": true,
+    "rootDir": "."
+  },
+  "include": ["src/**/*", "tests/**/*", "scripts/**/*.ts", "prisma/seed.ts"]
+}

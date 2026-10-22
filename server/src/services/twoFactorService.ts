@@ -1,51 +1,76 @@
+import crypto from 'crypto';
 import prisma from '../config/database';
 import { sendEmail } from '../utils/email';
-import crypto from 'crypto';
+import { config } from '../config';
+import { AppError } from '../middleware/errorHandler';
 
 const OTP_LENGTH = 6;
 const OTP_EXPIRY_MINUTES = 10;
+/** Wrong guesses allowed per user inside the lockout window (across resends). */
+export const OTP_MAX_ATTEMPTS = 5;
+const OTP_LOCKOUT_MINUTES = 15;
+const OTP_RESEND_COOLDOWN_SECONDS = 30;
+
+const OTP_TYPE = 'TWO_FACTOR';
+const OTP_FAILURE_TYPE = 'TWO_FACTOR_FAILURE';
 
 export class TwoFactorService {
-  // Generate a random OTP
+  // Cryptographically secure, uniformly distributed numeric OTP
   private generateOTP(): string {
-    const digits = '0123456789';
-    let otp = '';
-    for (let i = 0; i < OTP_LENGTH; i++) {
-      otp += digits[Math.floor(Math.random() * 10)];
-    }
-    return otp;
+    return crypto.randomInt(0, 10 ** OTP_LENGTH).toString().padStart(OTP_LENGTH, '0');
   }
 
-  // Hash the OTP for storage
-  private hashOTP(otp: string): string {
-    return crypto.createHash('sha256').update(otp).digest('hex');
+  // Keyed hash bound to the user, so a leaked DB row cannot be brute-forced offline
+  private hashOTP(userId: string, otp: string): string {
+    return crypto.createHmac('sha256', config.jwt.secret).update(`${userId}:${otp}`).digest('hex');
+  }
+
+  private safeEqual(a: string, b: string): boolean {
+    const bufA = Buffer.from(a);
+    const bufB = Buffer.from(b);
+    return bufA.length === bufB.length && crypto.timingSafeEqual(bufA, bufB);
+  }
+
+  private async recentFailures(userId: string): Promise<number> {
+    return prisma.verificationToken.count({
+      where: { userId, type: OTP_FAILURE_TYPE, expiresAt: { gt: new Date() } },
+    });
+  }
+
+  private async recordFailure(userId: string): Promise<void> {
+    await prisma.verificationToken.create({
+      data: {
+        userId,
+        type: OTP_FAILURE_TYPE,
+        token: crypto.randomBytes(16).toString('hex'),
+        expiresAt: new Date(Date.now() + OTP_LOCKOUT_MINUTES * 60 * 1000),
+      },
+    });
   }
 
   // Generate and send OTP to user's email
   async sendOTP(userId: string, email: string): Promise<{ message: string }> {
     const otp = this.generateOTP();
-    const hashedOTP = this.hashOTP(otp);
+    const hashedOTP = this.hashOTP(userId, otp);
     const expiresAt = new Date(Date.now() + OTP_EXPIRY_MINUTES * 60 * 1000);
 
-    // Delete any existing OTPs for this user
+    // Only the latest code is valid
     await prisma.verificationToken.deleteMany({
       where: {
         userId,
-        type: 'TWO_FACTOR',
+        type: OTP_TYPE,
       },
     });
 
-    // Store the hashed OTP
     await prisma.verificationToken.create({
       data: {
         userId,
         token: hashedOTP,
-        type: 'TWO_FACTOR',
+        type: OTP_TYPE,
         expiresAt,
       },
     });
 
-    // Send OTP via email
     await sendEmail({
       to: email,
       subject: 'Your AITD Connection Verification Code',
@@ -54,26 +79,26 @@ export class TwoFactorService {
           <div style="background: linear-gradient(135deg, #002045 0%, #004488 100%); padding: 30px; border-radius: 10px 10px 0 0;">
             <h1 style="color: white; margin: 0; font-size: 24px;">AITD Connection</h1>
           </div>
-          
+
           <div style="background: #ffffff; padding: 30px; border: 1px solid #e5e7eb; border-top: none; border-radius: 0 0 10px 10px;">
             <h2 style="color: #002045; margin-top: 0;">Your Verification Code</h2>
-            
+
             <p style="color: #64748b; line-height: 1.6;">
               Use the following code to complete your sign-in. This code expires in ${OTP_EXPIRY_MINUTES} minutes.
             </p>
-            
+
             <div style="background: #f8fafc; border: 2px dashed #002045; border-radius: 8px; padding: 20px; text-align: center; margin: 20px 0;">
               <span style="font-size: 32px; font-weight: bold; letter-spacing: 8px; color: #002045;">
                 ${otp}
               </span>
             </div>
-            
+
             <p style="color: #64748b; line-height: 1.6;">
               If you didn't request this code, please ignore this email or contact support if you have concerns.
             </p>
-            
+
             <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 20px 0;">
-            
+
             <p style="color: #94a3b8; font-size: 12px; margin-bottom: 0;">
               This is an automated message from AITD Connection. Please do not reply to this email.
             </p>
@@ -85,30 +110,79 @@ export class TwoFactorService {
     return { message: 'Verification code sent to your email' };
   }
 
-  // Verify the OTP
+  /** Resend a code for a pending 2FA login, with a short cooldown to prevent mail-bombing. */
+  async resendOTP(userId: string): Promise<{ message: string }> {
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { email: true, isActive: true, twoFactorEnabled: true },
+    });
+
+    if (!user || !user.isActive || !user.twoFactorEnabled) {
+      throw new AppError('Your verification session has expired. Please sign in again.', 401, 'INVALID_2FA_SESSION');
+    }
+
+    const recent = await prisma.verificationToken.findFirst({
+      where: {
+        userId,
+        type: OTP_TYPE,
+        createdAt: { gt: new Date(Date.now() - OTP_RESEND_COOLDOWN_SECONDS * 1000) },
+      },
+    });
+    if (recent) {
+      throw new AppError('Please wait before requesting another code', 429, 'OTP_RESEND_TOO_SOON');
+    }
+
+    return this.sendOTP(userId, user.email);
+  }
+
+  /**
+   * Verify the OTP. Returns false for a wrong/expired/used code; throws 429
+   * once the user has exhausted their attempts for the lockout window.
+   */
   async verifyOTP(userId: string, otp: string): Promise<boolean> {
-    const hashedOTP = this.hashOTP(otp);
+    if ((await this.recentFailures(userId)) >= OTP_MAX_ATTEMPTS) {
+      throw new AppError(
+        'Too many invalid verification attempts. Please try again later.',
+        429,
+        'OTP_ATTEMPTS_EXCEEDED'
+      );
+    }
 
     const verificationToken = await prisma.verificationToken.findFirst({
       where: {
         userId,
-        token: hashedOTP,
-        type: 'TWO_FACTOR',
+        type: OTP_TYPE,
         expiresAt: { gt: new Date() },
         isUsed: false,
       },
+      orderBy: { createdAt: 'desc' },
     });
 
-    if (!verificationToken) {
+    const candidate = typeof otp === 'string' ? otp.trim() : '';
+    const matches =
+      !!verificationToken &&
+      /^\d+$/.test(candidate) &&
+      this.safeEqual(this.hashOTP(userId, candidate), verificationToken.token);
+
+    if (!matches) {
+      await this.recordFailure(userId);
+      if ((await this.recentFailures(userId)) >= OTP_MAX_ATTEMPTS) {
+        // Burn the outstanding code once the attempt budget is spent
+        await prisma.verificationToken.deleteMany({ where: { userId, type: OTP_TYPE } });
+      }
       return false;
     }
 
-    // Mark as used
-    await prisma.verificationToken.update({
-      where: { id: verificationToken.id },
+    // Conditional update: a code can only be redeemed once, even under concurrency
+    const claimed = await prisma.verificationToken.updateMany({
+      where: { id: verificationToken!.id, isUsed: false },
       data: { isUsed: true },
     });
+    if (claimed.count !== 1) {
+      return false;
+    }
 
+    await prisma.verificationToken.deleteMany({ where: { userId, type: OTP_FAILURE_TYPE } });
     return true;
   }
 

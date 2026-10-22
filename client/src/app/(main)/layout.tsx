@@ -1,32 +1,46 @@
 'use client';
 
 import { useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { useAuth } from '@/context/auth-context';
 import { MainNav } from '@/components/layout/MainNav';
+import { PublicNav } from '@/components/layout/PublicNav';
 import { ChatDrawer } from '@/components/layout/ChatDrawer';
 import { FullPageLoader } from '@/components/ui/loading';
+import { buildLoginHref, isPublicPath } from '@/lib/public-paths';
 
 export default function MainLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const { user, isLoading, isAuthenticated } = useAuth();
+  const { isLoading, isAuthenticated } = useAuth();
   const router = useRouter();
+  const pathname = usePathname();
+  const isPublic = isPublicPath(pathname);
 
   useEffect(() => {
-    if (!isLoading && !isAuthenticated) {
-      router.push('/login');
+    if (!isLoading && !isAuthenticated && !isPublic) {
+      const current =
+        typeof window !== 'undefined' ? `${window.location.pathname}${window.location.search}` : pathname;
+      router.replace(buildLoginHref(current));
     }
-  }, [isLoading, isAuthenticated, router]);
+  }, [isLoading, isAuthenticated, isPublic, pathname, router]);
 
   if (isLoading) {
     return <FullPageLoader text="Loading..." />;
   }
 
   if (!isAuthenticated) {
-    return null;
+    if (!isPublic) return null;
+
+    // PRD 6.1: events, gallery, news and donations are browsable without an account.
+    return (
+      <div className="min-h-screen bg-background relative">
+        <PublicNav />
+        <main className="container pb-6 pt-28">{children}</main>
+      </div>
+    );
   }
 
   return (

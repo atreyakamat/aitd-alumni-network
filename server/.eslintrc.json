@@ -6,7 +6,9 @@
     "sourceType": "module",
     "project": "./tsconfig.json"
   },
-  "plugins": ["@typescript-eslint"],
+  "plugins": [
+    "@typescript-eslint"
+  ],
   "extends": [
     "eslint:recommended",
     "plugin:@typescript-eslint/recommended"
@@ -17,10 +19,35 @@
     "jest": true
   },
   "rules": {
-    "@typescript-eslint/no-unused-vars": ["warn", { "argsIgnorePattern": "^_" }],
+    "@typescript-eslint/no-unused-vars": [
+      "warn",
+      {
+        "argsIgnorePattern": "^_"
+      }
+    ],
     "@typescript-eslint/no-explicit-any": "warn",
     "@typescript-eslint/explicit-function-return-type": "off",
     "no-console": "off"
   },
-  "ignorePatterns": ["dist/", "node_modules/", "*.js"]
+  "ignorePatterns": [
+    "dist/",
+    "node_modules/",
+    "*.js"
+  ],
+  "overrides": [
+    {
+      "files": [
+        "src/**/__tests__/**/*.ts",
+        "tests/**/*.ts"
+      ],
+      "parserOptions": {
+        "project": "./tsconfig.test.json"
+      },
+      "rules": {
+        "@typescript-eslint/no-var-requires": "off",
+        "@typescript-eslint/no-explicit-any": "off",
+        "@typescript-eslint/no-non-null-assertion": "off"
+      }
+    }
+  ]
 }

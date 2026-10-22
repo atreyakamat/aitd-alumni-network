@@ -1,10 +1,12 @@
 import prisma from '../config/database';
 import { AppError } from '../middleware/errorHandler';
-import { paginationHelper, buildPaginationResponse } from '../utils/helpers';
-import { EventType, EventStatus, Prisma } from '@prisma/client';
+import { paginationHelper, buildPaginationResponse, ilike } from '../utils/helpers';
+import { EventType, EventStatus, Prisma, UserRole } from '@prisma/client';
+import { isAdminRole, isOwnerOrAdmin, Actor } from '../config/permissions';
 import { notificationService } from './notificationService';
+import { clientLinks } from '../utils/clientLinks';
 
-interface CreateEventInput {
+export interface CreateEventInput {
   title: string;
   description: string;
   bannerUrl?: string;
@@ -14,45 +16,104 @@ interface CreateEventInput {
   city?: string;
   joinLink?: string;
   startDate: Date | string;
-  endDate?: Date | string;
-  capacity?: number;
+  endDate?: Date | string | null;
+  capacity?: number | null;
   tags?: string[];
   isPublic?: boolean;
   chapterId?: string;
 }
 
-interface EventFilters {
-  eventType?: EventType;
+export interface UpdateEventInput extends Partial<CreateEventInput> {
+  status?: EventStatus;
+}
+
+export interface EventFilters {
+  eventType?: EventType | string;
   city?: string;
   chapterId?: string;
   upcoming?: boolean;
+  search?: string;
   page?: number;
   limit?: number;
 }
 
+const EVENT_TYPES = Object.values(EventType) as string[];
+const EVENT_STATUSES = Object.values(EventStatus) as string[];
+export const MAX_UPCOMING_LIMIT = 20;
+
+/** Fields an event owner (or admin) may edit. rsvpCount/createdById/id are never mass-assigned. */
+const EDITABLE_FIELDS = [
+  'title',
+  'description',
+  'bannerUrl',
+  'eventType',
+  'venue',
+  'address',
+  'city',
+  'joinLink',
+  'startDate',
+  'endDate',
+  'capacity',
+  'tags',
+  'isPublic',
+  'status',
+] as const;
+
+const badRequest = (message: string) => new AppError(message, 400, 'VALIDATION_ERROR');
+
+const parseDate = (value: unknown, field: string): Date => {
+  const date = value instanceof Date ? value : new Date(value as string);
+  if (value === null || value === undefined || value === '' || Number.isNaN(date.getTime())) {
+    throw badRequest(`${field} must be a valid date`);
+  }
+  return date;
+};
+
+const parseCapacity = (value: unknown): number | null => {
+  if (value === null || value === undefined) return null;
+  if (typeof value !== 'number' || !Number.isInteger(value) || value < 1) {
+    throw badRequest('capacity must be a positive integer');
+  }
+  return value;
+};
+
+const assertEnum = (value: unknown, allowed: string[], field: string) => {
+  if (value !== undefined && !allowed.includes(value as string)) {
+    throw badRequest(`Invalid ${field}`);
+  }
+};
+
+const hasStarted = (event: { startDate: Date | string }) => new Date(event.startDate).getTime() <= Date.now();
+
 export class EventService {
-  async getEvents(filters: EventFilters) {
+  /**
+   * Published events only. Anonymous visitors see public events; signed-in
+   * members additionally see members-only (isPublic=false) events.
+   */
+  async getEvents(filters: EventFilters, viewer?: Actor | null) {
     const { skip, take, page, limit } = paginationHelper(filters.page, filters.limit);
 
-    const where: Prisma.EventWhereInput = {
-      status: 'PUBLISHED',
-      isPublic: true,
-    };
+    assertEnum(filters.eventType, EVENT_TYPES, 'event type');
 
-    if (filters.eventType) {
-      where.eventType = filters.eventType;
+    const where: Prisma.EventWhereInput = { status: 'PUBLISHED' };
+
+    if (!viewer) {
+      where.isPublic = true;
     }
 
-    if (filters.city) {
-      where.city = { contains: filters.city };
-    }
+    if (filters.eventType) where.eventType = filters.eventType as EventType;
+    if (filters.city) where.city = ilike(filters.city);
+    if (filters.chapterId) where.chapterId = filters.chapterId;
+    if (filters.upcoming) where.startDate = { gte: new Date() };
 
-    if (filters.chapterId) {
-      where.chapterId = filters.chapterId;
-    }
-
-    if (filters.upcoming) {
-      where.startDate = { gte: new Date() };
+    const search = filters.search?.trim();
+    if (search) {
+      where.OR = [
+        { title: ilike(search) },
+        { description: ilike(search) },
+        { venue: ilike(search) },
+        { city: ilike(search) },
+      ];
     }
 
     const [events, total] = await Promise.all([
@@ -83,7 +144,14 @@ export class EventService {
     return buildPaginationResponse(events, total, page, limit);
   }
 
-  async getEvent(id: string, userId?: string) {
+  /**
+   * Event detail. Unpublished (DRAFT) events are only visible to their creator
+   * and admins. Members-only events require sign-in. Anonymous visitors don't
+   * receive the attendee list.
+   */
+  async getEvent(id: string, viewer?: Actor | string | null) {
+    const actor: Actor | null = typeof viewer === 'string' ? { id: viewer } : viewer ?? null;
+
     const event = await prisma.event.findUnique({
       where: { id },
       include: {
@@ -122,18 +190,48 @@ export class EventService {
       throw new AppError('Event not found', 404, 'NOT_FOUND');
     }
 
-    let hasRsvped = false;
-    if (userId) {
-      const rsvp = await prisma.eventRSVP.findUnique({
-        where: { eventId_userId: { eventId: id, userId } },
-      });
-      hasRsvped = !!rsvp;
+    if (event.status === 'DRAFT' && !isOwnerOrAdmin(actor, event.createdById)) {
+      throw new AppError('Event not found', 404, 'NOT_FOUND');
     }
 
-    return { ...event, hasRsvped };
+    if (!event.isPublic && !actor) {
+      throw new AppError('Sign in to view this members-only event', 401, 'AUTH_REQUIRED');
+    }
+
+    if (!actor) {
+      return { ...event, rsvps: [], hasRsvped: false };
+    }
+
+    const rsvp = await prisma.eventRSVP.findUnique({
+      where: { eventId_userId: { eventId: id, userId: actor.id } },
+    });
+
+    return { ...event, hasRsvped: !!rsvp };
   }
 
-  async createEvent(userId: string, data: CreateEventInput) {
+  async createEvent(userId: string, data: CreateEventInput, actorRole: UserRole) {
+    if (!isAdminRole(actorRole)) {
+      // Chapter admins may only create events for the chapter they run
+      if (!data.chapterId) {
+        throw new AppError('Chapter admins must create events for their chapter', 403, 'FORBIDDEN');
+      }
+      const chapter = await prisma.chapter.findUnique({ where: { id: data.chapterId } });
+      if (!chapter || chapter.adminUserId !== userId) {
+        throw new AppError('You can only create events for the chapter you administer', 403, 'FORBIDDEN');
+      }
+    }
+
+    const startDate = parseDate(data.startDate, 'startDate');
+    if (startDate.getTime() <= Date.now()) {
+      throw badRequest('startDate must be in the future');
+    }
+    const endDate = data.endDate ? parseDate(data.endDate, 'endDate') : null;
+    if (endDate && endDate.getTime() < startDate.getTime()) {
+      throw badRequest('endDate cannot be before startDate');
+    }
+    const capacity = parseCapacity(data.capacity);
+    assertEnum(data.eventType, EVENT_TYPES, 'event type');
+
     const event = await prisma.event.create({
       data: {
         title: data.title,
@@ -144,9 +242,9 @@ export class EventService {
         address: data.address,
         city: data.city,
         joinLink: data.joinLink,
-        startDate: new Date(data.startDate),
-        endDate: data.endDate ? new Date(data.endDate) : null,
-        capacity: data.capacity,
+        startDate,
+        endDate,
+        capacity,
         tags: data.tags || [],
         isPublic: data.isPublic ?? true,
         chapterId: data.chapterId,
@@ -158,7 +256,8 @@ export class EventService {
     return event;
   }
 
-  async updateEvent(userId: string, eventId: string, data: Partial<CreateEventInput>, isAdmin: boolean = false) {
+  /** Owner or admin; whitelisted fields only. */
+  async updateEvent(userId: string, eventId: string, data: UpdateEventInput, isAdmin: boolean = false) {
     const event = await prisma.event.findUnique({
       where: { id: eventId },
     });
@@ -171,13 +270,61 @@ export class EventService {
       throw new AppError('Not authorized to update this event', 403, 'FORBIDDEN');
     }
 
+    const input = (data || {}) as Record<string, unknown>;
+    const update: Prisma.EventUpdateInput = {};
+    for (const field of EDITABLE_FIELDS) {
+      if (input[field] !== undefined) {
+        (update as Record<string, unknown>)[field] = input[field];
+      }
+    }
+
+    if (Object.keys(update).length === 0) {
+      throw badRequest('No valid fields to update');
+    }
+
+    assertEnum(update.eventType, EVENT_TYPES, 'event type');
+    assertEnum(update.status, EVENT_STATUSES, 'status');
+
+    for (const field of ['title', 'description'] as const) {
+      if (field in update && (typeof update[field] !== 'string' || !(update[field] as string).trim())) {
+        throw badRequest(`${field} cannot be empty`);
+      }
+    }
+
+    if ('isPublic' in update && typeof update.isPublic !== 'boolean') {
+      throw badRequest('isPublic must be a boolean');
+    }
+
+    const startDate = 'startDate' in update ? parseDate(input.startDate, 'startDate') : new Date(event.startDate);
+    const endDate =
+      'endDate' in update
+        ? input.endDate === null || input.endDate === ''
+          ? null
+          : parseDate(input.endDate, 'endDate')
+        : event.endDate
+          ? new Date(event.endDate)
+          : null;
+
+    if ('startDate' in update) {
+      if (startDate.getTime() <= Date.now()) throw badRequest('startDate must be in the future');
+      update.startDate = startDate;
+    }
+    if ('endDate' in update) update.endDate = endDate;
+    if (endDate && endDate.getTime() < startDate.getTime()) {
+      throw badRequest('endDate cannot be before startDate');
+    }
+
+    if ('capacity' in update) {
+      const capacity = parseCapacity(input.capacity);
+      if (capacity !== null && capacity < event.rsvpCount) {
+        throw badRequest(`capacity cannot be below the current RSVP count (${event.rsvpCount})`);
+      }
+      update.capacity = capacity;
+    }
+
     return prisma.event.update({
       where: { id: eventId },
-      data: {
-        ...data,
-        startDate: data.startDate ? new Date(data.startDate) : undefined,
-        endDate: data.endDate ? new Date(data.endDate) : undefined,
-      },
+      data: update,
     });
   }
 
@@ -198,6 +345,10 @@ export class EventService {
     return { message: 'Event deleted successfully' };
   }
 
+  /**
+   * Toggle the caller's RSVP. Only PUBLISHED events that haven't started
+   * accept RSVP changes; a full event returns 409. rsvpCount never goes negative.
+   */
   async rsvpEvent(userId: string, eventId: string) {
     const event = await prisma.event.findUnique({
       where: { id: eventId },
@@ -211,60 +362,65 @@ export class EventService {
       throw new AppError('Event is not available for RSVP', 400, 'EVENT_NOT_AVAILABLE');
     }
 
+    if (hasStarted(event)) {
+      throw new AppError('This event has already started', 400, 'EVENT_PAST');
+    }
+
     const existingRsvp = await prisma.eventRSVP.findUnique({
       where: { eventId_userId: { eventId, userId } },
     });
 
     if (existingRsvp) {
-      // Cancel RSVP
-      await prisma.eventRSVP.delete({
-        where: { id: existingRsvp.id },
-      });
+      // Cancel RSVP; the guarded decrement keeps rsvpCount >= 0
+      await prisma.$transaction([
+        prisma.eventRSVP.delete({ where: { id: existingRsvp.id } }),
+        prisma.event.updateMany({
+          where: { id: eventId, rsvpCount: { gt: 0 } },
+          data: { rsvpCount: { decrement: 1 } },
+        }),
+      ]);
 
-      await prisma.event.update({
+      return { rsvped: false, rsvpCount: Math.max(0, event.rsvpCount - 1) };
+    }
+
+    if (event.capacity !== null && event.capacity !== undefined && event.rsvpCount >= event.capacity) {
+      throw new AppError('Event is at full capacity', 409, 'EVENT_FULL');
+    }
+
+    await prisma.$transaction([
+      prisma.eventRSVP.create({ data: { eventId, userId } }),
+      prisma.event.update({
         where: { id: eventId },
-        data: { rsvpCount: { decrement: 1 } },
-      });
+        data: { rsvpCount: { increment: 1 } },
+      }),
+    ]);
 
-      return { rsvped: false, rsvpCount: event.rsvpCount - 1 };
-    }
-
-    // Check capacity
-    if (event.capacity && event.rsvpCount >= event.capacity) {
-      throw new AppError('Event is at full capacity', 400, 'EVENT_FULL');
-    }
-
-    // Create RSVP
-    await prisma.eventRSVP.create({
-      data: { eventId, userId },
-    });
-
-    await prisma.event.update({
-      where: { id: eventId },
-      data: { rsvpCount: { increment: 1 } },
-    });
-
-    // Notify event creator
     if (event.createdById !== userId) {
-      const rsvpUser = await prisma.user.findUnique({
-        where: { id: userId },
-        select: { fullName: true },
-      });
+      try {
+        const rsvpUser = await prisma.user.findUnique({
+          where: { id: userId },
+          select: { fullName: true },
+        });
 
-      await notificationService.createNotification({
-        userId: event.createdById,
-        type: 'EVENT_RSVP',
-        title: 'New RSVP',
-        message: `${rsvpUser?.fullName} is attending "${event.title}"`,
-        link: `/events/${eventId}`,
-        metadata: { eventId, rsvpUserId: userId },
-      });
+        await notificationService.createNotification({
+          userId: event.createdById,
+          type: 'EVENT_RSVP',
+          title: 'New RSVP',
+          message: `${rsvpUser?.fullName ?? 'Someone'} is attending "${event.title}"`,
+          link: clientLinks.event(eventId),
+          metadata: { eventId, rsvpUserId: userId },
+        });
+      } catch (err) {
+        // The RSVP is committed; a notification failure must not undo it
+        console.error('RSVP notification failed:', err);
+      }
     }
 
     return { rsvped: true, rsvpCount: event.rsvpCount + 1 };
   }
 
   async getUpcomingEvents(limit: number = 5) {
+    const take = Number.isFinite(limit) ? Math.min(MAX_UPCOMING_LIMIT, Math.max(1, Math.floor(limit))) : 5;
     return prisma.event.findMany({
       where: {
         status: 'PUBLISHED',
@@ -277,11 +433,15 @@ export class EventService {
         },
       },
       orderBy: { startDate: 'asc' },
-      take: limit,
+      take,
     });
   }
 
-  async getEventAttendees(eventId: string) {
+  /**
+   * Attendee list. Emails are only included for the event creator and admins;
+   * unpublished events are hidden from everyone else.
+   */
+  async getEventAttendees(eventId: string, viewer?: Actor | null) {
     const event = await prisma.event.findUnique({
       where: { id: eventId },
       include: {
@@ -299,6 +459,7 @@ export class EventService {
               },
             },
           },
+          orderBy: { rsvpAt: 'asc' },
         },
       },
     });
@@ -307,11 +468,21 @@ export class EventService {
       throw new AppError('Event not found', 404, 'NOT_FOUND');
     }
 
-    return event.rsvps.map(r => ({
-      ...r.user,
-      rsvpAt: r.rsvpAt,
-      attended: r.attended,
-    }));
+    const privileged = isOwnerOrAdmin(viewer, event.createdById);
+    if (event.status === 'DRAFT' && !privileged) {
+      throw new AppError('Event not found', 404, 'NOT_FOUND');
+    }
+
+    return event.rsvps.map(r => {
+      const { email, ...publicUser } = r.user;
+      return {
+        ...publicUser,
+        ...(privileged ? { email } : {}),
+        userId: r.user.id,
+        rsvpAt: r.rsvpAt,
+        attended: r.attended,
+      };
+    });
   }
 }
 

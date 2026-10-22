@@ -1,11 +1,12 @@
 import prisma from '../config/database';
+import { AppError } from '../middleware/errorHandler';
 import { paginationHelper, buildPaginationResponse } from '../utils/helpers';
 import { NotificationType } from '@prisma/client';
 import { emitToUser } from '../utils/socket';
 
 export class NotificationService {
   async getNotifications(userId: string, page: number = 1, limit: number = 20, unreadOnly: boolean = false) {
-    const { skip, take } = paginationHelper(page, limit);
+    const { skip, take, page: safePage, limit: safeLimit } = paginationHelper(page, limit);
 
     const where = {
       userId,
@@ -22,7 +23,7 @@ export class NotificationService {
       prisma.notification.count({ where }),
     ]);
 
-    return buildPaginationResponse(notifications, total, page, limit);
+    return buildPaginationResponse(notifications, total, safePage, safeLimit);
   }
 
   async getUnreadCount(userId: string) {
@@ -34,10 +35,15 @@ export class NotificationService {
   }
 
   async markAsRead(userId: string, notificationId: string) {
-    const notification = await prisma.notification.updateMany({
+    // Scoped by userId so users can only touch their own notifications.
+    const { count } = await prisma.notification.updateMany({
       where: { id: notificationId, userId },
       data: { isRead: true },
     });
+
+    if (count === 0) {
+      throw new AppError('Notification not found', 404, 'NOTIFICATION_NOT_FOUND');
+    }
 
     return { message: 'Notification marked as read' };
   }
@@ -52,9 +58,13 @@ export class NotificationService {
   }
 
   async deleteNotification(userId: string, notificationId: string) {
-    await prisma.notification.deleteMany({
+    const { count } = await prisma.notification.deleteMany({
       where: { id: notificationId, userId },
     });
+
+    if (count === 0) {
+      throw new AppError('Notification not found', 404, 'NOTIFICATION_NOT_FOUND');
+    }
 
     return { message: 'Notification deleted' };
   }
@@ -81,8 +91,12 @@ export class NotificationService {
       },
     });
 
-    // Emit real-time notification
-    emitToUser(data.userId, 'new_notification', notification);
+    // Emit real-time notification; a socket failure must not undo the persisted notification.
+    try {
+      emitToUser(data.userId, 'new_notification', notification);
+    } catch (error) {
+      console.warn('Failed to emit notification:', error);
+    }
 
     return notification;
   }

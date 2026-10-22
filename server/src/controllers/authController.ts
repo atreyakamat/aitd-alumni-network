@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import { authService } from '../services/authService';
 import { twoFactorService } from '../services/twoFactorService';
 import config from '../config';
+import { AppError } from '../middleware/errorHandler';
 import type { OAuthUser } from '../config/passport';
 
 export class AuthController {
@@ -17,22 +18,22 @@ export class AuthController {
   async login(req: Request, res: Response, next: NextFunction) {
     try {
       const result = await authService.login(req.body);
-      
-      // Check if 2FA is enabled for this user
-      if (result.user && result.user.twoFactorEnabled) {
-        // Send OTP and return pending state
+
+      // 2FA enabled: send the OTP and return a pending challenge (no session tokens)
+      if ('requires2FA' in result && result.requires2FA) {
         await twoFactorService.sendOTP(result.user.id, result.user.email);
-        
+
         return res.json({
           success: true,
           data: {
             requires2FA: true,
             userId: result.user.id,
+            twoFactorToken: result.twoFactorToken,
             message: 'Verification code sent to your email',
           },
         });
       }
-      
+
       res.json({ success: true, data: result });
     } catch (error) {
       next(error);
@@ -42,25 +43,20 @@ export class AuthController {
   // Verify 2FA OTP and complete login
   async verify2FA(req: Request, res: Response, next: NextFunction) {
     try {
-      const { userId, otp } = req.body;
+      const { twoFactorToken, otp } = req.body;
 
-      if (!userId || !otp) {
-        return res.status(400).json({
-          success: false,
-          error: 'User ID and OTP are required',
-        });
+      if (!twoFactorToken || !otp) {
+        throw new AppError('Verification session and code are required', 400, 'VALIDATION_ERROR');
       }
 
-      const isValid = await twoFactorService.verifyOTP(userId, otp);
+      // The user is taken from the signed login challenge, never from the request body
+      const userId = authService.resolveTwoFactorChallenge(twoFactorToken);
+      const isValid = await twoFactorService.verifyOTP(userId, String(otp));
 
       if (!isValid) {
-        return res.status(400).json({
-          success: false,
-          error: 'Invalid or expired verification code',
-        });
+        throw new AppError('Invalid or expired verification code', 400, 'INVALID_OTP');
       }
 
-      // Complete login by generating tokens
       const result = await authService.completeLoginAfter2FA(userId);
 
       res.json({ success: true, data: result });
@@ -72,18 +68,14 @@ export class AuthController {
   // Resend 2FA OTP
   async resend2FA(req: Request, res: Response, next: NextFunction) {
     try {
-      const { userId } = req.body;
+      const { twoFactorToken } = req.body;
 
-      if (!userId) {
-        return res.status(400).json({
-          success: false,
-          error: 'User ID is required',
-        });
+      if (!twoFactorToken) {
+        throw new AppError('Verification session is required', 400, 'VALIDATION_ERROR');
       }
 
-      // Get user email
-      const user = await authService.getProfile(userId);
-      await twoFactorService.sendOTP(userId, user.email);
+      const userId = authService.resolveTwoFactorChallenge(twoFactorToken);
+      await twoFactorService.resendOTP(userId);
 
       res.json({
         success: true,
@@ -144,6 +136,19 @@ export class AuthController {
     }
   }
 
+  async changePassword(req: Request, res: Response, next: NextFunction) {
+    try {
+      const { currentPassword, newPassword } = req.body;
+      const result = await authService.changePassword(req.user!.id, currentPassword, newPassword, {
+        ipAddress: req.ip,
+        userAgent: req.headers['user-agent'],
+      });
+      res.json({ success: true, data: result });
+    } catch (error) {
+      next(error);
+    }
+  }
+
   async refreshToken(req: Request, res: Response, next: NextFunction) {
     try {
       const { refreshToken } = req.body;
@@ -191,8 +196,8 @@ export class AuthController {
   async exchangeOAuthCode(req: Request, res: Response, next: NextFunction) {
     try {
       const { code } = req.body;
-      if (!code) {
-        return res.status(400).json({ success: false, error: 'Exchange code is required' });
+      if (!code || typeof code !== 'string') {
+        throw new AppError('Exchange code is required', 400, 'VALIDATION_ERROR');
       }
       const result = await authService.exchangeOAuthCode(code);
       res.json({ success: true, data: result });

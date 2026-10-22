@@ -27,6 +27,19 @@ describe('Helpers', () => {
       expect(result.page).toBe(1);
       expect(result.limit).toBe(12);
     });
+
+    it('caps the page size at 100 to protect the database', () => {
+      const result = paginationHelper(1, 1_000_000);
+      expect(result.take).toBe(100);
+      expect(result.limit).toBe(100);
+    });
+
+    it('clamps non-positive and non-numeric input to safe defaults', () => {
+      expect(paginationHelper(-3, 10)).toMatchObject({ page: 1, skip: 0, take: 10 });
+      expect(paginationHelper(0, 0)).toMatchObject({ page: 1, take: 1 });
+      expect(paginationHelper(NaN, NaN)).toMatchObject({ page: 1, take: 12 });
+      expect(paginationHelper(2.7, 10.2)).toMatchObject({ page: 2, take: 10, skip: 10 });
+    });
   });
 
   describe('buildPaginationResponse', () => {

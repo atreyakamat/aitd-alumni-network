@@ -9,27 +9,44 @@ import { eventController } from '../controllers/eventController';
 import { networkController, messageController, notificationController } from '../controllers/socialController';
 import { galleryController, newsController, chapterController, marketplaceController } from '../controllers/contentController';
 import { membershipController, donationController, transactionController } from '../controllers/paymentController';
+import { paymentWebhookController } from '../controllers/paymentWebhookController';
 import { inviteController } from '../controllers/inviteController';
 import { auditController } from '../controllers/auditController';
 import { mentorshipController } from '../controllers/mentorshipController';
 import { adminController } from '../controllers/adminController';
 import { platformController } from '../controllers/platformController';
-import { authenticate, optionalAuth, isAdmin, isSuperAdmin } from '../middleware/auth';
+import { adminUserController, accountController } from '../controllers/adminUserController';
+import { geoController } from '../controllers/geoController';
+import { socialFeedController as social } from '../controllers/socialFeedController';
+import { authenticate, optionalAuth, isAdmin, isSuperAdmin, isChapterAdmin } from '../middleware/auth';
 import { validate } from '../middleware/validate';
 import { cacheMiddleware } from '../middleware/cache';
-import { upload } from '../utils/storage';
+import { upload, videoUpload } from '../utils/storage';
 import config from '../config';
 import {
   registerSchema,
   loginSchema,
   forgotPasswordSchema,
   resetPasswordSchema,
+  changePasswordSchema,
   verifyEmailSchema,
   refreshTokenSchema,
   updateProfileSchema,
+  workExperienceSchema,
+  updateWorkExperienceSchema,
+  educationSchema,
+  updateEducationSchema,
+  updateSkillsSchema,
+  idParamSchema,
   createPostSchema,
   createJobSchema,
   createEventSchema,
+  verify2FASchema,
+  resend2FASchema,
+  oauthExchangeSchema,
+  updateCommentSchema,
+  createMarketplaceListingSchema,
+  updateMarketplaceListingSchema,
 } from '../utils/validators';
 
 const router = Router();
@@ -40,19 +57,20 @@ router.post('/auth/login', validate(loginSchema), authController.login);
 router.post('/auth/verify-email', validate(verifyEmailSchema), authController.verifyEmail);
 router.post('/auth/forgot-password', validate(forgotPasswordSchema), authController.forgotPassword);
 router.post('/auth/reset-password', validate(resetPasswordSchema), authController.resetPassword);
+router.post('/auth/change-password', authenticate, validate(changePasswordSchema), authController.changePassword);
 router.post('/auth/refresh-token', validate(refreshTokenSchema), authController.refreshToken);
 router.post('/auth/logout', authenticate, authController.logout);
 router.get('/auth/me', authenticate, authController.me);
 router.get('/auth/oauth/providers', authController.getOAuthProviders);
 
 // 2FA Routes
-router.post('/auth/verify-2fa', authController.verify2FA);
-router.post('/auth/resend-2fa', authController.resend2FA);
+router.post('/auth/verify-2fa', validate(verify2FASchema), authController.verify2FA);
+router.post('/auth/resend-2fa', validate(resend2FASchema), authController.resend2FA);
 router.post('/auth/2fa/enable', authenticate, authController.enable2FA);
 router.post('/auth/2fa/disable', authenticate, authController.disable2FA);
 
 // OAuth Routes
-router.post('/auth/oauth/exchange', authController.exchangeOAuthCode);
+router.post('/auth/oauth/exchange', validate(oauthExchangeSchema), authController.exchangeOAuthCode);
 const isGoogleOAuthConfigured = Boolean(config.google.clientId && config.google.clientSecret);
 const isLinkedInOAuthConfigured = Boolean(config.linkedin.clientId && config.linkedin.clientSecret);
 
@@ -60,7 +78,7 @@ if (isGoogleOAuthConfigured) {
   router.get('/auth/google', passport.authenticate('google', { scope: ['profile', 'email'], session: false }));
   router.get(
     '/auth/google/callback',
-    passport.authenticate('google', { session: false, failureRedirect: '/login?error=oauth_failed' }),
+    passport.authenticate('google', { session: false, failureRedirect: `${config.frontendUrl}/login?error=oauth_failed` }),
     authController.googleCallback
   );
 } else {
@@ -76,7 +94,7 @@ if (isLinkedInOAuthConfigured) {
   router.get('/auth/linkedin', passport.authenticate('linkedin', { session: false }));
   router.get(
     '/auth/linkedin/callback',
-    passport.authenticate('linkedin', { session: false, failureRedirect: '/login?error=oauth_failed' }),
+    passport.authenticate('linkedin', { session: false, failureRedirect: `${config.frontendUrl}/login?error=oauth_failed` }),
     authController.linkedinCallback
   );
 } else {
@@ -88,6 +106,9 @@ if (isLinkedInOAuthConfigured) {
   });
 }
 
+// ============== SEARCH ROUTES ==============
+router.get('/search', authenticate, searchController.globalSearch);
+
 // ============== USER ROUTES ==============
 router.get('/users/stats', userController.getPublicStats);
 router.get('/users/notable', userController.getNotableAlumni);
@@ -95,23 +116,40 @@ router.get('/users/directory', authenticate, userController.searchDirectory);
 router.get('/users/yearbook/:year', authenticate, userController.getYearbook);
 router.get('/users/locations', authenticate, userController.getAlumniLocations);
 router.get('/users/nearby', authenticate, userController.getNearbyAlumni);
+
+// ============== GEO (place search for the alumni map) ==============
+router.get('/geo/search', authenticate, geoController.search);
+router.get('/geo/reverse', authenticate, geoController.reverse);
+router.get('/users/me/export', authenticate, accountController.exportMyData);
+router.delete('/users/me', authenticate, accountController.deleteMyAccount);
+router.get('/users/mention-search', authenticate, social.mentionSearch);
 router.get('/users/:id', optionalAuth, userController.getProfile);
+router.post('/users/:id/follow', authenticate, social.follow);
+router.delete('/users/:id/follow', authenticate, social.unfollow);
+router.get('/users/:id/followers', authenticate, social.listFollowers);
+router.get('/users/:id/following', authenticate, social.listFollowing);
+router.get('/users/:id/posts', optionalAuth, social.getUserPosts);
 router.patch('/users/profile', authenticate, validate(updateProfileSchema), userController.updateProfile);
 router.patch('/users/profile-photo', authenticate, upload.single('photo'), userController.updateProfilePhoto);
 router.patch('/users/cover-photo', authenticate, upload.single('photo'), userController.updateCoverPhoto);
 
 // Work Experience
-router.post('/users/work-experience', authenticate, userController.addWorkExperience);
-router.patch('/users/work-experience/:id', authenticate, userController.updateWorkExperience);
-router.delete('/users/work-experience/:id', authenticate, userController.deleteWorkExperience);
+router.post('/users/work-experience', authenticate, validate(workExperienceSchema), userController.addWorkExperience);
+router.patch(
+  '/users/work-experience/:id',
+  authenticate,
+  validate(updateWorkExperienceSchema),
+  userController.updateWorkExperience
+);
+router.delete('/users/work-experience/:id', authenticate, validate(idParamSchema), userController.deleteWorkExperience);
 
 // Education
-router.post('/users/education', authenticate, userController.addEducation);
-router.patch('/users/education/:id', authenticate, userController.updateEducation);
-router.delete('/users/education/:id', authenticate, userController.deleteEducation);
+router.post('/users/education', authenticate, validate(educationSchema), userController.addEducation);
+router.patch('/users/education/:id', authenticate, validate(updateEducationSchema), userController.updateEducation);
+router.delete('/users/education/:id', authenticate, validate(idParamSchema), userController.deleteEducation);
 
 // Skills
-router.put('/users/skills', authenticate, userController.updateSkills);
+router.put('/users/skills', authenticate, validate(updateSkillsSchema), userController.updateSkills);
 
 // ============== POST ROUTES ==============
 router.get('/posts', optionalAuth, cacheMiddleware({ ttl: config.cache.feedTtlSeconds }), postController.getFeed);
@@ -122,7 +160,28 @@ router.patch('/posts/:id', authenticate, postController.updatePost);
 router.delete('/posts/:id', authenticate, postController.deletePost);
 router.post('/posts/:id/like', authenticate, postController.likePost);
 router.post('/posts/:postId/comments', authenticate, postController.addComment);
+router.patch('/comments/:id', authenticate, validate(updateCommentSchema), postController.updateComment);
 router.delete('/comments/:id', authenticate, postController.deleteComment);
+
+// ============== SOCIAL (docs/SOCIAL_API.md) ==============
+router.get('/feed', authenticate, social.getFeed);
+router.get('/reels', optionalAuth, social.getReels);
+router.get('/saved', authenticate, social.getSaved);
+router.get('/hashtags/trending', optionalAuth, social.getTrendingHashtags);
+router.get('/hashtags/:tag/posts', optionalAuth, social.getHashtagPosts);
+// Bound lazily so suites that mock utils/storage without videoUpload can still build the router
+router.post('/posts/video', authenticate, (req, res, next) => videoUpload(req, res, next), social.uploadVideo);
+router.post('/posts/:id/react', authenticate, social.reactToPost);
+router.get('/posts/:id/reactions', authenticate, social.listPostReactions);
+router.get('/posts/:id/comments', optionalAuth, social.listComments);
+router.post('/posts/:id/repost', authenticate, social.repost);
+router.delete('/posts/:id/repost', authenticate, social.undoRepost);
+router.post('/posts/:id/save', authenticate, social.toggleSave);
+router.post('/posts/:id/view', optionalAuth, social.recordView);
+router.post('/posts/:id/report', authenticate, social.reportPost);
+router.get('/comments/:id/replies', optionalAuth, social.listReplies);
+router.post('/comments/:id/react', authenticate, social.reactToComment);
+router.post('/comments/:id/report', authenticate, social.reportComment);
 
 // ============== JOB ROUTES ==============
 router.get('/jobs', optionalAuth, jobController.getJobs);
@@ -139,7 +198,7 @@ router.get('/events', optionalAuth, eventController.getEvents);
 router.get('/events/upcoming', eventController.getUpcomingEvents);
 router.get('/events/:id', optionalAuth, eventController.getEvent);
 router.get('/events/:id/attendees', authenticate, eventController.getEventAttendees);
-router.post('/events', authenticate, isAdmin, validate(createEventSchema), eventController.createEvent);
+router.post('/events', authenticate, isChapterAdmin, validate(createEventSchema), eventController.createEvent);
 router.patch('/events/:id', authenticate, eventController.updateEvent);
 router.delete('/events/:id', authenticate, eventController.deleteEvent);
 router.post('/events/:id/rsvp', authenticate, eventController.rsvpEvent);
@@ -169,7 +228,7 @@ router.delete('/notifications/:id', authenticate, notificationController.deleteN
 
 // ============== GALLERY ROUTES ==============
 router.get('/gallery/albums', galleryController.getAlbums);
-router.get('/gallery/albums/:id', galleryController.getAlbum);
+router.get('/gallery/albums/:id', optionalAuth, galleryController.getAlbum);
 router.get('/gallery/recent', galleryController.getRecentPhotos);
 router.post('/gallery/albums', authenticate, isAdmin, galleryController.createAlbum);
 router.patch('/gallery/albums/:id', authenticate, isAdmin, galleryController.updateAlbum);
@@ -184,9 +243,9 @@ router.post('/gallery/photos/admin', authenticate, isAdmin, galleryController.ad
 router.delete('/gallery/photos/admin/:id', authenticate, isAdmin, galleryController.deletePhoto);
 
 // ============== NEWS ROUTES ==============
-router.get('/news', newsController.getArticles);
+router.get('/news', optionalAuth, newsController.getArticles);
 router.get('/news/latest', newsController.getLatestNews);
-router.get('/news/:slug', newsController.getArticle);
+router.get('/news/:slug', optionalAuth, newsController.getArticle);
 router.post('/news', authenticate, isAdmin, newsController.createArticle);
 router.patch('/news/:id', authenticate, isAdmin, newsController.updateArticle);
 router.post('/news/:id/publish', authenticate, isAdmin, newsController.publishArticle);
@@ -199,7 +258,8 @@ router.get('/chapters/my', authenticate, chapterController.getUserChapters);
 router.get('/chapters/:id', chapterController.getChapter);
 router.get('/chapters/:id/members', authenticate, chapterController.getChapterMembers);
 router.post('/chapters', authenticate, isAdmin, chapterController.createChapter);
-router.patch('/chapters/:id', authenticate, isAdmin, chapterController.updateChapter);
+router.patch('/chapters/:id', authenticate, isChapterAdmin, chapterController.updateChapter);
+router.put('/chapters/:id/admin', authenticate, isAdmin, adminUserController.assignChapterAdmin);
 router.delete('/chapters/:id', authenticate, isSuperAdmin, chapterController.deleteChapter);
 router.post('/chapters/:id/join', authenticate, chapterController.joinChapter);
 router.post('/chapters/:id/leave', authenticate, chapterController.leaveChapter);
@@ -209,8 +269,8 @@ router.get('/marketplace', optionalAuth, marketplaceController.getListings);
 router.get('/marketplace/categories', marketplaceController.getCategories);
 router.get('/marketplace/my', authenticate, marketplaceController.getMyListings);
 router.get('/marketplace/:id', optionalAuth, marketplaceController.getListing);
-router.post('/marketplace', authenticate, marketplaceController.createListing);
-router.patch('/marketplace/:id', authenticate, marketplaceController.updateListing);
+router.post('/marketplace', authenticate, validate(createMarketplaceListingSchema), marketplaceController.createListing);
+router.patch('/marketplace/:id', authenticate, validate(updateMarketplaceListingSchema), marketplaceController.updateListing);
 router.delete('/marketplace/:id', authenticate, marketplaceController.deleteListing);
 
 // ============== MEMBERSHIP ROUTES ==============
@@ -237,7 +297,12 @@ router.post('/donations/order', optionalAuth, donationController.createOrder);
 router.post('/donations/verify', optionalAuth, donationController.verifyPayment);
 
 // ============== TRANSACTION ROUTES ==============
+router.get('/transactions/my', authenticate, accountController.getMyTransactions);
 router.get('/transactions/:id/receipt', authenticate, transactionController.getReceipt);
+
+// ============== PAYMENT WEBHOOK ROUTES ==============
+// Public: authenticated by the HMAC signature over the raw body, not by a user session.
+router.post('/payments/webhook/razorpay', paymentWebhookController.razorpay);
 
 // ============== INVITE ROUTES ==============
 router.get('/invites/verify/:token', inviteController.verifyInvite);
@@ -273,9 +338,17 @@ router.post('/mentorship/sessions/:sessionId/complete', authenticate, mentorship
 // ============== ADMIN ROUTES ==============
 router.get('/admin/stats', authenticate, isAdmin, adminController.getStats);
 router.get('/platform/readiness', authenticate, isAdmin, platformController.getReadiness);
+router.get('/admin/users', authenticate, isAdmin, adminUserController.listUsers);
+router.patch('/admin/users/:id/role', authenticate, isAdmin, adminUserController.updateUserRole);
+router.patch('/admin/users/:id/status', authenticate, isAdmin, adminUserController.updateUserStatus);
+router.get('/admin/jobs/pending', authenticate, isAdmin, adminUserController.getPendingJobs);
+router.get('/admin/mentorship/overview', authenticate, isAdmin, adminUserController.getMentorshipOverview);
+router.get('/admin/export/:entity', authenticate, isAdmin, adminUserController.exportEntity);
 
 // ============== ADMIN AUDIT ROUTES ==============
 router.get('/admin/audit', authenticate, isAdmin, auditController.getLogs);
+router.get('/admin/reports', authenticate, isAdmin, social.listReports);
+router.patch('/admin/reports/:id', authenticate, isAdmin, social.resolveReport);
 router.get('/admin/audit/activity', authenticate, isAdmin, auditController.getRecentActivity);
 router.get('/admin/audit/:entityType/:entityId', authenticate, isAdmin, auditController.getEntityHistory);
 router.post('/admin/audit/cleanup', authenticate, isSuperAdmin, auditController.cleanupOldLogs);

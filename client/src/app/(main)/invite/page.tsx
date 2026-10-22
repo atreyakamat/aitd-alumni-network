@@ -120,7 +120,7 @@ export default function InviteBatchmatesPage() {
 
   const generateInviteLink = async () => {
     try {
-      const response = await api.post('/api/invites/generate-link');
+      const response = await api.post('/invites/generate-link');
       setInviteLink(response.data?.data?.link || `${window.location.origin}/register?ref=invite`);
     } catch (error) {
       // Fallback link
@@ -143,7 +143,7 @@ export default function InviteBatchmatesPage() {
       try {
         entry.status = 'sending';
         
-        await api.post('/api/invites/send', {
+        await api.post('/invites/send', {
           email: entry.email,
           name: entry.name,
           batchYear: entry.batchYear,

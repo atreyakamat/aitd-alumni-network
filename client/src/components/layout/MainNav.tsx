@@ -21,10 +21,10 @@ import {
   Briefcase,
   CalendarDays,
   MessageSquare,
-  Bell,
   Settings,
   LogOut,
   User,
+  UserPen,
   Menu,
   X,
   Image,
@@ -34,12 +34,21 @@ import {
   Store,
   Search,
   Shield,
+  UserCog,
+  ClipboardCheck,
+  ScrollText,
+  Clapperboard,
+  Bookmark,
+  Flag,
 } from 'lucide-react';
 import { getInitials } from '@/lib/utils';
+import { isAdmin as hasAdminRole } from '@/lib/roles';
+import { NotificationBell } from '@/components/notifications/NotificationBell';
 import { useState } from 'react';
 
 const navItems = [
   { href: '/dashboard', label: 'Home', icon: Home },
+  { href: '/reels', label: 'Reels', icon: Clapperboard },
   { href: '/network', label: 'Network', icon: Users },
   { href: '/jobs', label: 'Jobs', icon: Briefcase },
   { href: '/events', label: 'Events', icon: CalendarDays },
@@ -47,6 +56,7 @@ const navItems = [
 ];
 
 const moreItems = [
+  { href: '/saved', label: 'Saved posts', icon: Bookmark },
   { href: '/directory', label: 'Directory', icon: Users },
   { href: '/yearbook', label: 'Yearbook', icon: GraduationCap },
   { href: '/gallery', label: 'Gallery', icon: Image },
@@ -56,13 +66,22 @@ const moreItems = [
   { href: '/marketplace', label: 'Marketplace', icon: Store },
 ];
 
+/** Only rendered for ADMIN / SUPER_ADMIN (UX gate; the API enforces). */
+export const adminItems = [
+  { href: '/admin', label: 'Admin', icon: Shield },
+  { href: '/admin/users', label: 'Manage Users', icon: UserCog },
+  { href: '/admin/moderation', label: 'Moderation', icon: ClipboardCheck },
+  { href: '/admin/reports', label: 'Reported content', icon: Flag },
+  { href: '/admin/audit', label: 'Audit log', icon: ScrollText },
+];
+
 export function MainNav() {
   const pathname = usePathname();
   const router = useRouter();
   const { user, logout } = useAuth();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
-  const isAdmin = user?.role === 'ADMIN' || user?.role === 'SUPER_ADMIN' || user?.role === 'SUPERADMIN';
+  const isAdmin = hasAdminRole(user);
 
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
@@ -82,7 +101,7 @@ export function MainNav() {
               e.preventDefault();
               const formData = new FormData(e.currentTarget);
               const q = formData.get('q');
-              if (q) router.push(`/dashboard/search?q=${encodeURIComponent(q as string)}`);
+              if (q) router.push(`/search?q=${encodeURIComponent(q as string)}`);
             }}
             className="relative w-full"
           >
@@ -119,7 +138,7 @@ export function MainNav() {
                 variant="ghost"
                 className={cn(
                   'flex flex-col items-center gap-1 h-14 px-4',
-                  pathname === '/admin' && 'text-primary border-b-2 border-primary rounded-none'
+                  pathname?.startsWith('/admin') && 'text-primary border-b-2 border-primary rounded-none'
                 )}
               >
                 <Shield className="h-5 w-5" />
@@ -143,6 +162,18 @@ export function MainNav() {
                   {item.label}
                 </DropdownMenuItem>
               ))}
+              {isAdmin && (
+                <>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuLabel className="text-xs text-muted-foreground">Administration</DropdownMenuLabel>
+                  {adminItems.slice(1).map((item) => (
+                    <DropdownMenuItem key={item.href} onClick={() => router.push(item.href)}>
+                      <item.icon className="mr-2 h-4 w-4" />
+                      {item.label}
+                    </DropdownMenuItem>
+                  ))}
+                </>
+              )}
             </DropdownMenuContent>
           </DropdownMenu>
         </nav>
@@ -150,15 +181,12 @@ export function MainNav() {
         {/* Right side */}
         <div className="flex items-center gap-2">
           {/* Notifications */}
-          <Button variant="ghost" size="icon" className="relative">
-            <Bell className="h-5 w-5" />
-            <span className="absolute top-1 right-1 h-2 w-2 bg-destructive rounded-full"></span>
-          </Button>
+          <NotificationBell />
 
           {/* User Menu */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" className="relative h-10 w-10 rounded-full">
+              <Button variant="ghost" className="relative h-10 w-10 rounded-full" aria-label="Open user menu">
                 <Avatar className="h-9 w-9">
                   <AvatarImage src={user?.avatarUrl} alt={user?.fullName} />
                   <AvatarFallback>{user?.fullName ? getInitials(user.fullName) : 'U'}</AvatarFallback>
@@ -177,10 +205,20 @@ export function MainNav() {
                 <User className="mr-2 h-4 w-4" />
                 My Profile
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => router.push('/dashboard/settings')}>
-                <Settings className="mr-2 h-4 w-4" />
-                Settings
+              <DropdownMenuItem onClick={() => router.push('/profile/edit')}>
+                <UserPen className="mr-2 h-4 w-4" />
+                Edit profile
               </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => router.push('/settings')}>
+                <Settings className="mr-2 h-4 w-4" />
+                Account settings
+              </DropdownMenuItem>
+              {isAdmin && (
+                <DropdownMenuItem onClick={() => router.push('/admin')}>
+                  <Shield className="mr-2 h-4 w-4" />
+                  Admin dashboard
+                </DropdownMenuItem>
+              )}
               <DropdownMenuSeparator />
               <DropdownMenuItem onClick={logout} className="text-destructive">
                 <LogOut className="mr-2 h-4 w-4" />
@@ -205,7 +243,7 @@ export function MainNav() {
       {mobileMenuOpen && (
         <nav className="lg:hidden border-t bg-background p-4">
           <div className="grid grid-cols-4 gap-2">
-            {[...navItems, ...moreItems].map((item) => (
+            {[...navItems, ...moreItems, ...(isAdmin ? adminItems : [])].map((item) => (
               <Link
                 key={item.href}
                 href={item.href}

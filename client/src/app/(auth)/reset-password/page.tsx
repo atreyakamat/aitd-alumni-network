@@ -3,7 +3,8 @@
 import Link from 'next/link';
 import { useMemo, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { authApi } from '@/lib/api';
+import { authApi, getApiErrorMessage, getApiFieldErrors } from '@/lib/api';
+import { passwordSchema } from '@/lib/auth';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -13,7 +14,7 @@ import { useToast } from '@/hooks/use-toast';
 export default function ResetPasswordPage() {
   const { toast } = useToast();
   const searchParams = useSearchParams();
-  const token = useMemo(() => searchParams.get('token') || '', [searchParams]);
+  const token = useMemo(() => searchParams?.get('token') || '', [searchParams]);
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -25,6 +26,16 @@ export default function ResetPasswordPage() {
         variant: 'destructive',
         title: 'Invalid reset link',
         description: 'Missing token. Please request a new password reset.',
+      });
+      return;
+    }
+
+    const policy = passwordSchema.safeParse(password);
+    if (!policy.success) {
+      toast({
+        variant: 'destructive',
+        title: 'Choose a stronger password',
+        description: policy.error.issues[0]?.message ?? 'Password does not meet the requirements.',
       });
       return;
     }
@@ -51,7 +62,8 @@ export default function ResetPasswordPage() {
       toast({
         variant: 'destructive',
         title: 'Reset failed',
-        description: error?.response?.data?.error || 'Please request a new reset link.',
+        description:
+          getApiFieldErrors(error).password ?? getApiErrorMessage(error, 'Please request a new reset link.'),
       });
     } finally {
       setIsSubmitting(false);
@@ -76,7 +88,7 @@ export default function ResetPasswordPage() {
                 minLength={8}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                placeholder="Minimum 8 characters"
+                placeholder="8+ characters, upper &amp; lower case, a number"
               />
             </div>
             <div className="space-y-2">

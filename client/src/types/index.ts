@@ -1,3 +1,5 @@
+import type { Role } from '@/lib/roles';
+
 export interface User {
   id: string;
   email: string;
@@ -29,7 +31,8 @@ export interface User {
   skills: UserSkill[];
 }
 
-export type UserRole = 'MEMBER' | 'CHAPTER_ADMIN' | 'ADMIN' | 'SUPER_ADMIN';
+/** Canonical role; normalize raw values with `normalizeRole` from '@/lib/roles'. */
+export type UserRole = Role;
 
 export interface WorkExperience {
   id: string;
@@ -96,14 +99,23 @@ export interface Post {
 
 export type PostType = 'UPDATE' | 'ACHIEVEMENT' | 'ANNOUNCEMENT' | 'POLL';
 
+/** Commenter as returned by the API (`commenterSelect` on the server). */
+export interface PostCommentUser {
+  id: string;
+  fullName: string;
+  profilePhotoUrl?: string | null;
+}
+
 export interface PostComment {
   id: string;
   postId: string;
-  authorId: string;
-  author: User;
+  userId: string;
+  user: PostCommentUser;
   content: string;
-  parentId?: string;
+  parentId?: string | null;
   createdAt: string;
+  updatedAt?: string;
+  replies?: PostComment[];
 }
 
 export interface Job {
@@ -181,22 +193,37 @@ export interface Notification {
   type: NotificationType;
   title: string;
   message: string;
+  /** Server field (Prisma `Notification.link`), usually an app path like `/events/:id`. */
+  link?: string | null;
+  /** @deprecated legacy alias of `link`. */
   linkUrl?: string;
   isRead: boolean;
+  metadata?: Record<string, unknown> | null;
   createdAt: string;
 }
 
-export type NotificationType = 
+/** Mirrors the server's Prisma `NotificationType` enum. */
+export type NotificationType =
   | 'CONNECTION_REQUEST'
   | 'CONNECTION_ACCEPTED'
-  | 'NEW_MESSAGE'
-  | 'NEW_COMMENT'
-  | 'NEW_LIKE'
+  | 'MESSAGE_RECEIVED'
+  | 'POST_LIKED'
+  | 'POST_COMMENTED'
+  | 'EVENT_RSVP'
+  | 'MEMBERSHIP_EXPIRY'
+  | 'JOB_MATCH'
+  | 'ADMIN_ANNOUNCEMENT'
+  | 'MENTION'
+  | 'MENTORSHIP_REQUEST'
+  | 'MENTORSHIP_ACCEPTED'
+  | 'MENTORSHIP_DECLINED'
+  | 'MENTORSHIP_SESSION'
+  | 'POST_REACTED'
+  | 'COMMENT_REPLIED'
+  | 'COMMENT_REACTED'
+  | 'POST_REPOSTED'
   | 'NEW_FOLLOWER'
-  | 'JOB_POSTED'
-  | 'EVENT_REMINDER'
-  | 'MEMBERSHIP_EXPIRING'
-  | 'GENERAL';
+  | 'CONTENT_REPORTED';
 
 export interface GalleryAlbum {
   id: string;
@@ -225,38 +252,79 @@ export interface GalleryPhoto {
   createdAt: string;
 }
 
+/** Minimal user projection embedded by news/chapter endpoints. */
+export interface PersonSummary {
+  id: string;
+  fullName: string;
+  profilePhotoUrl?: string | null;
+  currentDesignation?: string | null;
+}
+
+/** Mirrors server `NewsArticle` (GET /news, GET /news/:slug). */
 export interface NewsArticle {
   id: string;
   title: string;
   slug: string;
-  excerpt?: string;
+  excerpt?: string | null;
+  /** May contain admin-authored HTML; never render it unsanitized. */
   content: string;
-  coverImageUrl?: string;
+  featuredImage?: string | null;
   authorId: string;
-  author: User;
+  author?: PersonSummary | null;
   category: NewsCategory;
-  tags: string[];
-  viewsCount: number;
-  isPublished: boolean;
-  publishedAt?: string;
+  status: 'DRAFT' | 'PUBLISHED' | 'ARCHIVED';
+  readingTime?: number | null;
+  viewCount: number;
+  publishedAt?: string | null;
   createdAt: string;
+  updatedAt?: string;
 }
 
-export type NewsCategory = 'ALUMNI_SPOTLIGHT' | 'COLLEGE_NEWS' | 'INDUSTRY' | 'EVENTS' | 'GENERAL';
+/** Server `NewsCategory` enum. */
+export type NewsCategory = 'EVENT_RECAP' | 'ALUMNI_STORY' | 'INSTITUTE_UPDATE' | 'NEWSLETTER';
 
+/** Mirrors server `Chapter` (GET /chapters, /chapters/my, /chapters/:id). */
 export interface Chapter {
   id: string;
   name: string;
-  slug: string;
-  description?: string;
-  coverImageUrl?: string;
-  city: string;
-  country: string;
-  membersCount: number;
-  leadId?: string;
-  lead?: User;
+  description?: string | null;
+  region: string;
+  adminUserId?: string | null;
+  admin?: PersonSummary | null;
+  logoUrl?: string | null;
+  memberCount: number;
   isActive: boolean;
   createdAt: string;
+  updatedAt?: string;
+  _count?: { memberships: number; events: number };
+  /** Only on GET /chapters/my. */
+  joinedAt?: string;
+}
+
+/** Upcoming published event embedded in GET /chapters/:id. */
+export interface ChapterEventSummary {
+  id: string;
+  title: string;
+  startDate: string;
+  endDate?: string | null;
+  eventType?: string;
+  venue?: string | null;
+  city?: string | null;
+}
+
+export interface ChapterDetail extends Chapter {
+  events: ChapterEventSummary[];
+}
+
+/** Row of GET /chapters/:id/members. */
+export interface ChapterMember {
+  id: string;
+  fullName: string;
+  profilePhotoUrl?: string | null;
+  batchYear?: number | null;
+  currentDesignation?: string | null;
+  city?: string | null;
+  joinedAt: string;
 }
 
 export interface Donation {
@@ -278,25 +346,47 @@ export interface Donation {
 
 export type DonationStatus = 'PENDING' | 'COMPLETED' | 'FAILED' | 'REFUNDED';
 
-export interface MarketplaceListing {
+/** Server MarketplaceListingType enum. */
+export type MarketplaceListingType = 'BUSINESS' | 'SERVICE' | 'REQUIREMENT';
+
+/** Owner summary included with listings (GET /marketplace, GET /marketplace/:id). */
+export interface MarketplaceListingOwner {
   id: string;
-  sellerId: string;
-  seller: User;
-  title: string;
-  description: string;
-  price?: number;
-  category: MarketplaceCategory;
-  imageUrls: string[];
-  condition: ItemCondition;
-  location?: string;
-  isNegotiable: boolean;
-  status: ListingStatus;
-  createdAt: string;
+  fullName: string;
+  profilePhotoUrl?: string | null;
+  batchYear?: number | null;
+  city?: string | null;
+  currentDesignation?: string | null;
+  membershipTier?: { name: string; badgeColor?: string | null } | null;
 }
 
-export type MarketplaceCategory = 'BOOKS' | 'ELECTRONICS' | 'FURNITURE' | 'SERVICES' | 'OTHER';
-export type ItemCondition = 'NEW' | 'LIKE_NEW' | 'GOOD' | 'FAIR';
-export type ListingStatus = 'ACTIVE' | 'SOLD' | 'EXPIRED' | 'REMOVED';
+/** Mirrors MarketplaceListing in server/prisma/schema.prisma. */
+export interface MarketplaceListing {
+  id: string;
+  userId: string;
+  type: MarketplaceListingType;
+  title: string;
+  category: string;
+  description: string;
+  location?: string | null;
+  website?: string | null;
+  contactInfo?: string | null;
+  /** Free text, e.g. "INR 500-2,000 / hour". */
+  priceRange?: string | null;
+  isActive: boolean;
+  isFeatured: boolean;
+  viewCount: number;
+  createdAt: string;
+  updatedAt: string;
+  /** Absent on GET /marketplace/my. */
+  user?: MarketplaceListingOwner;
+}
+
+/** GET /marketplace/categories item (active listings only). */
+export interface MarketplaceCategory {
+  name: string;
+  count: number;
+}
 
 export interface PaginatedResponse<T> {
   data: T[];

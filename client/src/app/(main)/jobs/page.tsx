@@ -2,13 +2,14 @@
 
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { jobApi } from '@/lib/api';
+import { jobApi, getApiErrorMessage, readPaginated } from '@/lib/api';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useAuth } from '@/context/auth-context';
+import { PostJobDialog } from '@/components/jobs/PostJobDialog';
 import Link from 'next/link';
 import {
   Select,
@@ -70,17 +71,18 @@ export default function JobsPage() {
         page,
         limit: 10,
         search: searchQuery || undefined,
-        type: selectedType !== 'ALL' ? selectedType : undefined,
+        jobType: selectedType !== 'ALL' ? selectedType : undefined,
       };
       const response = await jobApi.getJobs(params);
       return response.data;
     },
   });
 
-  const jobs = data?.items || [];
-  const pagination = data || { total: 0, pages: 0, page: 1 };
+  const { items: jobs, total, totalPages } = readPaginated(data);
+  const pagination = { total, pages: totalPages };
 
   const canPostJob = Boolean(user);
+  const [postOpen, setPostOpen] = useState(false);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -98,12 +100,10 @@ export default function JobsPage() {
           </p>
         </div>
         {canPostJob && (
-          <Link href="/jobs/new">
-            <Button>
-              <Plus className="h-4 w-4 mr-2" />
-              Post a Job
-            </Button>
-          </Link>
+          <Button onClick={() => setPostOpen(true)}>
+            <Plus className="h-4 w-4 mr-2" />
+            Post a Job
+          </Button>
         )}
       </div>
 
@@ -160,7 +160,7 @@ export default function JobsPage() {
           <AlertCircle className="h-4 w-4" />
           <AlertTitle>Error</AlertTitle>
           <AlertDescription>
-            {(error as any)?.response?.data?.error || 'Failed to load job opportunities. Please try again later.'}
+            {getApiErrorMessage(error, 'Failed to load job opportunities. Please try again later.')}
           </AlertDescription>
         </Alert>
       ) : jobs.length === 0 ? (
@@ -185,11 +185,11 @@ export default function JobsPage() {
                   <div className="flex-1 min-w-0">
                     <div className="flex flex-wrap items-start gap-2 mb-2">
                       <h3 className="text-lg font-semibold">{job.title}</h3>
-                      <Badge className={jobTypeColors[job.type]}>
-                        {jobTypeLabels[job.type]}
+                      <Badge className={jobTypeColors[job.jobType ?? job.type]}>
+                        {jobTypeLabels[job.jobType ?? job.type] ?? job.jobType}
                       </Badge>
-                      {job.location === 'Remote' && (
-                        <Badge variant="outline">Remote</Badge>
+                      {(job.workplaceType === 'REMOTE' || job.workplaceType === 'HYBRID') && (
+                        <Badge variant="outline">{job.workplaceType === 'HYBRID' ? 'Hybrid' : 'Remote'}</Badge>
                       )}
                     </div>
                     <p className="text-muted-foreground font-medium">{job.company}</p>
@@ -197,7 +197,7 @@ export default function JobsPage() {
                     <div className="flex flex-wrap gap-4 mt-3 text-sm text-muted-foreground">
                       <div className="flex items-center gap-1">
                         <MapPin className="h-4 w-4" />
-                        <span>{job.location}</span>
+                        <span>{job.location || (job.workplaceType === 'REMOTE' ? 'Remote' : 'Location not specified')}</span>
                       </div>
                       {job.salaryMin && (
                         <div className="flex items-center gap-1">
@@ -205,7 +205,7 @@ export default function JobsPage() {
                           <span>
                             {formatCurrency(job.salaryMin)}
                             {job.salaryMax ? ` - ${formatCurrency(job.salaryMax)}` : ''}
-                            {job.type === 'INTERNSHIP' ? '/month' : '/year'}
+                            {(job.jobType ?? job.type) === 'INTERNSHIP' ? '/month' : '/year'}
                           </span>
                         </div>
                       )}
@@ -218,7 +218,7 @@ export default function JobsPage() {
                     <p className="mt-3 text-sm line-clamp-2">{job.description}</p>
 
                     <div className="flex flex-wrap gap-2 mt-3">
-                      {(job.requirements || []).slice(0, 5).map((req: string, i: number) => (
+                      {(Array.isArray(job.skills) ? job.skills : Array.isArray(job.requirements) ? job.requirements : []).slice(0, 5).map((req: string, i: number) => (
                         <Badge key={i} variant="secondary" className="text-xs">
                           {req}
                         </Badge>
@@ -228,7 +228,7 @@ export default function JobsPage() {
                     <div className="flex flex-col sm:flex-row items-center justify-between mt-4 pt-4 border-t gap-4">
                       <div className="flex items-center gap-2 self-start">
                         <Avatar className="h-8 w-8">
-                          <AvatarImage src={job.postedBy?.avatarUrl || undefined} />
+                          <AvatarImage src={job.postedBy?.profilePhotoUrl || job.postedBy?.avatarUrl || undefined} />
                           <AvatarFallback className="text-xs">
                             {getInitials(job.postedBy?.fullName || 'U')}
                           </AvatarFallback>
@@ -246,17 +246,16 @@ export default function JobsPage() {
                             View Details
                           </Button>
                         </Link>
-                        {job.applicationUrl ? (
+                        {(job.applicationLink || job.applicationUrl) ? (
                           <Button size="sm" className="flex-1 sm:flex-initial" asChild>
-                            <a href={job.applicationUrl} target="_blank" rel="noopener noreferrer">
+                            <a href={job.applicationLink || job.applicationUrl} target="_blank" rel="noopener noreferrer">
                               Apply Now
                               <ExternalLink className="ml-2 h-4 w-4" />
                             </a>
                           </Button>
                         ) : (
-                          <Button size="sm" className="flex-1 sm:flex-initial">
-                            Apply Now
-                            <ExternalLink className="ml-2 h-4 w-4" />
+                          <Button size="sm" className="flex-1 sm:flex-initial" asChild>
+                            <Link href={`/jobs/${job.id}`}>How to apply</Link>
                           </Button>
                         )}
                       </div>
@@ -293,6 +292,7 @@ export default function JobsPage() {
           </Button>
         </div>
       )}
+      {canPostJob && <PostJobDialog open={postOpen} onOpenChange={setPostOpen} />}
     </div>
   );
 }

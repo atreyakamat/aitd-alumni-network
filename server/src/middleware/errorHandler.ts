@@ -1,4 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
+import { ZodError } from 'zod';
 
 export class AppError extends Error {
   public statusCode: number;
@@ -28,6 +29,44 @@ export const errorHandler = (
       error: {
         message: err.message,
         code: err.code,
+      },
+    });
+  }
+
+  // Malformed / oversized request bodies rejected by body-parser are client errors, not 500s
+  const bodyErrorType = (err as any).type;
+  if (bodyErrorType === 'entity.parse.failed') {
+    return res.status(400).json({
+      success: false,
+      error: { message: 'Malformed JSON in request body', code: 'INVALID_JSON' },
+    });
+  }
+  if (bodyErrorType === 'entity.too.large') {
+    return res.status(413).json({
+      success: false,
+      error: { message: 'Request body too large', code: 'PAYLOAD_TOO_LARGE' },
+    });
+  }
+
+  // File uploads (multer): size and field limits are the client's fault
+  if (err.name === 'MulterError') {
+    const tooLarge = (err as any).code === 'LIMIT_FILE_SIZE';
+    return res.status(tooLarge ? 413 : 400).json({
+      success: false,
+      error: {
+        message: tooLarge ? 'File is too large (max 5 MB)' : err.message,
+        code: tooLarge ? 'FILE_TOO_LARGE' : 'UPLOAD_ERROR',
+      },
+    });
+  }
+
+  if (err instanceof ZodError) {
+    return res.status(400).json({
+      success: false,
+      error: {
+        message: 'Validation failed',
+        code: 'VALIDATION_ERROR',
+        details: err.errors.map((e) => ({ field: e.path.join('.'), message: e.message })),
       },
     });
   }

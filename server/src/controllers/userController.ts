@@ -1,14 +1,49 @@
 import { Request, Response, NextFunction } from 'express';
-import { userService } from '../services/userService';
+import { userService, MapAudienceFilters } from '../services/userService';
+import { followService } from '../services/followService';
 import { uploadToStorage } from '../utils/storage';
+
+/** A single, non-empty query-string value (repeated params arrive as arrays and are ignored). */
+const queryString = (value: unknown): string | undefined =>
+  typeof value === 'string' && value.trim() ? value.trim() : undefined;
+
+/** Parses an integer query value; NaN/absent becomes undefined. */
+const queryInt = (value: unknown): number | undefined => {
+  const str = queryString(value);
+  if (str === undefined) return undefined;
+  const n = parseInt(str, 10);
+  return Number.isNaN(n) ? undefined : n;
+};
+
+const queryFloat = (value: unknown): number | undefined =>
+  value === undefined ? undefined : parseFloat(String(value));
+
+const MAP_FILTER_MAX_LENGTH = 100;
+
+/** Batch/department/name filters shared by the map endpoints; returns an error message when invalid. */
+const parseMapAudience = (query: Request['query']): { filters: MapAudienceFilters } | { error: string } => {
+  const rawBatch = queryString(query.batchYear);
+  const batchYear = rawBatch === undefined ? undefined : Number(rawBatch);
+  if (batchYear !== undefined && (!Number.isInteger(batchYear) || batchYear < 1900 || batchYear > 2200)) {
+    return { error: 'batchYear must be a valid year.' };
+  }
+  const department = queryString(query.department)?.slice(0, MAP_FILTER_MAX_LENGTH);
+  const search = queryString(query.search)?.slice(0, MAP_FILTER_MAX_LENGTH);
+  return { filters: { batchYear, department, search } };
+};
+
+const isImageUpload = (file: Express.Multer.File) => /^image\//i.test(file.mimetype || '');
 
 export class UserController {
   async getProfile(req: Request, res: Response, next: NextFunction) {
     try {
       const { id } = req.params;
       const viewerId = req.user?.id;
-      const result = await userService.getProfile(id, viewerId);
-      res.json({ success: true, data: result });
+      const [result, followStats] = await Promise.all([
+        userService.getProfile(id, viewerId),
+        followService.profileStats(id, viewerId),
+      ]);
+      res.json({ success: true, data: { ...result, ...followStats } });
     } catch (error) {
       next(error);
     }
@@ -28,7 +63,10 @@ export class UserController {
       if (!req.file) {
         return res.status(400).json({ success: false, message: 'No file uploaded' });
       }
-      
+      if (!isImageUpload(req.file)) {
+        return res.status(400).json({ success: false, message: 'Profile photo must be an image' });
+      }
+
       const photoUrl = await uploadToStorage(req.file, 'profiles');
       const result = await userService.updateProfilePhoto(req.user!.id, photoUrl);
       
@@ -43,7 +81,10 @@ export class UserController {
       if (!req.file) {
         return res.status(400).json({ success: false, message: 'No file uploaded' });
       }
-      
+      if (!isImageUpload(req.file)) {
+        return res.status(400).json({ success: false, message: 'Cover photo must be an image' });
+      }
+
       const photoUrl = await uploadToStorage(req.file, 'covers');
       const result = await userService.updateCoverPhoto(req.user!.id, photoUrl);
       
@@ -127,18 +168,24 @@ export class UserController {
   // Directory
   async searchDirectory(req: Request, res: Response, next: NextFunction) {
     try {
+      // Explicitly pick known filters; never spread raw query params into the service.
+      const q = req.query;
       const filters = {
-        ...req.query,
-        page: req.query.page ? parseInt(req.query.page as string) : 1,
-        limit: req.query.limit ? parseInt(req.query.limit as string) : 12,
-        batchYear: req.query.batchYear ? parseInt(req.query.batchYear as string) : undefined,
-        batchYearStart: req.query.batchYearStart ? parseInt(req.query.batchYearStart as string) : undefined,
-        batchYearEnd: req.query.batchYearEnd ? parseInt(req.query.batchYearEnd as string) : undefined,
-        roleType: req.query.roleType as string,
-        hometown: req.query.hometown as string,
-        industry: req.query.industry as string,
-        designation: req.query.designation as string,
-        chapterId: req.query.chapterId as string,
+        name: queryString(q.name),
+        department: queryString(q.department),
+        city: queryString(q.city),
+        company: queryString(q.company),
+        skills: queryString(q.skills),
+        page: queryInt(q.page) ?? 1,
+        limit: queryInt(q.limit) ?? 12,
+        batchYear: queryInt(q.batchYear),
+        batchYearStart: queryInt(q.batchYearStart),
+        batchYearEnd: queryInt(q.batchYearEnd),
+        roleType: queryString(q.roleType),
+        hometown: queryString(q.hometown),
+        industry: queryString(q.industry),
+        designation: queryString(q.designation),
+        chapterId: queryString(q.chapterId),
       };
       const result = await userService.searchDirectory(filters);
       res.json({ success: true, ...result });
@@ -150,8 +197,11 @@ export class UserController {
   // Yearbook
   async getYearbook(req: Request, res: Response, next: NextFunction) {
     try {
-      const batchYear = parseInt(req.params.year);
-      const department = req.query.department as string | undefined;
+      const batchYear = Number(req.params.year);
+      if (!Number.isInteger(batchYear) || batchYear < 1900 || batchYear > 2100) {
+        return res.status(400).json({ success: false, message: 'year must be a valid batch year' });
+      }
+      const department = queryString(req.query.department);
       const result = await userService.getYearbook(batchYear, department);
       res.json({ success: true, data: result });
     } catch (error) {
@@ -162,10 +212,10 @@ export class UserController {
   // Alumni Nearby
   async getAlumniLocations(req: Request, res: Response, next: NextFunction) {
     try {
-      const north = req.query.north !== undefined ? parseFloat(req.query.north as string) : undefined;
-      const south = req.query.south !== undefined ? parseFloat(req.query.south as string) : undefined;
-      const east = req.query.east !== undefined ? parseFloat(req.query.east as string) : undefined;
-      const west = req.query.west !== undefined ? parseFloat(req.query.west as string) : undefined;
+      const north = queryFloat(req.query.north);
+      const south = queryFloat(req.query.south);
+      const east = queryFloat(req.query.east);
+      const west = queryFloat(req.query.west);
       const limit = req.query.limit !== undefined ? parseInt(req.query.limit as string, 10) : undefined;
 
       const hasBoundsParam = [north, south, east, west].some((value) => value !== undefined);
@@ -185,6 +235,16 @@ export class UserController {
         });
       }
 
+      const outOfRange =
+        [north, south].some((v) => v !== undefined && Math.abs(v) > 90) ||
+        [east, west].some((v) => v !== undefined && Math.abs(v) > 180);
+      if (outOfRange) {
+        return res.status(400).json({
+          success: false,
+          message: 'Latitude bounds must be within [-90, 90] and longitude bounds within [-180, 180].',
+        });
+      }
+
       if (north !== undefined && south !== undefined && north < south) {
         return res.status(400).json({
           success: false,
@@ -199,12 +259,18 @@ export class UserController {
         });
       }
 
+      const audience = parseMapAudience(req.query);
+      if ('error' in audience) {
+        return res.status(400).json({ success: false, message: audience.error });
+      }
+
       const result = await userService.getAlumniLocations({
         north,
         south,
         east,
         west,
         limit,
+        ...audience.filters,
       });
       res.json({ success: true, data: result });
     } catch (error) {
@@ -217,17 +283,30 @@ export class UserController {
     try {
       const lat = parseFloat(req.query.lat as string);
       const lng = parseFloat(req.query.lng as string);
-      const radius = req.query.radius ? parseFloat(req.query.radius as string) : 50;
-      const limit = req.query.limit ? parseInt(req.query.limit as string) : 100;
+      const radius = req.query.radius !== undefined ? parseFloat(req.query.radius as string) : undefined;
+      const limit = req.query.limit !== undefined ? parseInt(req.query.limit as string, 10) : undefined;
 
-      if (isNaN(lat) || isNaN(lng)) {
+      if (isNaN(lat) || isNaN(lng) || Math.abs(lat) > 90 || Math.abs(lng) > 180) {
         return res.status(400).json({
           success: false,
           message: 'Valid lat and lng query parameters are required',
         });
       }
 
-      const result = await userService.getNearbyAlumni(lat, lng, radius, limit);
+      if (radius !== undefined && (Number.isNaN(radius) || radius <= 0)) {
+        return res.status(400).json({ success: false, message: 'radius must be a positive number (km).' });
+      }
+
+      if (limit !== undefined && (Number.isNaN(limit) || limit <= 0)) {
+        return res.status(400).json({ success: false, message: 'limit must be a positive integer.' });
+      }
+
+      const audience = parseMapAudience(req.query);
+      if ('error' in audience) {
+        return res.status(400).json({ success: false, message: audience.error });
+      }
+
+      const result = await userService.getNearbyAlumni(lat, lng, radius, limit, audience.filters);
       res.json({ success: true, data: result });
     } catch (error) {
       next(error);
@@ -247,7 +326,7 @@ export class UserController {
   // Notable Alumni
   async getNotableAlumni(req: Request, res: Response, next: NextFunction) {
     try {
-      const limit = req.query.limit ? parseInt(req.query.limit as string) : 6;
+      const limit = queryInt(req.query.limit) ?? 6;
       const result = await userService.getNotableAlumni(limit);
       res.json({ success: true, data: result });
     } catch (error) {

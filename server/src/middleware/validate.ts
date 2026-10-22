@@ -3,13 +3,20 @@ import { ZodSchema, ZodError } from 'zod';
 import { AppError } from './errorHandler';
 
 export const validate = (schema: ZodSchema) => {
-  return (req: Request, res: Response, next: NextFunction) => {
+  // Named so tooling (docs/API_REFERENCE.md generator) can tell validated routes apart
+  return function validateRequest(req: Request, res: Response, next: NextFunction) {
     try {
-      schema.parse({
+      const parsed = schema.parse({
         body: req.body,
         query: req.query,
         params: req.params,
       });
+      // Use the parsed body downstream: z.object strips unknown keys (no mass assignment,
+      // e.g. a smuggled userRole) and applies normalisation such as email trimming.
+      // query/params are intentionally left untouched.
+      if (parsed && typeof parsed === 'object' && (parsed as { body?: unknown }).body !== undefined) {
+        req.body = (parsed as { body: unknown }).body;
+      }
       next();
     } catch (error) {
       if (error instanceof ZodError) {

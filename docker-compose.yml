@@ -1,122 +1,156 @@
-version: '3.8'
+# AITD Alumni Network — full stack on PostgreSQL.
+#
+#   cp .env.docker.example .env      # then set the secrets marked REQUIRED
+#   docker compose up -d --build
+#
+#   web  -> http://localhost:3000        api -> http://localhost:5000 (health: /health)
+#   With the reverse proxy (single origin on :80):  docker compose --profile proxy up -d --build
+#
+# Data lives in the named volumes below; `docker compose down` keeps it, `down -v` deletes it.
+
+name: aitd-alumni-network
 
 services:
-  # MySQL Database
-  mysql:
-    image: mysql:8.0
-    container_name: aitd-connection-mysql
+  postgres:
+    image: postgres:17-alpine
     restart: unless-stopped
     environment:
-      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-rootpassword}
-      MYSQL_DATABASE: ${MYSQL_DATABASE:-alumni_connect}
-      MYSQL_USER: ${MYSQL_USER:-aitd}
-      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-aitdpassword}
-    ports:
-      - "3306:3306"
+      POSTGRES_DB: ${POSTGRES_DB:-alumni_connect}
+      POSTGRES_USER: ${POSTGRES_USER:-aitd}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
     volumes:
-      - mysql_data:/var/lib/mysql
-    networks:
-      - aitd-connection-network
+      - postgres_data:/var/lib/postgresql/data
+    # Bound to localhost only: reachable from your machine (psql, Prisma Studio), not the network
+    ports:
+      - "127.0.0.1:${POSTGRES_HOST_PORT:-5432}:5432"
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
-      interval: 10s
+      test: ["CMD-SHELL", "pg_isready -U \"$${POSTGRES_USER}\" -d \"$${POSTGRES_DB}\""]
+      interval: 5s
       timeout: 5s
-      retries: 5
+      retries: 10
+    networks: [backend]
 
-  # Redis Cache
   redis:
     image: redis:7-alpine
-    container_name: aitd-connection-redis
     restart: unless-stopped
-    ports:
-      - "6379:6379"
+    command: ["redis-server", "--appendonly", "yes", "--maxmemory", "256mb", "--maxmemory-policy", "allkeys-lru"]
     volumes:
       - redis_data:/data
-    networks:
-      - aitd-connection-network
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 10s
       timeout: 5s
       retries: 5
+    networks: [backend]
 
-  # Backend API
   api:
     build:
-      context: ./server
-      dockerfile: Dockerfile
-    container_name: aitd-connection-api
+      context: .
+      dockerfile: server/Dockerfile
     restart: unless-stopped
     depends_on:
-      mysql:
+      postgres:
         condition: service_healthy
       redis:
         condition: service_healthy
     environment:
-      - NODE_ENV=production
-      - PORT=5000
-      - DATABASE_URL=mysql://${MYSQL_USER:-aitd}:${MYSQL_PASSWORD:-aitdpassword}@mysql:3306/${MYSQL_DATABASE:-alumni_connect}
-      - REDIS_URL=redis://redis:6379
-      - JWT_SECRET=${JWT_SECRET}
-      - JWT_REFRESH_SECRET=${JWT_REFRESH_SECRET}
-      - CORS_ORIGINS=${CORS_ORIGINS:-http://localhost:3000}
-      - SENDGRID_API_KEY=${SENDGRID_API_KEY}
-      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
-      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
-      - AWS_S3_BUCKET=${AWS_S3_BUCKET}
-      - RAZORPAY_KEY_ID=${RAZORPAY_KEY_ID}
-      - RAZORPAY_KEY_SECRET=${RAZORPAY_KEY_SECRET}
+      NODE_ENV: production
+      PORT: 5000
+      DATABASE_URL: postgresql://${POSTGRES_USER:-aitd}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-alumni_connect}?schema=public
+      REDIS_URL: redis://redis:6379
+      JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET (32+ random characters) in .env}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:?Set JWT_REFRESH_SECRET (32+ random characters) in .env}
+      JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-15m}
+      JWT_REFRESH_EXPIRES_IN: ${JWT_REFRESH_EXPIRES_IN:-7d}
+      FRONTEND_URL: ${FRONTEND_URL:-http://localhost:3000}
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3000,http://localhost}
+      # First boot: creates the super admin from SEED_ADMIN_EMAIL / SEED_ADMIN_PASSWORD (idempotent)
+      SEED_ON_START: ${SEED_ON_START:-true}
+      SEED_ADMIN_EMAIL: ${SEED_ADMIN_EMAIL:-admin@aitdconnection.edu}
+      SEED_ADMIN_PASSWORD: ${SEED_ADMIN_PASSWORD:-}
+      SEED_SAMPLE_DATA: ${SEED_SAMPLE_DATA:-false}
+      GEOCODER_URL: ${GEOCODER_URL:-https://nominatim.openstreetmap.org}
+      GEOCODER_EMAIL: ${GEOCODER_EMAIL:-}
+      RAZORPAY_KEY_ID: ${RAZORPAY_KEY_ID:-}
+      RAZORPAY_KEY_SECRET: ${RAZORPAY_KEY_SECRET:-}
+      RAZORPAY_WEBHOOK_SECRET: ${RAZORPAY_WEBHOOK_SECRET:-}
+      SENDGRID_API_KEY: ${SENDGRID_API_KEY:-}
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASS: ${SMTP_PASS:-}
+      EMAIL_FROM: ${EMAIL_FROM:-noreply@aitdconnection.edu}
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-}
+      AWS_REGION: ${AWS_REGION:-ap-south-1}
+      AWS_S3_BUCKET: ${AWS_S3_BUCKET:-}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
+      GOOGLE_CALLBACK_URL: ${GOOGLE_CALLBACK_URL:-http://localhost:5000/api/auth/google/callback}
+      LINKEDIN_CLIENT_ID: ${LINKEDIN_CLIENT_ID:-}
+      LINKEDIN_CLIENT_SECRET: ${LINKEDIN_CLIENT_SECRET:-}
+      LINKEDIN_CALLBACK_URL: ${LINKEDIN_CALLBACK_URL:-http://localhost:5000/api/auth/linkedin/callback}
+    volumes:
+      - uploads_data:/app/server/uploads
     ports:
-      - "5000:5000"
-    networks:
-      - aitd-connection-network
+      - "${API_HOST_PORT:-5000}:5000"
     healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:5000/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:5000/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 60s
+    networks: [backend, frontend]
 
-  # Frontend Web App
   web:
     build:
-      context: ./client
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: client/Dockerfile
       args:
-        - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-http://localhost:5000/api}
-    container_name: aitd-connection-web
+        # Baked into the browser bundle at build time: the URL *browsers* use to reach the API
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:5000/api}
+        NEXT_PUBLIC_MAP_TILE_URL: ${NEXT_PUBLIC_MAP_TILE_URL:-}
+        NEXT_PUBLIC_MAP_TILE_ATTRIBUTION: ${NEXT_PUBLIC_MAP_TILE_ATTRIBUTION:-}
     restart: unless-stopped
     depends_on:
-      - api
+      api:
+        condition: service_healthy
     environment:
-      - NODE_ENV=production
+      NODE_ENV: production
+      # Server-side fetches (e.g. event SEO metadata) reach the API over the compose network
+      API_INTERNAL_URL: http://api:5000/api
     ports:
-      - "3000:3000"
-    networks:
-      - aitd-connection-network
+      - "${WEB_HOST_PORT:-3000}:3000"
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:3000/"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    networks: [frontend]
 
-  # Nginx Reverse Proxy (optional - for production)
+  # Optional single-origin reverse proxy: / -> web, /api /socket.io /uploads /health -> api.
+  # Build the web image with NEXT_PUBLIC_API_URL=http(s)://<your-host>/api when using it.
   nginx:
-    image: nginx:alpine
-    container_name: aitd-connection-nginx
+    image: nginx:1.27-alpine
     restart: unless-stopped
+    profiles: [proxy]
     depends_on:
-      - api
-      - web
-    ports:
-      - "80:80"
-      - "443:443"
+      api:
+        condition: service_healthy
+      web:
+        condition: service_started
     volumes:
       - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
-      - ./nginx/ssl:/etc/nginx/ssl:ro
-    networks:
-      - aitd-connection-network
-    profiles:
-      - production
+    ports:
+      - "${PROXY_HOST_PORT:-80}:80"
+    networks: [frontend]
 
 networks:
-  aitd-connection-network:
-    driver: bridge
+  backend:
+  frontend:
 
 volumes:
-  mysql_data:
+  postgres_data:
   redis_data:
+  uploads_data:

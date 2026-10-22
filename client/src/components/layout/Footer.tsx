@@ -1,7 +1,5 @@
 import Link from 'next/link';
-import { Share2, Globe, GraduationCap } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 
 export function Footer() {
   return (
@@ -46,15 +44,10 @@ export function Footer() {
 
         <div className="space-y-6">
           <span className="block text-xs font-bold uppercase tracking-widest text-primary font-label">Join the Legacy</span>
-          <p className="text-sm tracking-wide text-slate-500 font-body">Sign up for our monthly editorial digest.</p>
-          <div className="flex">
-            <Input
-              type="email"
-              placeholder="Email Address"
-              className="h-12 rounded-r-none border-none bg-white text-sm focus-visible:ring-1 focus-visible:ring-primary"
-            />
-            <Button className="h-12 rounded-l-none px-4 text-sm font-bold font-label">Join</Button>
-          </div>
+          <p className="text-sm tracking-wide text-slate-500 font-body">Create your free alumni account to stay connected.</p>
+          <Button className="h-12 px-6 text-sm font-bold font-label" asChild>
+            <Link href="/register">Join</Link>
+          </Button>
         </div>
       </div>
 
@@ -62,17 +55,6 @@ export function Footer() {
         <span className="text-xs tracking-wide text-slate-500 font-body">
           © {new Date().getFullYear()} AITD Connection. All rights reserved.
         </span>
-        <div className="flex space-x-4">
-          <Button variant="ghost" size="icon" className="text-slate-400 hover:text-primary">
-            <Share2 className="h-5 w-5" />
-          </Button>
-          <Button variant="ghost" size="icon" className="text-slate-400 hover:text-primary">
-            <Globe className="h-5 w-5" />
-          </Button>
-          <Button variant="ghost" size="icon" className="text-slate-400 hover:text-primary">
-            <GraduationCap className="h-5 w-5" />
-          </Button>
-        </div>
       </div>
     </footer>
   );
