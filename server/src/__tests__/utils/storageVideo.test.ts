@@ -126,7 +126,7 @@ describe('videoUpload middleware', () => {
     const tooBig = Object.assign(new Error('File too large'), { name: 'MulterError', code: 'LIMIT_FILE_SIZE' });
     const { mod } = load({ multerSingle: jest.fn((_req, _res, cb) => cb(tooBig)) });
     const next = jest.fn();
-    mod.videoUpload({}, {}, next);
+    mod.videoUpload({} as any, {} as any, next);
     expect(next.mock.calls[0][0]).toMatchObject({ statusCode: 413, code: 'FILE_TOO_LARGE', message: 'Video is too large (max 100 MB)' });
   });
 
@@ -135,11 +135,11 @@ describe('videoUpload middleware', () => {
     const single = jest.fn((_req, _res, cb) => cb(other));
     const { mod } = load({ multerSingle: single });
     const next = jest.fn();
-    mod.videoUpload({}, {}, next);
+    mod.videoUpload({} as any, {} as any, next);
     expect(next).toHaveBeenCalledWith(other);
 
     single.mockImplementation((_req, _res, cb) => cb());
-    mod.videoUpload({}, {}, next);
+    mod.videoUpload({} as any, {} as any, next);
     expect(next).toHaveBeenLastCalledWith(undefined);
   });
 

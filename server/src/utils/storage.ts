@@ -1,4 +1,5 @@
 import multer from 'multer';
+import type { Request, Response, NextFunction } from 'express';
 import sharp from 'sharp';
 import { S3Client, PutObjectCommand, DeleteObjectCommand } from '@aws-sdk/client-s3';
 import path from 'path';
@@ -285,7 +286,7 @@ export const sniffVideoFormat = (header: Buffer): VideoFormat | null => {
   return null;
 };
 
-const videoFileFilter = (_req: any, file: any, cb: any) => {
+const videoFileFilter: multer.Options['fileFilter'] = (_req, file, cb) => {
   const ext = path.extname(file.originalname || '').toLowerCase();
   if (VIDEO_EXTENSIONS.has(ext) && VIDEO_MIME_TYPES.has(String(file.mimetype).toLowerCase())) return cb(null, true);
   cb(new AppError('Invalid file type. Only MP4, MOV and WebM videos are allowed.', 400, 'INVALID_FILE_TYPE'));
@@ -304,9 +305,9 @@ const videoMulter = multer({
 });
 
 /** `upload.single('video')` with the size error worded for videos (multer removes the partial file). */
-export const videoUpload = (req: any, res: any, next: (err?: unknown) => void) =>
-  videoMulter.single('video')(req, res, (err?: any) => {
-    if (err?.name === 'MulterError' && err.code === 'LIMIT_FILE_SIZE') {
+export const videoUpload = (req: Request, res: Response, next: NextFunction) =>
+  videoMulter.single('video')(req, res, (err?: unknown) => {
+    if (err instanceof Error && err.name === 'MulterError' && (err as multer.MulterError).code === 'LIMIT_FILE_SIZE') {
       return next(new AppError(`Video is too large (max ${VIDEO_MAX_BYTES / 1024 / 1024} MB)`, 413, 'FILE_TOO_LARGE'));
     }
     next(err);

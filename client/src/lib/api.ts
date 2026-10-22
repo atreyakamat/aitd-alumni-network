@@ -1025,6 +1025,7 @@ export type AuditAction = (typeof AUDIT_ACTIONS)[number];
 export const AUDIT_ENTITY_TYPES = [
   'USER',
   'POST',
+  'COMMENT',
   'JOB',
   'EVENT',
   'NEWS',
