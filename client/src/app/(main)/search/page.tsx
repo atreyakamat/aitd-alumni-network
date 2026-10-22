@@ -126,7 +126,7 @@ function SearchResults() {
             </p>
           </div>
 
-          <Tabs defaultValue="all" className="w-full">
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
             <TabsList className="grid w-full grid-cols-5 h-12">
               <TabsTrigger value="all">All</TabsTrigger>
               <TabsTrigger value="users">People ({results.users.length})</TabsTrigger>
@@ -149,7 +149,7 @@ function SearchResults() {
                   </div>
                   <div className="grid gap-4 sm:grid-cols-2">
                     {results.users.map((user: any) => (
-                      <Card key={user.id} className="hover:border-primary/50 transition-colors cursor-pointer" onClick={() => router.push(`/profile/${user.id}`)}>
+                      <Card key={user.id} className="hover:border-primary/50 transition-colors cursor-pointer" onClick={() => router.push(`/profile/${encodeURIComponent(user.id)}`)}>
                         <CardContent className="p-4 flex items-center gap-4">
                           <Avatar className="h-12 w-12">
                             <AvatarImage src={user.profilePhotoUrl ?? undefined} />
@@ -181,7 +181,7 @@ function SearchResults() {
                   </div>
                   <div className="grid gap-4">
                     {results.jobs.map((job: any) => (
-                      <Card key={job.id} className="hover:border-primary/50 transition-colors cursor-pointer" onClick={() => router.push(`/jobs/${job.id}`)}>
+                      <Card key={job.id} className="hover:border-primary/50 transition-colors cursor-pointer" onClick={() => router.push(`/jobs/${encodeURIComponent(job.id)}`)}>
                         <CardContent className="p-4 flex items-center justify-between">
                           <div className="flex items-center gap-4">
                             <div className="h-12 w-12 bg-secondary rounded-md flex items-center justify-center">
@@ -213,7 +213,7 @@ function SearchResults() {
                   </div>
                   <div className="grid gap-4 sm:grid-cols-2">
                     {results.events.map((event: any) => (
-                      <Card key={event.id} className="hover:border-primary/50 transition-colors cursor-pointer" onClick={() => router.push(`/events/${event.id}`)}>
+                      <Card key={event.id} className="hover:border-primary/50 transition-colors cursor-pointer" onClick={() => router.push(`/events/${encodeURIComponent(event.id)}`)}>
                         <CardContent className="p-4 flex gap-4">
                           <div className="h-16 w-16 bg-primary/10 rounded-md flex flex-col items-center justify-center text-primary shrink-0">
                             <span className="text-xs font-bold uppercase">{new Date(event.startDate).toLocaleDateString('en-US', { month: 'short' })}</span>
@@ -236,7 +236,7 @@ function SearchResults() {
             <TabsContent value="users" className="mt-6">
               <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-3">
                 {results.users.map((user: any) => (
-                  <Card key={user.id} className="text-center p-6 hover:shadow-md transition-shadow cursor-pointer" onClick={() => router.push(`/profile/${user.id}`)}>
+                  <Card key={user.id} className="text-center p-6 hover:shadow-md transition-shadow cursor-pointer" onClick={() => router.push(`/profile/${encodeURIComponent(user.id)}`)}>
                     <Avatar className="h-20 w-20 mx-auto mb-4">
                       <AvatarImage src={user.profilePhotoUrl ?? undefined} />
                       <AvatarFallback className="text-xl">{getInitials(user.fullName)}</AvatarFallback>
@@ -254,8 +254,95 @@ function SearchResults() {
                 )}
               </div>
             </TabsContent>
-            
-            {/* ... other TabsContent for jobs, events, posts ... */}
+
+            <TabsContent value="jobs" className="mt-6">
+              <div className="grid gap-4">
+                {results.jobs.map((job: any) => (
+                  <Card key={job.id} className="hover:shadow-md transition-shadow cursor-pointer" onClick={() => router.push(`/jobs/${encodeURIComponent(job.id)}`)}>
+                    <CardContent className="p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                      <div className="flex items-start gap-4">
+                        <div className="h-12 w-12 bg-secondary rounded-lg flex items-center justify-center shrink-0">
+                          <Briefcase className="h-6 w-6 text-primary" />
+                        </div>
+                        <div>
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <h3 className="font-bold text-lg">{job.title}</h3>
+                            <Badge>{String(job.jobType ?? job.type ?? '').replace(/_/g, ' ')}</Badge>
+                          </div>
+                          <p className="text-muted-foreground font-medium">{job.company}</p>
+                          <p className="text-xs text-muted-foreground mt-1">
+                            {[job.location || (job.workplaceType === 'REMOTE' ? 'Remote' : null), job.experienceLevel].filter(Boolean).join(' • ')}
+                          </p>
+                        </div>
+                      </div>
+                      <Button variant="outline" size="sm">View Job</Button>
+                    </CardContent>
+                  </Card>
+                ))}
+                {results.jobs.length === 0 && (
+                  <div className="py-12 text-center text-muted-foreground">
+                    No jobs found matching your search.
+                  </div>
+                )}
+              </div>
+            </TabsContent>
+
+            <TabsContent value="events" className="mt-6">
+              <div className="grid gap-4 sm:grid-cols-2">
+                {results.events.map((event: any) => (
+                  <Card key={event.id} className="hover:shadow-md transition-shadow cursor-pointer" onClick={() => router.push(`/events/${encodeURIComponent(event.id)}`)}>
+                    <CardContent className="p-5 flex gap-4">
+                      <div className="h-16 w-16 bg-primary/10 rounded-md flex flex-col items-center justify-center text-primary shrink-0">
+                        <span className="text-xs font-bold uppercase">{new Date(event.startDate).toLocaleDateString('en-US', { month: 'short' })}</span>
+                        <span className="text-xl font-bold">{new Date(event.startDate).getDate()}</span>
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <h3 className="font-bold truncate">{event.title}</h3>
+                        <p className="text-xs text-muted-foreground flex items-center gap-1 mt-1">
+                          <MapPin className="h-3 w-3" /> {event.eventType === 'ONLINE' ? 'Online' : getEventLocation(event) || 'Location TBD'}
+                        </p>
+                        <Button variant="outline" size="sm" className="mt-3">View Event</Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+                {results.events.length === 0 && (
+                  <div className="col-span-full py-12 text-center text-muted-foreground">
+                    No events found matching your search.
+                  </div>
+                )}
+              </div>
+            </TabsContent>
+
+            <TabsContent value="posts" className="mt-6">
+              <div className="grid gap-4 max-w-2xl mx-auto">
+                {results.posts.map((post: any) => (
+                  <Card key={post.id} className="hover:shadow-md transition-shadow cursor-pointer" onClick={() => router.push(`/posts/${encodeURIComponent(post.id)}`)}>
+                    <CardContent className="p-5">
+                      <div className="flex items-center gap-3 mb-3">
+                        <Avatar className="h-10 w-10">
+                          <AvatarImage src={post.user?.profilePhotoUrl ?? undefined} />
+                          <AvatarFallback>{getInitials(post.user?.fullName || 'User')}</AvatarFallback>
+                        </Avatar>
+                        <div>
+                          <p className="font-semibold text-sm">{post.user?.fullName || 'Alumnus'}</p>
+                          <p className="text-xs text-muted-foreground">{new Date(post.createdAt).toLocaleDateString()}</p>
+                        </div>
+                      </div>
+                      <p className="text-sm text-foreground line-clamp-3">{post.content}</p>
+                      <div className="mt-4 flex justify-end">
+                        <Button variant="ghost" size="sm">View Post</Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+                {results.posts.length === 0 && (
+                  <div className="py-12 text-center text-muted-foreground">
+                    No posts found matching your search.
+                  </div>
+                )}
+              </div>
+            </TabsContent>
           </Tabs>
         </div>
       ) : (

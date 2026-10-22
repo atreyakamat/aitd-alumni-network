@@ -201,7 +201,7 @@ export function MainNav() {
                 </div>
               </DropdownMenuLabel>
               <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={() => router.push(`/profile/${user?.id}`)}>
+              <DropdownMenuItem onClick={() => router.push(user?.id ? `/profile/${encodeURIComponent(user.id)}` : '/profile')}>
                 <User className="mr-2 h-4 w-4" />
                 My Profile
               </DropdownMenuItem>

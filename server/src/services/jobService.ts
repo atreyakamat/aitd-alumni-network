@@ -68,6 +68,8 @@ const posterSelect = {
   fullName: true,
   profilePhotoUrl: true,
   currentDesignation: true,
+  batchYear: true,
+  department: true,
 };
 
 const badRequest = (message: string) => new AppError(message, 400, 'VALIDATION_ERROR');

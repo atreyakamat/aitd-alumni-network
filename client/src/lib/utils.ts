@@ -23,13 +23,17 @@ export function formatDateTime(date: string | Date) {
   });
 }
 
-export function getInitials(name: string) {
-  return name
-    .split(' ')
-    .map((n) => n[0])
-    .join('')
-    .toUpperCase()
-    .slice(0, 2);
+export function getInitials(name?: string | null) {
+  if (!name || !name.trim()) return 'U';
+  return (
+    name
+      .trim()
+      .split(/\s+/)
+      .map((n) => n[0])
+      .join('')
+      .toUpperCase()
+      .slice(0, 2) || 'U'
+  );
 }
 
 export function formatCurrency(amount: number) {

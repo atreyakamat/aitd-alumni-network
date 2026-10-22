@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import Image from 'next/image';
-import { useState, useEffect, Suspense } from 'react';
+import { useState, useEffect, useRef, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -44,8 +44,9 @@ function LoginContent() {
   const code = searchParams?.get('code');
   const oauthProvider = searchParams?.get('oauth');
   const isNewUser = searchParams?.get('newUser');
-  // Where to go after signing in; only same-origin relative paths are honoured.
-  const afterLoginPath = getSafeNextPath(searchParams?.get('next')) ?? '/dashboard';
+  // Where to go after signing in; only same-origin relative paths are honoured (handles both ?next= and ?redirect=).
+  const afterLoginPath = getSafeNextPath(searchParams?.get('next') ?? searchParams?.get('redirect')) ?? '/dashboard';
+  const exchangedRef = useRef(false);
 
   useEffect(() => {
     let isMounted = true;
@@ -86,6 +87,8 @@ function LoginContent() {
   useEffect(() => {
     const handleOAuthCallback = async () => {
       if (code) {
+        if (exchangedRef.current) return;
+        exchangedRef.current = true;
         try {
           // OAuth login successful - exchange code for tokens
           const response = await api.post('/auth/oauth/exchange', { code });
@@ -121,7 +124,7 @@ function LoginContent() {
     };
     
     handleOAuthCallback();
-    }, [code, oauthProvider, isNewUser, oauthError, setAuthData, toast, router, afterLoginPath]);
+  }, [code, oauthProvider, isNewUser, oauthError, setAuthData, toast, router, afterLoginPath]);
 
 
   const {

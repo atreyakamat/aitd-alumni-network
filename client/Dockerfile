@@ -13,8 +13,9 @@ RUN npm ci --workspace=client --include-workspace-root=false
 # Build
 FROM base AS builder
 WORKDIR /app
-COPY --from=deps /app/node_modules ./node_modules
 COPY client ./client
+COPY --from=deps /app/node_modules ./node_modules
+COPY --from=deps /app/client/node_modules ./client/node_modules
 WORKDIR /app/client
 
 ARG NEXT_PUBLIC_API_URL

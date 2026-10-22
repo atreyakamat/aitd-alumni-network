@@ -31,6 +31,7 @@ import { getInitials } from '@/lib/utils';
 import { LoadingSpinner } from '@/components/ui/loading';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useAuth } from '@/context/auth-context';
+import { useToast } from '@/hooks/use-toast';
 import Link from 'next/link';
 
 const departments = [
@@ -48,6 +49,7 @@ const batchYears = ['All Years', ...Array.from({ length: 30 }, (_, i) => String(
 
 export default function DirectoryPage() {
   const { user } = useAuth();
+  const { toast } = useToast();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedDepartment, setSelectedDepartment] = useState('All Departments');
   const [selectedYear, setSelectedYear] = useState('All Years');
@@ -83,17 +85,16 @@ export default function DirectoryPage() {
 
   const alumni = data?.items || [];
   const pagination = data || { total: 0, pages: 0, page: 1 };
-  const connections = connectionsData?.items || [];
-
   useEffect(() => {
-    if (!user || !connections.length) return;
+    const items = connectionsData?.items;
+    if (!user || !items?.length) return;
     const statuses: Record<string, string> = {};
-    connections.forEach((conn: any) => {
+    items.forEach((conn: any) => {
       const otherUserId = conn.requesterId === user.id ? conn.addresseeId : conn.requesterId;
       statuses[otherUserId] = conn.status;
     });
     setConnectionStatuses(statuses);
-  }, [user, connections]);
+  }, [user, connectionsData?.items]);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -107,8 +108,13 @@ export default function DirectoryPage() {
     try {
       await networkApi.sendRequest(targetUserId);
       setConnectionStatuses(prev => ({ ...prev, [targetUserId]: 'PENDING' }));
+      toast({ title: 'Connection request sent' });
     } catch (error) {
-      console.error('Error sending connection request:', error);
+      toast({
+        variant: 'destructive',
+        title: 'Could not send request',
+        description: getApiErrorMessage(error, 'Please try again later.'),
+      });
     } finally {
       setConnectingId(null);
     }

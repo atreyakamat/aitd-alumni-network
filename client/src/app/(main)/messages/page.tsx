@@ -2,9 +2,10 @@
 
 import { useState, useEffect, useRef, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
-import { messageApi } from '@/lib/api';
+import { messageApi, userApi } from '@/lib/api';
 import { useAuth } from '@/context/auth-context';
 import { useSocketContext } from '@/context/socket-context';
+import { useSocketEvent } from '@/hooks/use-socket';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -49,16 +50,55 @@ function ChatContent() {
   }, [activeConversation]);
 
   useEffect(() => {
-    if (targetUserId && conversations.length > 0) {
-      const existing = conversations.find(c => c.partner.id === targetUserId);
-      if (existing) {
-        setActiveConversation(existing);
-      } else {
-        // Fetch specific user profile to start new conversation
-        // For simplicity, we just wait for them to show up or handle specially
-      }
+    if (!targetUserId) return;
+
+    // Check if target is already in conversations list
+    const existing = conversations.find(c => c.partner?.id === targetUserId);
+    if (existing) {
+      setActiveConversation(existing);
+      return;
     }
+
+    // Target is not in existing conversations; fetch their user profile to start a new chat
+    let cancelled = false;
+    userApi.getProfile(targetUserId)
+      .then((res) => {
+        if (cancelled) return;
+        const target = res.data?.data;
+        if (target) {
+          const newConvo = {
+            partner: {
+              id: target.id,
+              fullName: target.fullName,
+              profilePhotoUrl: target.profilePhotoUrl || target.avatarUrl || null,
+              currentDesignation: target.currentDesignation || target.headline || 'Alumnus',
+            },
+            unreadCount: 0,
+            lastMessage: null,
+          };
+          setActiveConversation(newConvo);
+        }
+      })
+      .catch((err) => {
+        console.error('Failed to load profile for messaging:', err);
+      });
+
+    return () => {
+      cancelled = true;
+    };
   }, [targetUserId, conversations]);
+
+  // Real-time message receiver
+  useSocketEvent<any>('socket:new_message', (msg) => {
+    if (
+      activeConversation?.partner?.id &&
+      (msg.senderId === activeConversation.partner.id || msg.receiverId === activeConversation.partner.id)
+    ) {
+      setMessages((prev) => [...prev, msg]);
+      messageApi.markAsRead(activeConversation.partner.id).catch(() => undefined);
+    }
+    fetchConversations();
+  });
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -97,15 +137,20 @@ function ChatContent() {
     setSending(true);
     try {
       const response = await messageApi.sendMessage(activeConversation.partner.id, newMessage);
-      setMessages(prev => [...prev, response.data.data]);
+      const sentMsg = response.data.data;
+      setMessages(prev => [...prev, sentMsg]);
       setNewMessage('');
       
-      // Update last message in conversation list
-      setConversations(prev => prev.map(c => 
-        c.partner.id === activeConversation.partner.id 
-          ? { ...c, lastMessage: response.data.data } 
-          : c
-      ));
+      // Update last message in conversation list, or prepend if newly created
+      setConversations(prev => {
+        const index = prev.findIndex(c => c.partner?.id === activeConversation.partner.id);
+        if (index >= 0) {
+          const updated = [...prev];
+          updated[index] = { ...updated[index], lastMessage: sentMsg };
+          return updated;
+        }
+        return [{ ...activeConversation, lastMessage: sentMsg }, ...prev];
+      });
     } catch (error) {
       console.error('Failed to send message:', error);
     } finally {
@@ -115,7 +160,7 @@ function ChatContent() {
 
   if (loading) {
     return (
-      <div className="flex h-[calc(100-200px)] items-center justify-center">
+      <div className="flex h-[calc(100vh-120px)] items-center justify-center">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
       </div>
     );

@@ -234,18 +234,20 @@ export default function JobsPage() {
                           </AvatarFallback>
                         </Avatar>
                         <div>
-                          <p className="text-sm font-medium">{job.postedBy?.fullName}</p>
-                          <p className="text-xs text-muted-foreground">
-                            Batch {job.postedBy?.batchYear}
-                          </p>
+                          <p className="text-sm font-medium">{job.postedBy?.fullName || 'Alumnus'}</p>
+                          {(job.postedBy?.batchYear || job.postedBy?.department) && (
+                            <p className="text-xs text-muted-foreground">
+                              {[job.postedBy?.department, job.postedBy?.batchYear ? `Batch ${job.postedBy.batchYear}` : null].filter(Boolean).join(' • ')}
+                            </p>
+                          )}
                         </div>
                       </div>
                       <div className="flex gap-2 w-full sm:w-auto">
-                        <Link href={`/jobs/${job.id}`} className="flex-1 sm:flex-initial">
-                          <Button variant="outline" size="sm" className="w-full">
+                        <Button variant="outline" size="sm" className="flex-1 sm:flex-initial" asChild>
+                          <Link href={`/jobs/${encodeURIComponent(job.id)}`}>
                             View Details
-                          </Button>
-                        </Link>
+                          </Link>
+                        </Button>
                         {(job.applicationLink || job.applicationUrl) ? (
                           <Button size="sm" className="flex-1 sm:flex-initial" asChild>
                             <a href={job.applicationLink || job.applicationUrl} target="_blank" rel="noopener noreferrer">

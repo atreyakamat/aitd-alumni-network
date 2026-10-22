@@ -140,7 +140,13 @@ export default function JobDetailsPage() {
                 ) : (
                   <Button
                     className="flex-1 sm:flex-none"
-                    onClick={() => job.postedBy?.id && router.push(`/messages?u=${job.postedBy.id}`)}
+                    onClick={() => {
+                      if (!user) {
+                        router.push(`/login?next=${encodeURIComponent(`/jobs/${id}`)}`);
+                        return;
+                      }
+                      if (job.postedBy?.id) router.push(`/messages?u=${encodeURIComponent(job.postedBy.id)}`);
+                    }}
                     disabled={!job.postedBy?.id}
                   >
                     Message the poster to apply
@@ -238,21 +244,40 @@ export default function JobDetailsPage() {
               <CardTitle className="text-lg">Posted By</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="flex items-center gap-3 mb-4">
-                <Avatar className="h-12 w-12 cursor-pointer" onClick={() => router.push(`/profile/${job.postedBy.id}`)}>
-                  <AvatarImage src={job.postedBy.profilePhotoUrl ?? undefined} />
-                  <AvatarFallback>{getInitials(job.postedBy.fullName)}</AvatarFallback>
-                </Avatar>
-                <div>
-                  <h4 className="font-bold">{job.postedBy.fullName}</h4>
-                  <p className="text-xs text-muted-foreground">
-                    Class of {job.postedBy.batchYear} • {job.postedBy.department}
-                  </p>
-                </div>
-              </div>
-              <Button variant="outline" className="w-full" onClick={() => router.push(`/messages?u=${job.postedBy.id}`)}>
-                Message Alumni
-              </Button>
+              {job.postedBy ? (
+                <>
+                  <div className="flex items-center gap-3 mb-4">
+                    <Avatar className="h-12 w-12 cursor-pointer" onClick={() => router.push(`/profile/${encodeURIComponent(job.postedBy.id)}`)}>
+                      <AvatarImage src={job.postedBy.profilePhotoUrl ?? undefined} />
+                      <AvatarFallback>{getInitials(job.postedBy.fullName || 'User')}</AvatarFallback>
+                    </Avatar>
+                    <div>
+                      <h4 className="font-bold">{job.postedBy.fullName}</h4>
+                      <p className="text-xs text-muted-foreground">
+                        {[
+                          job.postedBy.batchYear ? `Class of ${job.postedBy.batchYear}` : null,
+                          job.postedBy.department || null,
+                        ].filter(Boolean).join(' • ') || 'Alumnus'}
+                      </p>
+                    </div>
+                  </div>
+                  <Button
+                    variant="outline"
+                    className="w-full"
+                    onClick={() => {
+                      if (!user) {
+                        router.push(`/login?next=${encodeURIComponent(`/jobs/${id}`)}`);
+                        return;
+                      }
+                      router.push(`/messages?u=${encodeURIComponent(job.postedBy.id)}`);
+                    }}
+                  >
+                    Message Alumni
+                  </Button>
+                </>
+              ) : (
+                <p className="text-sm text-muted-foreground">Job poster details are unavailable.</p>
+              )}
             </CardContent>
           </Card>
         </div>

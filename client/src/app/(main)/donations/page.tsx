@@ -31,6 +31,7 @@ import { getPaymentErrorMessage, openRazorpayCheckout } from '@/lib/payments';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/context/auth-context';
 import { shareLinkWithToast } from '@/lib/share';
+import { getInitials, formatCurrency } from '@/lib/utils';
 import Link from 'next/link';
 
 interface Donor {
@@ -64,24 +65,6 @@ interface DonationStats {
   thisMonthAmount: number;
 }
 
-const formatCurrency = (amount: number) => {
-  return new Intl.NumberFormat('en-IN', {
-    style: 'currency',
-    currency: 'INR',
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
-  }).format(amount);
-};
-
-const getInitials = (name: string) => {
-  return name
-    .split(' ')
-    .map((n) => n[0])
-    .join('')
-    .toUpperCase()
-    .slice(0, 2);
-};
-
 const getRankIcon = (index: number) => {
   switch (index) {
     case 0:
@@ -99,6 +82,7 @@ export default function DonationsPage() {
   const { toast } = useToast();
   const { user } = useAuth();
   const [donations, setDonations] = useState<Donation[]>([]);
+  const [donorSearch, setDonorSearch] = useState('');
   const [featuredDonors, setFeaturedDonors] = useState<any[]>([]);
   const [chapterDonations, setChapterDonations] = useState<ChapterDonation[]>([]);
   const [stats, setStats] = useState<DonationStats | null>(null);
@@ -193,6 +177,16 @@ export default function DonationsPage() {
 
   const campaignGoal = 500000;
   const campaignProgress = stats ? (stats.totalAmount / campaignGoal) * 100 : 0;
+
+  const filteredDonations = donations.filter((donation) => {
+    if (!donorSearch.trim()) return true;
+    const q = donorSearch.toLowerCase();
+    const name = donation.isAnonymous ? 'anonymous' : (donation.user?.fullName || '').toLowerCase();
+    const message = (donation.message || '').toLowerCase();
+    const dedicatedTo = (donation.dedicatedTo || '').toLowerCase();
+    const chapterName = (donation.chapter?.name || '').toLowerCase();
+    return name.includes(q) || message.includes(q) || dedicatedTo.includes(q) || chapterName.includes(q);
+  });
 
   if (loading) {
     return (
@@ -388,14 +382,19 @@ export default function DonationsPage() {
               <div className="flex gap-2">
                 <div className="relative">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-                  <Input placeholder="Search donors..." className="pl-9 w-64" />
+                  <Input
+                    placeholder="Search donors..."
+                    className="pl-9 w-64"
+                    value={donorSearch}
+                    onChange={(e) => setDonorSearch(e.target.value)}
+                  />
                 </div>
               </div>
             </div>
 
             <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
               <AnimatePresence>
-                {donations.map((donation, index) => (
+                {filteredDonations.map((donation, index) => (
                   <motion.div
                     key={donation.id}
                     initial={{ opacity: 0, scale: 0.9 }}
@@ -464,16 +463,21 @@ export default function DonationsPage() {
               </AnimatePresence>
             </div>
 
-            {donations.length === 0 && (
+            {filteredDonations.length === 0 && (
               <div className="text-center py-16 bg-white rounded-xl shadow-sm">
                 <Heart className="h-12 w-12 text-gray-300 mx-auto mb-4" />
-                <h3 className="text-lg font-medium text-gray-900 mb-2">No donations yet</h3>
-                <p className="text-gray-500 mb-4">Be the first to contribute!</p>
-                <Button onClick={() => handleDonate(1000)}
-                disabled={donating}>
-                  <Heart className="h-4 w-4 mr-2" />
-                  Donate Now
-                </Button>
+                <h3 className="text-lg font-medium text-gray-900 mb-2">
+                  {donorSearch ? 'No matching donors found' : 'No donations yet'}
+                </h3>
+                <p className="text-gray-500 mb-4">
+                  {donorSearch ? 'Try a different search term.' : 'Be the first to contribute!'}
+                </p>
+                {!donorSearch && (
+                  <Button onClick={() => handleDonate(1000)} disabled={donating}>
+                    <Heart className="h-4 w-4 mr-2" />
+                    Donate Now
+                  </Button>
+                )}
               </div>
             )}
           </TabsContent>

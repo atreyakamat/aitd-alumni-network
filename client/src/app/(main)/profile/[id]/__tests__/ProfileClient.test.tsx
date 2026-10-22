@@ -3,7 +3,8 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
-vi.mock('next/navigation', () => ({ useRouter: () => ({ push: vi.fn() }) }));
+const push = vi.hoisted(() => vi.fn());
+vi.mock('next/navigation', () => ({ useRouter: () => ({ push }) }));
 const authState = vi.hoisted(() => ({ user: { id: 'me' } as any }));
 vi.mock('@/context/auth-context', () => ({ useAuth: () => authState }));
 const toast = vi.hoisted(() => vi.fn());
@@ -36,6 +37,7 @@ const renderProfile = (props: { profile: any; id: string }) => {
 };
 
 beforeEach(() => {
+  push.mockReset();
   toast.mockReset();
   networkApi.sendRequest.mockReset().mockResolvedValue({ data: { success: true } });
   userApi.getProfile.mockReset().mockResolvedValue({ data: { success: true, data: profile } });
@@ -115,5 +117,44 @@ describe('ProfileClient actions', () => {
   it('does not offer Follow on your own profile', () => {
     renderProfile({ profile: { ...profile, id: 'me' }, id: 'me' });
     expect(screen.getByTestId('follow-bar')).toHaveAttribute('data-can-follow', 'false');
+  });
+
+  it('shows skeleton when initial profile is null and query is loading', () => {
+    userApi.getProfile.mockReturnValue(new Promise(() => {})); // Never resolves
+    renderProfile({ profile: null, id: 'u2' });
+    expect(screen.getByTestId('profile-skeleton')).toBeInTheDocument();
+  });
+
+  it('shows profile not found when profile is null and query fails', async () => {
+    userApi.getProfile.mockRejectedValue(new Error('User not found'));
+    renderProfile({ profile: null, id: 'u2' });
+    expect(await screen.findByTestId('profile-not-found')).toBeInTheDocument();
+    expect(screen.getByText(/Profile Not Found/i)).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /Back to Directory/i })).toHaveAttribute('href', '/directory');
+  });
+
+  it('renders disabled Connected button if already connected', () => {
+    renderProfile({ profile: { ...profile, isConnected: true }, id: 'u2' });
+    const connectedBtn = screen.getByRole('button', { name: /Connected/i });
+    expect(connectedBtn).toBeInTheDocument();
+    expect(connectedBtn).toBeDisabled();
+  });
+
+  it('renders disabled Request sent button if connectionStatus is PENDING', () => {
+    renderProfile({ profile: { ...profile, connectionStatus: 'PENDING' }, id: 'u2' });
+    const sentBtn = screen.getByRole('button', { name: /Request sent/i });
+    expect(sentBtn).toBeInTheDocument();
+    expect(sentBtn).toBeDisabled();
+  });
+
+  it('redirects unauthenticated visitors to login when clicking Connect or Message', async () => {
+    authState.user = null;
+    renderProfile({ profile, id: 'u2' });
+
+    await userEvent.click(screen.getByRole('button', { name: 'Connect' }));
+    expect(push).toHaveBeenCalledWith('/login?redirect=%2Fprofile%2Fu2');
+
+    await userEvent.click(screen.getByRole('button', { name: 'Message' }));
+    expect(push).toHaveBeenCalledWith('/login?redirect=%2Fprofile%2Fu2');
   });
 });

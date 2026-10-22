@@ -11,6 +11,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Skeleton } from '@/components/ui/skeleton';
 import {
   MapPin,
   Mail,
@@ -24,6 +25,11 @@ import {
   Edit,
   Building,
   Sparkles,
+  Check,
+  Clock,
+  AlertCircle,
+  ArrowLeft,
+  RefreshCw,
 } from 'lucide-react';
 import { getInitials } from '@/lib/utils';
 import { useRouter } from 'next/navigation';
@@ -36,42 +42,144 @@ const LINKS = [
   { field: 'websiteUrl', label: 'Website', Icon: Globe },
 ] as const;
 
+export function ProfileSkeleton() {
+  return (
+    <div className="max-w-4xl mx-auto space-y-6" data-testid="profile-skeleton">
+      <Card className="overflow-hidden">
+        <Skeleton className="h-48 w-full rounded-none" />
+        <CardContent className="relative pb-6">
+          <div className="flex flex-col sm:flex-row sm:items-end gap-4 -mt-16 sm:-mt-12">
+            <Skeleton className="h-32 w-32 rounded-full border-4 border-background shrink-0" />
+            <div className="flex-1 space-y-2 mt-2 sm:mt-0">
+              <Skeleton className="h-8 w-48" />
+              <Skeleton className="h-4 w-72" />
+              <Skeleton className="h-4 w-36" />
+            </div>
+            <div className="flex gap-2">
+              <Skeleton className="h-10 w-24" />
+              <Skeleton className="h-10 w-24" />
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      <div className="grid lg:grid-cols-3 gap-6">
+        <div className="space-y-6">
+          <Card>
+            <CardHeader><Skeleton className="h-6 w-20" /></CardHeader>
+            <CardContent className="space-y-2">
+              <Skeleton className="h-4 w-full" />
+              <Skeleton className="h-4 w-5/6" />
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader><Skeleton className="h-6 w-24" /></CardHeader>
+            <CardContent className="space-y-3">
+              <Skeleton className="h-4 w-3/4" />
+              <Skeleton className="h-4 w-1/2" />
+            </CardContent>
+          </Card>
+        </div>
+        <div className="lg:col-span-2 space-y-6">
+          <Card>
+            <CardHeader><Skeleton className="h-6 w-32" /></CardHeader>
+            <CardContent className="space-y-4">
+              <Skeleton className="h-16 w-full" />
+              <Skeleton className="h-16 w-full" />
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export function ProfileNotFound({ onRetry }: { onRetry?: () => void }) {
+  return (
+    <div className="max-w-2xl mx-auto py-16 px-4" data-testid="profile-not-found">
+      <Card className="text-center p-8">
+        <div className="flex justify-center mb-4">
+          <div className="h-14 w-14 rounded-full bg-muted flex items-center justify-center text-muted-foreground">
+            <AlertCircle className="h-8 w-8" />
+          </div>
+        </div>
+        <CardTitle className="text-2xl font-bold mb-2">Profile Not Found</CardTitle>
+        <p className="text-muted-foreground mb-6 max-w-md mx-auto">
+          This user profile either doesn't exist, has been deactivated, or is private.
+        </p>
+        <div className="flex flex-wrap items-center justify-center gap-3">
+          {onRetry && (
+            <Button variant="outline" onClick={onRetry} className="gap-2">
+              <RefreshCw className="h-4 w-4" />
+              Try again
+            </Button>
+          )}
+          <Button asChild>
+            <Link href="/directory" className="gap-2">
+              <ArrowLeft className="h-4 w-4" />
+              Back to Directory
+            </Link>
+          </Button>
+        </div>
+      </Card>
+    </div>
+  );
+}
+
 export function ProfileClient({ profile: initialProfile, id }: { profile: any; id: string }) {
   const { user } = useAuth();
-  const isOwnProfile = user?.id === id;
   const router = useRouter();
   const { toast } = useToast();
   const [connectState, setConnectState] = useState<'idle' | 'sending' | 'sent'>('idle');
 
-  // The server render is anonymous and cached; refetch once on mount so signed-in viewers get
-  // their personalised view (contact details, own-profile fields) and edits show up immediately.
-  const { data } = useQuery({
+  // The server render is anonymous and cached; refetch on mount so signed-in viewers get
+  // their personalised view (contact details, own-profile fields, connection status).
+  const { data, isLoading, refetch } = useQuery({
     queryKey: profileQueryKey(id),
     queryFn: async () => (await userApi.getProfile(id)).data.data,
-    initialData: initialProfile,
-    initialDataUpdatedAt: 0,
+    initialData: initialProfile ?? undefined,
+    initialDataUpdatedAt: initialProfile ? 0 : undefined,
     retry: false,
   });
+
   const profile = data ?? initialProfile;
 
+  const isOwnProfile =
+    (Boolean(user?.id) && Boolean(profile?.id) && user?.id === profile?.id) ||
+    (Boolean(user?.id) && user?.id === id) ||
+    Boolean(profile?.isOwnProfile);
+
   const handleConnect = async () => {
+    if (!user) {
+      router.push(`/login?redirect=${encodeURIComponent(`/profile/${id}`)}`);
+      return;
+    }
     setConnectState('sending');
     try {
       await networkApi.sendRequest(id);
       setConnectState('sent');
-      toast({ title: 'Connection request sent', description: `${profile.fullName} will be notified.` });
+      toast({ title: 'Connection request sent', description: `${profile?.fullName ?? 'Member'} will be notified.` });
     } catch (err) {
       setConnectState('idle');
       toast({ variant: 'destructive', title: 'Could not send request', description: getApiErrorMessage(err, 'Please try again.') });
     }
   };
 
+  if (isLoading && !profile) {
+    return <ProfileSkeleton />;
+  }
+
+  if (!profile) {
+    return <ProfileNotFound onRetry={() => refetch()} />;
+  }
+
   const links = LINKS.filter(({ field }) => typeof profile[field] === 'string' && isHttpUrl(profile[field]));
   const phone = profile.phone || profile.phoneNumber;
   const skills: string[] = (profile.skills ?? [])
-    .map((entry: any) => entry?.skill?.name)
+    .map((entry: any) => entry?.skill?.name || (typeof entry === 'string' ? entry : null))
     .filter(Boolean);
   const educations: any[] = profile.educations ?? [];
+  const workExperiences: any[] = profile.workExperiences ?? [];
   const hasContact = Boolean(profile.email || phone || profile.secondaryEmail || links.length);
 
   return (
@@ -89,7 +197,7 @@ export function ProfileClient({ profile: initialProfile, id }: { profile: any; i
             <Avatar className="h-32 w-32 border-4 border-white shadow-lg">
               <AvatarImage src={profile.profilePhotoUrl || profile.avatarUrl || undefined} alt={profile.fullName} />
               <AvatarFallback className="text-3xl">
-                {getInitials(profile.fullName)}
+                {getInitials(profile.fullName || 'User')}
               </AvatarFallback>
             </Avatar>
             <div className="flex-1">
@@ -106,12 +214,16 @@ export function ProfileClient({ profile: initialProfile, id }: { profile: any; i
                   </Badge>
                 )}
               </div>
-              <p className="text-muted-foreground mt-1">{profile.headline || profile.currentDesignation || [profile.department, profile.batchYear ? `Class of ${profile.batchYear}` : null].filter(Boolean).join(', ')}</p>
+              <p className="text-muted-foreground mt-1">
+                {profile.headline || profile.currentDesignation || [profile.department, profile.batchYear ? `Class of ${profile.batchYear}` : null].filter(Boolean).join(', ')}
+              </p>
               <div className="flex flex-wrap items-center gap-4 mt-2 text-sm text-muted-foreground">
-                <div className="flex items-center gap-1">
-                  <GraduationCap className="h-4 w-4" />
-                  <span>{profile.department} • Batch {profile.batchYear}</span>
-                </div>
+                {(profile.department || profile.batchYear) && (
+                  <div className="flex items-center gap-1">
+                    <GraduationCap className="h-4 w-4" />
+                    <span>{[profile.department, profile.batchYear ? `Batch ${profile.batchYear}` : null].filter(Boolean).join(' • ')}</span>
+                  </div>
+                )}
                 {(profile.city || profile.currentCity || profile.currentCountry) && (
                   <div className="flex items-center gap-1">
                     <MapPin className="h-4 w-4" />
@@ -131,10 +243,33 @@ export function ProfileClient({ profile: initialProfile, id }: { profile: any; i
                 </Button>
               ) : (
                 <>
-                  <Button variant="outline" onClick={() => router.push(`/messages?u=${id}`)}>Message</Button>
-                  <Button onClick={handleConnect} disabled={connectState !== 'idle'}>
-                    {connectState === 'sent' ? 'Request sent' : 'Connect'}
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      if (!user) {
+                        router.push(`/login?redirect=${encodeURIComponent(`/profile/${id}`)}`);
+                        return;
+                      }
+                      router.push(`/messages?u=${id}`);
+                    }}
+                  >
+                    Message
                   </Button>
+                  {profile.isConnected || profile.connectionStatus === 'ACCEPTED' ? (
+                    <Button variant="secondary" disabled className="gap-1.5">
+                      <Check className="h-4 w-4" />
+                      Connected
+                    </Button>
+                  ) : connectState === 'sent' || profile.connectionStatus === 'PENDING' ? (
+                    <Button variant="outline" disabled className="gap-1.5">
+                      <Clock className="h-4 w-4" />
+                      Request sent
+                    </Button>
+                  ) : (
+                    <Button onClick={handleConnect} disabled={connectState === 'sending'}>
+                      {connectState === 'sending' ? 'Connecting...' : 'Connect'}
+                    </Button>
+                  )}
                 </>
               )}
             </div>
@@ -220,8 +355,8 @@ export function ProfileClient({ profile: initialProfile, id }: { profile: any; i
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-6">
-              {profile.workExperiences?.length > 0 ? profile.workExperiences.map((exp: any) => (
-                <div key={exp.id} className="flex gap-4">
+              {workExperiences.length > 0 ? workExperiences.map((exp: any) => (
+                <div key={exp.id || `${exp.company}-${exp.startDate}`} className="flex gap-4">
                   <div className="flex-shrink-0 w-12 h-12 bg-secondary rounded-lg flex items-center justify-center">
                     <Building className="h-6 w-6 text-muted-foreground" />
                   </div>
@@ -249,8 +384,8 @@ export function ProfileClient({ profile: initialProfile, id }: { profile: any; i
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              {educations.length > 0 ? educations.map((edu) => (
-                <div key={edu.id}>
+              {educations.length > 0 ? educations.map((edu: any) => (
+                <div key={edu.id || `${edu.institution}-${edu.startYear}`}>
                   <h4 className="font-semibold flex items-center gap-2">
                     {edu.institution}
                     {edu.isPrimary && <Badge variant="secondary">Primary</Badge>}
