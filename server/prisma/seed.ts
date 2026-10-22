@@ -395,7 +395,91 @@ async function main() {
 
   console.log('✅ Created sample news articles');
 
+  await seedSocialGraph();
+
   console.log('🎉 Database seeding completed!');
+}
+
+/**
+ * Sample social activity between the sample users: follows, posts with hashtags, reactions of
+ * several types, a threaded conversation, a quote post and a plain repost. Idempotent: every row
+ * is looked up before it is created, and counters are re-derived at the end.
+ */
+async function seedSocialGraph() {
+  const users = await prisma.user.findMany({
+    where: { email: { in: Array.from({ length: 6 }, (_, i) => `user${i + 1}@example.com`) } },
+    orderBy: { email: 'asc' },
+  });
+  if (users.length < 6) return;
+  const [u1, u2, u3, u4, u5, u6] = users;
+
+  const follows: Array<[typeof u1, typeof u1]> = [[u1, u2], [u1, u3], [u2, u1], [u3, u1], [u4, u1], [u5, u2], [u6, u3]];
+  for (const [follower, following] of follows) {
+    await prisma.follow.upsert({
+      where: { followerId_followingId: { followerId: follower.id, followingId: following.id } },
+      update: {},
+      create: { followerId: follower.id, followingId: following.id },
+    });
+  }
+
+  const tagPattern = /(^|[^A-Za-z0-9_&#/])#([A-Za-z0-9_]{1,50})(?![A-Za-z0-9_])/g;
+  const ensurePost = async (author: typeof u1, content: string, extra: Record<string, unknown> = {}) => {
+    const existing = await prisma.post.findFirst({ where: { userId: author.id, content, ...extra } });
+    if (existing) return existing;
+    const created = await prisma.post.create({ data: { userId: author.id, content, ...extra } });
+    const tags = [...new Set([...content.matchAll(tagPattern)].map((m) => m[2].toLowerCase()).filter((t) => /[a-z]/.test(t)))];
+    for (const tag of tags) {
+      const hashtag = await prisma.hashtag.upsert({ where: { tag }, update: {}, create: { tag } });
+      await prisma.postHashtag.create({ data: { postId: created.id, hashtagId: hashtag.id, createdAt: created.createdAt } });
+    }
+    return created;
+  };
+
+  const placement = await ensurePost(u1, 'Our team at Acme is hiring two backend engineers this month. Referrals welcome! #hiring #placements');
+  const reunion = await ensurePost(u2, 'Who is coming to the 10-year batch reunion in December? #reunion #alumni');
+  const milestone = await ensurePost(u3, 'Just completed my first marathon. Thanks to everyone who trained with me! #milestone');
+  const tips = await ensurePost(u4, 'Three things I wish I knew before my first job interview, thread below. #careers #placements');
+
+  const reactions: Array<[typeof placement, typeof u1, 'LIKE' | 'CELEBRATE' | 'SUPPORT' | 'LOVE' | 'INSIGHTFUL' | 'FUNNY']> = [
+    [placement, u2, 'SUPPORT'], [placement, u3, 'LIKE'], [placement, u5, 'INSIGHTFUL'],
+    [reunion, u1, 'LOVE'], [reunion, u3, 'CELEBRATE'], [reunion, u4, 'LIKE'], [reunion, u6, 'FUNNY'],
+    [milestone, u1, 'CELEBRATE'], [milestone, u2, 'CELEBRATE'], [milestone, u4, 'LOVE'],
+    [tips, u5, 'INSIGHTFUL'], [tips, u6, 'INSIGHTFUL'],
+  ];
+  for (const [p, user, type] of reactions) {
+    await prisma.postLike.upsert({
+      where: { postId_userId: { postId: p.id, userId: user.id } },
+      update: { type },
+      create: { postId: p.id, userId: user.id, type },
+    });
+  }
+
+  const ensureComment = async (p: typeof placement, author: typeof u1, content: string, parentId: string | null = null) =>
+    (await prisma.postComment.findFirst({ where: { postId: p.id, userId: author.id, content } })) ??
+    prisma.postComment.create({ data: { postId: p.id, userId: author.id, content, parentId } });
+
+  const question = await ensureComment(reunion, u3, 'Count me in! Is there a venue yet?');
+  await ensureComment(reunion, u2, 'Looking at the old auditorium, will confirm next week.', question.id);
+  await ensureComment(reunion, u4, 'Happy to help organise.', question.id);
+  await ensureComment(milestone, u1, 'Huge congratulations!');
+
+  // Quote post and plain repost of the hiring post
+  await ensurePost(u5, 'Great opportunity for our juniors, do apply.', { isRepost: true, repostOfId: placement.id });
+  const plainKey = `${u6.id}:${placement.id}`;
+  if (!(await prisma.post.findUnique({ where: { plainRepostKey: plainKey } }))) {
+    await prisma.post.create({ data: { userId: u6.id, content: '', isRepost: true, repostOfId: placement.id, plainRepostKey: plainKey } });
+  }
+
+  for (const p of [placement, reunion, milestone, tips]) {
+    const [likeCount, commentCount, repostCount] = await Promise.all([
+      prisma.postLike.count({ where: { postId: p.id } }),
+      prisma.postComment.count({ where: { postId: p.id } }),
+      prisma.post.count({ where: { repostOfId: p.id, isRepost: true } }),
+    ]);
+    await prisma.post.update({ where: { id: p.id }, data: { likeCount, commentCount, repostCount } });
+  }
+
+  console.log('✅ Created sample social activity (follows, reactions, comments, reposts)');
 }
 
 main()

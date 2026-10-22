@@ -176,3 +176,28 @@ score      = (1 + engagement) · affinity / (hours_since_posted + 2) ^ 1.3
 
 Pinned posts come first on page 1. The cursor encodes the ranking snapshot (time + offset), so
 paging is stable while new posts arrive.
+
+## Changes during implementation
+
+Server behaviour that refines or deviates from the contract above (2026-10-22):
+
+- **`reason`** on feed items is `{ "type": "REPOST", "user": AuthorLite }` for plain reposts (the reposter), otherwise `null`.
+- **Ranking candidates** are the newest 500 visible posts (pinned posts always included) rather than a strict
+  14-day window, so a quiet network never runs out of feed; the age decay still pushes old posts down.
+- **Views**: the author's own views are not counted (in addition to one view per member).
+- **`POST /posts`** returns the created `PostView` (v1 returned the raw row). `GET /posts/:id` returns the
+  `PostView` plus the v1 `comments` tree (top-level comments with all replies) for older screens.
+- **`GET /posts` (v1)** now applies visibility rules and returns `PostView` items in its paginated shape.
+- **Errors**: invalid `tab` → 400 `INVALID_TAB`; invalid hashtag in a URL → 400 `INVALID_HASHTAG`;
+  `DELETE /posts/:id/repost` with nothing to undo → 404 `NOT_REPOSTED`; `POST /posts/video` without a file →
+  400 `NO_FILE`; `videoUrl`/`thumbnailUrl` not uploaded through the API → 400 `INVALID_MEDIA_URL`;
+  self-follow → 400 `CANNOT_FOLLOW_SELF`; reporting your own content → 400 `CANNOT_REPORT_OWN`; resolving a closed
+  report → 409 `REPORT_CLOSED`, or one whose content is already gone → 409 `CONTENT_GONE`.
+- **Plain reposts** are unique per member and original via a `plainRepostKey` column (DB-enforced). Editing a plain
+  repost to add text is refused (400 `NOT_EDITABLE`); quote instead.
+- **Comment deletion** is allowed for the comment's author, the post's author, and admins.
+- **Admin reports**: open reports are grouped per item (newest report's `id` represents the group, with
+  `reportCount`); each item also carries `contentSnapshot` (the text at report time). Audit entries use the new
+  action values `CONTENT_REMOVED` / `REPORT_DISMISSED` and the new entity type `COMMENT` for comments.
+- **Profile** (`GET /users/:id`) adds `followerCount`, `followingCount`, `isFollowing`; `postCount` was already there.
+- **Rate limiting** is the global API limit; there is no per-endpoint limit on views or reactions yet.
