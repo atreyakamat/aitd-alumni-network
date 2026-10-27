@@ -306,13 +306,15 @@ describe('eventService', () => {
       prismaMock.event.findUnique.mockResolvedValue(event());
       prismaMock.eventRSVP.findUnique.mockResolvedValue(null);
       prismaMock.user.findUnique.mockResolvedValue({ fullName: 'Ann' });
+      // Atomic, capacity-guarded increment returns the new count
+      prismaMock.$queryRaw.mockResolvedValue([{ rsvpCount: 4 }]);
 
       const result = await eventService.rsvpEvent('u1', 'e1');
 
       expect(result).toEqual({ rsvped: true, rsvpCount: 4 });
       expect(prismaMock.$transaction).toHaveBeenCalled();
+      expect(prismaMock.$queryRaw).toHaveBeenCalled();
       expect(prismaMock.eventRSVP.create).toHaveBeenCalledWith({ data: { eventId: 'e1', userId: 'u1' } });
-      expect(prismaMock.event.update).toHaveBeenCalledWith({ where: { id: 'e1' }, data: { rsvpCount: { increment: 1 } } });
       expect(notify).toHaveBeenCalledWith(
         expect.objectContaining({ userId: 'owner', type: 'EVENT_RSVP', message: 'Ann is attending "Alumni Meetup"' })
       );
@@ -321,6 +323,7 @@ describe('eventService', () => {
     it("doesn't notify creators about their own RSVP", async () => {
       prismaMock.event.findUnique.mockResolvedValue(event());
       prismaMock.eventRSVP.findUnique.mockResolvedValue(null);
+      prismaMock.$queryRaw.mockResolvedValue([{ rsvpCount: 4 }]);
       await eventService.rsvpEvent('owner', 'e1');
       expect(notify).not.toHaveBeenCalled();
     });
@@ -329,6 +332,7 @@ describe('eventService', () => {
       prismaMock.event.findUnique.mockResolvedValue(event());
       prismaMock.eventRSVP.findUnique.mockResolvedValue(null);
       prismaMock.user.findUnique.mockResolvedValue(null);
+      prismaMock.$queryRaw.mockResolvedValue([{ rsvpCount: 4 }]);
       notify.mockRejectedValue(new Error('down'));
       await expect(eventService.rsvpEvent('u1', 'e1')).resolves.toEqual({ rsvped: true, rsvpCount: 4 });
     });
@@ -357,6 +361,8 @@ describe('eventService', () => {
     it('returns 409 when the event is full', async () => {
       prismaMock.event.findUnique.mockResolvedValue(event({ capacity: 3, rsvpCount: 3 }));
       prismaMock.eventRSVP.findUnique.mockResolvedValue(null);
+      // The capacity-guarded UPDATE matches no row when the event is full
+      prismaMock.$queryRaw.mockResolvedValue([]);
       await expect(eventService.rsvpEvent('u1', 'e1')).rejects.toMatchObject({ statusCode: 409, code: 'EVENT_FULL' });
       expect(prismaMock.eventRSVP.create).not.toHaveBeenCalled();
     });
@@ -370,6 +376,8 @@ describe('eventService', () => {
     it('accepts the last seat', async () => {
       prismaMock.event.findUnique.mockResolvedValue(event({ capacity: 4, rsvpCount: 3 }));
       prismaMock.eventRSVP.findUnique.mockResolvedValue(null);
+      // The guarded UPDATE takes the last seat and returns the new count
+      prismaMock.$queryRaw.mockResolvedValue([{ rsvpCount: 4 }]);
       await expect(eventService.rsvpEvent('u1', 'e1')).resolves.toEqual({ rsvped: true, rsvpCount: 4 });
     });
   });

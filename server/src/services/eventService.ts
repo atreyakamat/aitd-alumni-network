@@ -366,34 +366,44 @@ export class EventService {
       throw new AppError('This event has already started', 400, 'EVENT_PAST');
     }
 
-    const existingRsvp = await prisma.eventRSVP.findUnique({
-      where: { eventId_userId: { eventId, userId } },
-    });
+    // The whole toggle runs in one transaction. The capacity guard in particular must be
+    // inside it: with a pre-check outside the write, two members grabbing the last seat would
+    // both read rsvpCount < capacity and both commit, overbooking the event past capacity.
+    const toggle = await prisma.$transaction(async (tx) => {
+      const existingRsvp = await tx.eventRSVP.findUnique({
+        where: { eventId_userId: { eventId, userId } },
+      });
 
-    if (existingRsvp) {
-      // Cancel RSVP; the guarded decrement keeps rsvpCount >= 0
-      await prisma.$transaction([
-        prisma.eventRSVP.delete({ where: { id: existingRsvp.id } }),
-        prisma.event.updateMany({
+      if (existingRsvp) {
+        // Cancel RSVP; the guarded decrement keeps rsvpCount >= 0
+        await tx.eventRSVP.delete({ where: { id: existingRsvp.id } });
+        await tx.event.updateMany({
           where: { id: eventId, rsvpCount: { gt: 0 } },
           data: { rsvpCount: { decrement: 1 } },
-        }),
-      ]);
+        });
+        return { rsvped: false, rsvpCount: Math.max(0, event.rsvpCount - 1) };
+      }
 
-      return { rsvped: false, rsvpCount: Math.max(0, event.rsvpCount - 1) };
+      // Atomic, capacity-guarded increment that also returns the new count. The UPDATE locks
+      // the event row, so a concurrent RSVP re-evaluates rsvpCount < capacity against the
+      // committed value and cannot overbook. (A column-vs-column comparison isn't expressible
+      // in Prisma's typed `where`, hence raw SQL; 0 rows back means the event is full.)
+      const rows = (await tx.$queryRaw<Array<{ rsvpCount: number | bigint }>>`
+        UPDATE "Event"
+        SET "rsvpCount" = "rsvpCount" + 1, "updatedAt" = NOW()
+        WHERE "id" = ${eventId} AND ("capacity" IS NULL OR "rsvpCount" < "capacity")
+        RETURNING "rsvpCount"
+      `) ?? [];
+      if (rows.length === 0) {
+        throw new AppError('Event is at full capacity', 409, 'EVENT_FULL');
+      }
+      await tx.eventRSVP.create({ data: { eventId, userId } });
+      return { rsvped: true, rsvpCount: Number(rows[0].rsvpCount) };
+    });
+
+    if (!toggle.rsvped) {
+      return toggle;
     }
-
-    if (event.capacity !== null && event.capacity !== undefined && event.rsvpCount >= event.capacity) {
-      throw new AppError('Event is at full capacity', 409, 'EVENT_FULL');
-    }
-
-    await prisma.$transaction([
-      prisma.eventRSVP.create({ data: { eventId, userId } }),
-      prisma.event.update({
-        where: { id: eventId },
-        data: { rsvpCount: { increment: 1 } },
-      }),
-    ]);
 
     if (event.createdById !== userId) {
       try {
@@ -416,7 +426,7 @@ export class EventService {
       }
     }
 
-    return { rsvped: true, rsvpCount: event.rsvpCount + 1 };
+    return toggle;
   }
 
   async getUpcomingEvents(limit: number = 5) {

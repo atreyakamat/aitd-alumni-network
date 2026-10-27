@@ -23,9 +23,14 @@ const config: Config = {
         background: 'hsl(var(--background))',
         foreground: 'hsl(var(--foreground))',
         primary: {
-          DEFAULT: '#0A66C2',
+          DEFAULT: '#0B2A5B', // AIEM navy
           foreground: '#FFFFFF',
-          dark: '#004182',
+          dark: '#14387A',
+        },
+        gold: {
+          DEFAULT: 'hsl(var(--gold))', // AIEM gold (adapts light/dark)
+          light: '#E7C65A',
+          foreground: 'hsl(var(--gold-foreground))',
         },
         secondary: {
           DEFAULT: 'hsl(var(--secondary))',

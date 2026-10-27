@@ -91,7 +91,7 @@ export function MainNav() {
           <div className="bg-primary rounded-lg p-1.5">
             <GraduationCap className="h-5 w-5 text-white" />
           </div>
-          <span className="text-xl font-bold text-primary hidden sm:inline">AITD Connection</span>
+          <span className="text-xl font-bold text-primary hidden sm:inline">AIEM Connection</span>
         </Link>
 
         {/* Search Bar */}

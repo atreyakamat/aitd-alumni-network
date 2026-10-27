@@ -11,7 +11,7 @@ const summarize = (text: unknown) => {
 
 /** Per-event title/description for search and link previews; falls back quietly if the API is unreachable. */
 export async function generateMetadata({ params }: { params: { id: string } }): Promise<Metadata> {
-  const fallback: Metadata = { title: 'Event | AITD Connection' };
+  const fallback: Metadata = { title: 'Event | AIEM Connection' };
   try {
     const res = await fetch(`${apiBase()}/events/${encodeURIComponent(params.id)}`, {
       next: { revalidate: 300 },
@@ -21,7 +21,7 @@ export async function generateMetadata({ params }: { params: { id: string } }): 
     const body = await res.json();
     const event = body?.data;
     if (!event?.title) return fallback;
-    const title = `${event.title} | AITD Connection Events`;
+    const title = `${event.title} | AIEM Connection Events`;
     const description = summarize(event.description);
     const image = event.bannerUrl || event.coverImageUrl;
     return {

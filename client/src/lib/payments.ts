@@ -53,7 +53,7 @@ export function buildCheckoutOptions(order: PaymentOrder, opts: CheckoutOptions)
     key: order.keyId,
     amount: order.amount, // paise, as returned by the server
     currency: order.currency,
-    name: opts.name ?? 'AITD Connection',
+    name: opts.name ?? 'AIEM Connection',
     description: opts.description,
     order_id: order.orderId,
     prefill: opts.prefill ?? {},

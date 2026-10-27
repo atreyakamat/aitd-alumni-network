@@ -73,11 +73,11 @@ export class TwoFactorService {
 
     await sendEmail({
       to: email,
-      subject: 'Your AITD Connection Verification Code',
+      subject: 'Your AIEM Connection Verification Code',
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
           <div style="background: linear-gradient(135deg, #002045 0%, #004488 100%); padding: 30px; border-radius: 10px 10px 0 0;">
-            <h1 style="color: white; margin: 0; font-size: 24px;">AITD Connection</h1>
+            <h1 style="color: white; margin: 0; font-size: 24px;">AIEM Connection</h1>
           </div>
 
           <div style="background: #ffffff; padding: 30px; border: 1px solid #e5e7eb; border-top: none; border-radius: 0 0 10px 10px;">
@@ -100,7 +100,7 @@ export class TwoFactorService {
             <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 20px 0;">
 
             <p style="color: #94a3b8; font-size: 12px; margin-bottom: 0;">
-              This is an automated message from AITD Connection. Please do not reply to this email.
+              This is an automated message from AIEM Connection. Please do not reply to this email.
             </p>
           </div>
         </div>

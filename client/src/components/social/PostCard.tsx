@@ -264,7 +264,7 @@ export function PostCard({
       }
     });
 
-  const share = () => shareLinkWithToast({ title: `${shown.user.fullName} on AITD Connection`, url: postUrl(shown.id) }, toast);
+  const share = () => shareLinkWithToast({ title: `${shown.user.fullName} on AIEM Connection`, url: postUrl(shown.id) }, toast);
 
   const copyLink = async () => {
     try {

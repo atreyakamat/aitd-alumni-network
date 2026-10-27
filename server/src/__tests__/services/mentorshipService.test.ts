@@ -312,20 +312,25 @@ describe('mentorshipService', () => {
 
   describe('respondToRequest', () => {
     beforeEach(() => {
-      prismaMock.mentorshipRequest.update.mockImplementation(async (args: any) => ({ id: 'r1', ...args.data }));
-      prismaMock.mentorProfile.update.mockResolvedValue(profile());
+      // The PENDING->status claim and the capacity-guarded increment are both mocked as "won"
+      prismaMock.mentorshipRequest.updateMany.mockResolvedValue({ count: 1 });
+      prismaMock.$executeRaw.mockResolvedValue(1);
     });
 
     it('accepting marks ACCEPTED, increments currentMentees and notifies the mentee', async () => {
       prismaMock.mentorshipRequest.findUnique.mockResolvedValue(request());
+      prismaMock.mentorshipRequest.findUniqueOrThrow.mockResolvedValue({ id: 'r1', status: 'ACCEPTED' });
 
       const result = await mentorshipService.respondToRequest('mentor', 'r1', true);
 
       expect(result).toEqual({ id: 'r1', status: 'ACCEPTED' });
-      expect(prismaMock.mentorProfile.update).toHaveBeenCalledWith({
-        where: { id: 'p1' },
-        data: { currentMentees: { increment: 1 } },
+      // Status transition is claimed atomically (only a PENDING row matches)...
+      expect(prismaMock.mentorshipRequest.updateMany).toHaveBeenCalledWith({
+        where: { id: 'r1', status: 'PENDING' },
+        data: { status: 'ACCEPTED' },
       });
+      // ...and the mentee count is incremented via the capacity-guarded UPDATE
+      expect(prismaMock.$executeRaw).toHaveBeenCalled();
       expect(notify).toHaveBeenCalledWith(
         expect.objectContaining({ userId: 'mentee', type: 'MENTORSHIP_ACCEPTED', link: '/mentorship' })
       );
@@ -333,9 +338,10 @@ describe('mentorshipService', () => {
 
     it('declining marks DECLINED without touching the count', async () => {
       prismaMock.mentorshipRequest.findUnique.mockResolvedValue(request());
+      prismaMock.mentorshipRequest.findUniqueOrThrow.mockResolvedValue({ id: 'r1', status: 'DECLINED' });
       const result = await mentorshipService.respondToRequest('mentor', 'r1', false);
       expect(result.status).toBe('DECLINED');
-      expect(prismaMock.mentorProfile.update).not.toHaveBeenCalled();
+      expect(prismaMock.$executeRaw).not.toHaveBeenCalled();
       expect(notify).toHaveBeenCalledWith(expect.objectContaining({ type: 'MENTORSHIP_DECLINED', link: undefined }));
     });
 
@@ -343,7 +349,7 @@ describe('mentorshipService', () => {
       prismaMock.mentorshipRequest.findUnique.mockResolvedValue(request());
       await expect(mentorshipService.respondToRequest('mentee', 'r1', true)).rejects.toMatchObject({ statusCode: 403 });
       await expect(mentorshipService.respondToRequest('stranger', 'r1', true)).rejects.toMatchObject({ statusCode: 403 });
-      expect(prismaMock.mentorshipRequest.update).not.toHaveBeenCalled();
+      expect(prismaMock.mentorshipRequest.updateMany).not.toHaveBeenCalled();
     });
 
     it('404s for unknown requests', async () => {
@@ -360,10 +366,13 @@ describe('mentorshipService', () => {
       prismaMock.mentorshipRequest.findUnique.mockResolvedValue(
         request({ profile: profile({ currentMentees: 3, maxMentees: 3 }) })
       );
+      // Mentor is full: the capacity-guarded UPDATE matches no row, rolling back the claim
+      prismaMock.$executeRaw.mockResolvedValue(0);
       await expect(mentorshipService.respondToRequest('mentor', 'r1', true)).rejects.toMatchObject({
         statusCode: 400,
         code: 'MENTOR_FULL',
       });
+      prismaMock.mentorshipRequest.findUniqueOrThrow.mockResolvedValue({ id: 'r1', status: 'DECLINED' });
       await expect(mentorshipService.respondToRequest('mentor', 'r1', false)).resolves.toMatchObject({ status: 'DECLINED' });
     });
 
@@ -509,13 +518,18 @@ describe('mentorshipService', () => {
   describe('endMentorship', () => {
     it('either participant can end an active mentorship; the count decrement is floored at 0', async () => {
       prismaMock.mentorshipRequest.findUnique.mockResolvedValue(request({ status: 'ACCEPTED' }));
+      prismaMock.mentorshipRequest.updateMany.mockResolvedValue({ count: 1 });
 
       await expect(mentorshipService.endMentorship('mentee', 'r1')).resolves.toEqual({
         message: 'Mentorship ended successfully',
       });
       await mentorshipService.endMentorship('mentor', 'r1');
 
-      expect(prismaMock.mentorshipRequest.update).toHaveBeenCalledWith({ where: { id: 'r1' }, data: { status: 'COMPLETED' } });
+      // The ACCEPTED->COMPLETED transition is claimed atomically so only the winner decrements
+      expect(prismaMock.mentorshipRequest.updateMany).toHaveBeenCalledWith({
+        where: { id: 'r1', status: 'ACCEPTED' },
+        data: { status: 'COMPLETED' },
+      });
       expect(prismaMock.mentorProfile.updateMany).toHaveBeenCalledWith({
         where: { id: 'p1', currentMentees: { gt: 0 } },
         data: { currentMentees: { decrement: 1 } },

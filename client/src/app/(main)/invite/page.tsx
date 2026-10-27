@@ -38,11 +38,11 @@ interface InviteEntry {
 
 const INVITE_TEMPLATE = `Hi {{name}},
 
-I hope this message finds you well! I wanted to reach out and invite you to join our AITD Connection platform - a dedicated space for our AITD alumni community.
+I hope this message finds you well! I wanted to reach out and invite you to join our AIEM Connection platform - a dedicated space for our AIEM alumni community.
 
 As a fellow graduate from the Class of {{batchYear}}, I thought you'd be interested in reconnecting with classmates, exploring career opportunities, and staying updated on events and news from our alma mater.
 
-Here's what you can do on AITD Connection:
+Here's what you can do on AIEM Connection:
 • Find and reconnect with batchmates and other alumni
 • Access exclusive job postings and mentorship opportunities
 • Stay updated on events, reunions, and news
@@ -54,7 +54,7 @@ Looking forward to seeing you on the platform!
 
 Best regards,
 {{senderName}}
-AITD Alumni Network`;
+AIEM Alumni Network`;
 
 export default function InviteBatchmatesPage() {
   const [activeTab, setActiveTab] = useState('manual');

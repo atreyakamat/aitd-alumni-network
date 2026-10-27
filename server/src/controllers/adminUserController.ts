@@ -108,7 +108,7 @@ export const accountController = {
   async exportMyData(req: Request, res: Response, next: NextFunction) {
     try {
       const data = await privacyService.exportMyData(req.user!.id, requestMeta(req));
-      res.setHeader('Content-Disposition', `attachment; filename="aitd-connection-data-${data.exportedAt.slice(0, 10)}.json"`);
+      res.setHeader('Content-Disposition', `attachment; filename="aiem-connection-data-${data.exportedAt.slice(0, 10)}.json"`);
       res.json({ success: true, data });
     } catch (error) {
       next(error);

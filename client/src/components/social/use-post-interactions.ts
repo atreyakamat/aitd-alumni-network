@@ -86,7 +86,7 @@ export function usePostInteractions(post: SocialPost, onChange: (post: SocialPos
     });
 
   const share = () =>
-    shareLinkWithToast({ title: `${latest.current.user.fullName} on AITD Connection`, url: postUrl(latest.current.id) }, toast);
+    shareLinkWithToast({ title: `${latest.current.user.fullName} on AIEM Connection`, url: postUrl(latest.current.id) }, toast);
 
   return { busy, react, toggleSave, toggleRepost, share };
 }

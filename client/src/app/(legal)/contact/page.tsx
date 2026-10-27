@@ -3,8 +3,8 @@ import Link from 'next/link';
 import { getContactEmail, mailtoHref } from '@/lib/contact';
 
 export const metadata: Metadata = {
-  title: 'Contact Us | AITD Connection',
-  description: 'How to reach the AITD Alumni Association team behind AITD Connection',
+  title: 'Contact Us | AIEM Connection',
+  description: 'How to reach the AIEM Alumni Association team behind AIEM Connection',
 };
 
 const topics = [
@@ -40,7 +40,7 @@ export default function ContactPage() {
           <header className="mb-10 text-center">
             <h1 className="font-headline text-4xl font-bold text-gray-900 mb-4">Contact Us</h1>
             <p className="text-gray-500">
-              The AITD Alumni Association team reads every message. We usually reply within a few working days.
+              The AIEM Alumni Association team reads every message. We usually reply within a few working days.
             </p>
           </header>
 

@@ -382,8 +382,8 @@ export class DonationService {
         to: donor.email,
         subject: `Your donation receipt ${receiptNumber}`,
         html: `<p>Dear ${escapeHtml(donor.name)},</p>
-<p>Thank you for your donation of ${amountText} to the AITD Alumni Network. Your receipt (${receiptNumber}) is attached.</p>`,
-        text: `Dear ${donor.name}, thank you for your donation of ${amountText} to the AITD Alumni Network. Your receipt (${receiptNumber}) is attached.`,
+<p>Thank you for your donation of ${amountText} to the AIEM Alumni Network. Your receipt (${receiptNumber}) is attached.</p>`,
+        text: `Dear ${donor.name}, thank you for your donation of ${amountText} to the AIEM Alumni Network. Your receipt (${receiptNumber}) is attached.`,
         attachments: [{ filename: `${receiptNumber}.pdf`, content: receipt, contentType: 'application/pdf' }],
       });
     } catch (error) {

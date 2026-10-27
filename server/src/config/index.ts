@@ -18,7 +18,7 @@ export const config = {
     refreshExpiresIn: process.env.JWT_REFRESH_EXPIRES_IN || '7d',
   },
   email: {
-    from: process.env.EMAIL_FROM || 'noreply@aitdconnection.edu',
+    from: process.env.EMAIL_FROM || 'noreply@aiemgoa.ac.in',
     smtp: {
       host: process.env.SMTP_HOST || 'smtp.gmail.com',
       port: toInt(process.env.SMTP_PORT, 587),
@@ -37,7 +37,7 @@ export const config = {
     accessKeyId: process.env.AWS_ACCESS_KEY_ID || '',
     secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY || '',
     region: process.env.AWS_REGION || 'ap-south-1',
-    s3Bucket: process.env.AWS_S3_BUCKET || 'aitd-connection-uploads',
+    s3Bucket: process.env.AWS_S3_BUCKET || 'aiem-connection-uploads',
   },
   google: {
     clientId: process.env.GOOGLE_CLIENT_ID || '',
@@ -65,7 +65,7 @@ export const config = {
       : process.env.GEOCODER_URL || 'https://nominatim.openstreetmap.org',
     userAgent:
       process.env.GEOCODER_USER_AGENT ||
-      `AITD-Alumni-Network/1.0 (+${process.env.FRONTEND_URL || 'http://localhost:3000'})`,
+      `AIEM-Alumni-Network/1.0 (+${process.env.FRONTEND_URL || 'http://localhost:3000'})`,
     email: process.env.GEOCODER_EMAIL || '',
     minIntervalMs: toInt(process.env.GEOCODER_MIN_INTERVAL_MS, 1100),
     timeoutMs: toInt(process.env.GEOCODER_TIMEOUT_MS, 5000),

@@ -25,14 +25,14 @@ async function getProfile(id: string) {
 }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
-  const fallback: Metadata = { title: 'Profile | AITD Connection' };
+  const fallback: Metadata = { title: 'Profile | AIEM Connection' };
   const profile = await getProfile(params.id);
   
   if (!profile || !profile.fullName) {
     return fallback;
   }
 
-  const title = `${profile.fullName} | AITD Connection`;
+  const title = `${profile.fullName} | AIEM Connection`;
   const description =
     profile.headline ||
     (profile.department ? `Alumni profile of ${profile.fullName} from ${profile.department} department.` : undefined);
@@ -41,7 +41,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     title,
     description,
     openGraph: {
-      title: `${profile.fullName} on AITD Connection`,
+      title: `${profile.fullName} on AIEM Connection`,
       description: profile.bio || description,
       images: profile.profilePhotoUrl ? [profile.profilePhotoUrl] : [],
       type: 'profile',

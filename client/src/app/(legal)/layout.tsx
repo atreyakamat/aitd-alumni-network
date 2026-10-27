@@ -12,7 +12,7 @@ export default function LegalLayout({
         <div className="container mx-auto px-6 py-4">
           <div className="flex items-center justify-between">
             <Link href="/" className="text-xl font-bold text-[#002045]">
-              AITD Connection
+              AIEM Connection
             </Link>
             <nav className="flex items-center gap-6">
               <Link
@@ -44,7 +44,7 @@ export default function LegalLayout({
       {/* Footer */}
       <footer className="bg-gray-100 py-8">
         <div className="container mx-auto px-6 text-center text-gray-600">
-          <p>&copy; {new Date().getFullYear()} AITD Alumni Association. All rights reserved.</p>
+          <p>&copy; {new Date().getFullYear()} AIEM Alumni Association. All rights reserved.</p>
           <div className="mt-4 flex justify-center gap-6 text-sm">
             <Link href="/privacy" className="hover:text-[#002045]">
               Privacy Policy

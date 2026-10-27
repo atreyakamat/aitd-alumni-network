@@ -1,11 +1,11 @@
 import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
-  title: 'Events | AITD Connection',
-  description: 'Alumni reunions, webinars, meetups and chapter events from the AITD alumni network.',
+  title: 'Events | AIEM Connection',
+  description: 'Alumni reunions, webinars, meetups and chapter events from the AIEM alumni network.',
   openGraph: {
-    title: 'Events | AITD Connection',
-    description: 'Alumni reunions, webinars, meetups and chapter events from the AITD alumni network.',
+    title: 'Events | AIEM Connection',
+    description: 'Alumni reunions, webinars, meetups and chapter events from the AIEM alumni network.',
     type: 'website',
   },
 };

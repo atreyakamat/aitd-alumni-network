@@ -720,7 +720,7 @@ export default function DonationsPage() {
               variant="outline"
               className="border-white/30 text-white hover:bg-white/10"
               onClick={() =>
-                shareLinkWithToast({ title: 'Support AITD — donate', url: `${window.location.origin}/donations` }, toast)
+                shareLinkWithToast({ title: 'Support AIEM — donate', url: `${window.location.origin}/donations` }, toast)
               }
             >
               <Share2 className="h-5 w-5 mr-2" />

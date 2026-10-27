@@ -292,10 +292,17 @@ export class PostService {
     if (!post || !canViewPost(post, ctx)) throw notFound();
     if (!ctx || ctx.id === post.userId) return { views: post.viewCount ?? 0 };
 
-    const created = await prisma.postImpression.createMany({ data: [{ postId, userId: ctx.id }], skipDuplicates: true });
-    if (!created?.count) return { views: post.viewCount ?? 0 };
-    const updated = await prisma.post.update({ where: { id: postId }, data: { viewCount: { increment: 1 } }, select: { viewCount: true } });
-    return { views: updated?.viewCount ?? (post.viewCount ?? 0) + 1 };
+    // Insert the impression and bump the counter in one transaction: otherwise a crash
+    // between them leaves the impression written (blocking any future increment) while
+    // viewCount stays behind, so the post permanently under-counts that view.
+    const result = await prisma.$transaction(async (tx) => {
+      const created = await tx.postImpression.createMany({ data: [{ postId, userId: ctx.id }], skipDuplicates: true });
+      if (!created?.count) return { counted: false as const, viewCount: undefined as number | undefined };
+      const updated = await tx.post.update({ where: { id: postId }, data: { viewCount: { increment: 1 } }, select: { viewCount: true } });
+      return { counted: true as const, viewCount: updated?.viewCount };
+    });
+    if (!result.counted) return { views: post.viewCount ?? 0 }; // this viewer was already counted
+    return { views: result.viewCount ?? (post.viewCount ?? 0) + 1 };
   }
 
   // -------------------------------------------------------------------------

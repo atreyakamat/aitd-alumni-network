@@ -68,8 +68,8 @@ export class InviteService {
       <div style="font-family: 'Helvetica Neue', Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #ffffff;">
         <!-- Header -->
         <div style="background: linear-gradient(135deg, #002045 0%, #004488 100%); padding: 40px 30px; text-align: center;">
-          <h1 style="color: #ffffff; margin: 0; font-size: 28px; font-weight: 300;">AITD Connection</h1>
-          <p style="color: #b45309; margin: 10px 0 0; font-size: 14px; letter-spacing: 1px;">AITD ALUMNI NETWORK</p>
+          <h1 style="color: #ffffff; margin: 0; font-size: 28px; font-weight: 300;">AIEM Connection</h1>
+          <p style="color: #b45309; margin: 10px 0 0; font-size: 14px; letter-spacing: 1px;">AIEM ALUMNI NETWORK</p>
         </div>
         
         <!-- Content -->
@@ -77,8 +77,8 @@ export class InviteService {
           <h2 style="color: #002045; margin: 0 0 20px; font-size: 24px;">${greeting}${batchInfo},</h2>
           
           <p style="color: #64748b; line-height: 1.8; margin: 0 0 20px;">
-            <strong style="color: #002045;">${inviterName}</strong> has invited you to join AITD Connection – 
-            the exclusive networking platform for AITD alumni.
+            <strong style="color: #002045;">${inviterName}</strong> has invited you to join AIEM Connection – 
+            the exclusive networking platform for AIEM alumni.
           </p>
           
           ${customMessage ? `
@@ -106,7 +106,7 @@ export class InviteService {
                style="display: inline-block; background: linear-gradient(135deg, #002045 0%, #004488 100%); 
                       color: #ffffff; padding: 16px 40px; text-decoration: none; border-radius: 8px; 
                       font-weight: 600; font-size: 16px; box-shadow: 0 4px 15px rgba(0, 32, 69, 0.3);">
-              Join AITD Connection
+              Join AIEM Connection
             </a>
           </div>
           
@@ -122,7 +122,7 @@ export class InviteService {
             If you didn't expect this email, you can safely ignore it.
           </p>
           <p style="color: #94a3b8; font-size: 12px; margin: 10px 0 0;">
-            © ${new Date().getFullYear()} AITD Alumni Association
+            © ${new Date().getFullYear()} AIEM Alumni Association
           </p>
         </div>
       </div>
@@ -212,7 +212,7 @@ export class InviteService {
 
       await sendEmail({
         to: email,
-        subject: `${inviter.fullName} invited you to join AITD Connection`,
+        subject: `${inviter.fullName} invited you to join AIEM Connection`,
         html: emailHtml,
       });
 

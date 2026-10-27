@@ -65,14 +65,14 @@ export const sendVerificationEmail = async (
   
   await sendEmail({
     to: email,
-    subject: 'Verify your AITD Connection account',
+    subject: 'Verify your AIEM Connection account',
     html: `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-        <h1 style="color: #0A66C2;">Welcome to AITD Connection!</h1>
+        <h1 style="color: #0B2A5B;">Welcome to AIEM Connection!</h1>
         <p>Hi ${name},</p>
         <p>Thank you for registering. Please verify your email address by clicking the button below:</p>
         <a href="${verificationUrl}" 
-           style="display: inline-block; background-color: #0A66C2; color: white; padding: 12px 24px; 
+           style="display: inline-block; background-color: #0B2A5B; color: white; padding: 12px 24px; 
                   text-decoration: none; border-radius: 6px; margin: 20px 0;">
           Verify Email
         </a>
@@ -97,14 +97,14 @@ export const sendPasswordResetEmail = async (
   
   await sendEmail({
     to: email,
-    subject: 'Reset your AITD Connection password',
+    subject: 'Reset your AIEM Connection password',
     html: `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-        <h1 style="color: #0A66C2;">Password Reset</h1>
+        <h1 style="color: #0B2A5B;">Password Reset</h1>
         <p>Hi ${name},</p>
         <p>We received a request to reset your password. Click the button below to create a new password:</p>
         <a href="${resetUrl}" 
-           style="display: inline-block; background-color: #0A66C2; color: white; padding: 12px 24px; 
+           style="display: inline-block; background-color: #0B2A5B; color: white; padding: 12px 24px; 
                   text-decoration: none; border-radius: 6px; margin: 20px 0;">
           Reset Password
         </a>
@@ -126,10 +126,10 @@ export const sendWelcomeEmail = async (
 ): Promise<void> => {
   await sendEmail({
     to: email,
-    subject: 'Welcome to AITD Connection!',
+    subject: 'Welcome to AIEM Connection!',
     html: `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-        <h1 style="color: #0A66C2;">Welcome to AITD Connection!</h1>
+        <h1 style="color: #0B2A5B;">Welcome to AIEM Connection!</h1>
         <p>Hi ${name},</p>
         <p>Your email has been verified and your account is now active.</p>
         <p>Here's what you can do:</p>
@@ -141,13 +141,13 @@ export const sendWelcomeEmail = async (
           <li>Join events and chapters</li>
         </ul>
         <a href="${config.frontendUrl}/dashboard" 
-           style="display: inline-block; background-color: #0A66C2; color: white; padding: 12px 24px; 
+           style="display: inline-block; background-color: #0B2A5B; color: white; padding: 12px 24px; 
                   text-decoration: none; border-radius: 6px; margin: 20px 0;">
           Go to Dashboard
         </a>
         <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;" />
         <p style="color: #999; font-size: 12px;">
-          © AITD Connection. All rights reserved.
+          © AIEM Connection. All rights reserved.
         </p>
       </div>
     `,
@@ -162,16 +162,16 @@ export const sendPasswordChangedEmail = async (email: string, name: string): Pro
   const resetUrl = `${config.frontendUrl}/forgot-password`;
   await sendEmail({
     to: email,
-    subject: 'Your AITD Connection password was changed',
+    subject: 'Your AIEM Connection password was changed',
     html: `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-        <h1 style="color: #0A66C2;">Password changed</h1>
+        <h1 style="color: #0B2A5B;">Password changed</h1>
         <p>Hi ${escapeEmailHtml(name)},</p>
-        <p>The password for your AITD Connection account was just changed, and every other device was signed out.</p>
+        <p>The password for your AIEM Connection account was just changed, and every other device was signed out.</p>
         <p>If this was you, no further action is needed.</p>
         <p><strong>If you did not make this change</strong>, reset your password immediately and contact support:</p>
         <a href="${resetUrl}"
-           style="display: inline-block; background-color: #0A66C2; color: white; padding: 12px 24px;
+           style="display: inline-block; background-color: #0B2A5B; color: white; padding: 12px 24px;
                   text-decoration: none; border-radius: 6px; margin: 20px 0;">
           Reset Password
         </a>
@@ -179,7 +179,7 @@ export const sendPasswordChangedEmail = async (email: string, name: string): Pro
         <p style="color: #999; font-size: 12px;">This is an automated security notice.</p>
       </div>
     `,
-    text: `Hi ${name}, the password for your AITD Connection account was just changed and every other device was signed out. If this was not you, reset your password immediately at ${resetUrl} and contact support.`,
+    text: `Hi ${name}, the password for your AIEM Connection account was just changed and every other device was signed out. If this was not you, reset your password immediately at ${resetUrl} and contact support.`,
   });
 };
 
@@ -192,14 +192,14 @@ export const sendInviteEmail = async (
   
   await sendEmail({
     to: email,
-    subject: `${inviterName} invited you to join AITD Connection`,
+    subject: `${inviterName} invited you to join AIEM Connection`,
     html: `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-        <h1 style="color: #0A66C2;">You're Invited!</h1>
-        <p>${inviterName} has invited you to join the AITD Connection network.</p>
+        <h1 style="color: #0B2A5B;">You're Invited!</h1>
+        <p>${inviterName} has invited you to join the AIEM Connection network.</p>
         <p>Connect with fellow alumni, explore career opportunities, and stay updated with events.</p>
         <a href="${inviteUrl}" 
-           style="display: inline-block; background-color: #0A66C2; color: white; padding: 12px 24px; 
+           style="display: inline-block; background-color: #0B2A5B; color: white; padding: 12px 24px; 
                   text-decoration: none; border-radius: 6px; margin: 20px 0;">
           Accept Invitation
         </a>

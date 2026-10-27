@@ -305,14 +305,18 @@ export class ChapterService {
       throw new AppError('User not found', 404, 'NOT_FOUND');
     }
 
-    const updated = await prisma.chapter.update({
-      where: { id: chapterId },
-      data: { adminUserId },
+    // Both writes in one transaction so we never point a chapter at an admin whose role
+    // was left unpromoted by a failure between the two updates.
+    const updated = await prisma.$transaction(async (tx) => {
+      const chapterUpdate = await tx.chapter.update({
+        where: { id: chapterId },
+        data: { adminUserId },
+      });
+      if (user.userRole === 'MEMBER') {
+        await tx.user.update({ where: { id: adminUserId }, data: { userRole: 'CHAPTER_ADMIN' } });
+      }
+      return chapterUpdate;
     });
-
-    if (user.userRole === 'MEMBER') {
-      await prisma.user.update({ where: { id: adminUserId }, data: { userRole: 'CHAPTER_ADMIN' } });
-    }
 
     return updated;
   }

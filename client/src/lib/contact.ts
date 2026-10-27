@@ -1,5 +1,5 @@
 /** Fallback matches the address already used by the legal pages' footer. */
-export const DEFAULT_CONTACT_EMAIL = 'contact@aitdconnection.aitd.edu';
+export const DEFAULT_CONTACT_EMAIL = 'contact@aiemgoa.ac.in';
 
 const EMAIL_RE = /^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/;
 

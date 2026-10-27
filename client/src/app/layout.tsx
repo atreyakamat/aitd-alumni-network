@@ -3,6 +3,7 @@ import { Inter, Public_Sans, Playfair_Display } from 'next/font/google';
 import './globals.css';
 import { Providers } from '@/context/providers';
 import { Toaster } from '@/components/ui/toaster';
+import { BRAND } from '@/lib/brand';
 
 export const dynamic = 'force-dynamic';
 
@@ -24,8 +25,8 @@ const headlineFont = Playfair_Display({
 });
 
 export const metadata: Metadata = {
-  title: 'AITD Connection - College Alumni Network',
-  description: 'Connect with fellow alumni, explore career opportunities, and stay updated with events.',
+  title: `${BRAND.appName} - College Alumni Network`,
+  description: BRAND.description,
 };
 
 export default function RootLayout({

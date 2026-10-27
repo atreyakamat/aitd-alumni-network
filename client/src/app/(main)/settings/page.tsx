@@ -30,7 +30,7 @@ export default function SettingsPage() {
       const res = await accountApi.exportMyData();
       const data = res.data.data;
       const date = (data?.exportedAt || new Date().toISOString()).slice(0, 10);
-      saveJson(data, `aitd-connection-data-${date}.json`);
+      saveJson(data, `aiem-connection-data-${date}.json`);
       toast({ title: 'Your data is downloading', description: 'A JSON copy of your account data has been saved.' });
     } catch (err) {
       toast({

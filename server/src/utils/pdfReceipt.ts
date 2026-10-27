@@ -62,13 +62,13 @@ export class PDFReceiptGenerator {
       .fontSize(24)
       .fillColor(this.primaryColor)
       .font('Helvetica-Bold')
-      .text('AITD Connection', 50, 50);
+      .text('AIEM Connection', 50, 50);
 
     this.doc
       .fontSize(10)
       .fillColor(this.grayColor)
       .font('Helvetica')
-      .text('AITD Alumni Network', 50, 78);
+      .text('AIEM Alumni Network', 50, 78);
 
     // Divider line
     this.doc
@@ -112,7 +112,7 @@ export class PDFReceiptGenerator {
     this.doc
       .fontSize(8)
       .text(
-        'For any queries, contact: alumni@aitd.edu | +91-XXXX-XXXXXX',
+        'For any queries, contact: alumni@aiemgoa.ac.in | +91 99757 97916',
         50,
         footerY + 30,
         { align: 'center' }
@@ -120,7 +120,7 @@ export class PDFReceiptGenerator {
 
     this.doc
       .text(
-        'AITD Alumni Network | Registered under Section 80G',
+        'AIEM Alumni Network | Registered under Section 80G',
         50,
         footerY + 45,
         { align: 'center' }
@@ -490,6 +490,10 @@ export const generateMembershipReceipt = async (
  * `AITD-<DON|MEM>-<YYYYMMDD (UTC)>-<first 8 hex chars of the transaction id>`.
  * The same transaction always yields the same receipt number, so receipts
  * re-downloaded later match the copy e-mailed/stored at payment time.
+ *
+ * NB: the `AITD-` prefix is intentionally kept across the AIEM rebrand — it is a
+ * stored financial identifier; changing it would break continuity with receipts
+ * already issued. Only the receipt's *display* text was rebranded to AIEM.
  */
 export const generateReceiptNumber = (type: 'DON' | 'MEM', transactionId: string, date: Date): string => {
   const d = new Date(date);
