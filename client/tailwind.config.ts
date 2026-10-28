@@ -28,9 +28,11 @@ const config: Config = {
           dark: '#14387A',
         },
         gold: {
-          DEFAULT: 'hsl(var(--gold))', // AIEM gold (adapts light/dark)
+          // <alpha-value> placeholder so opacity modifiers (bg-gold/15 etc.) work;
+          // the --gold var holds bare HSL channels. Adapts light/dark.
+          DEFAULT: 'hsl(var(--gold) / <alpha-value>)',
           light: '#E7C65A',
-          foreground: 'hsl(var(--gold-foreground))',
+          foreground: 'hsl(var(--gold-foreground) / <alpha-value>)',
         },
         secondary: {
           DEFAULT: 'hsl(var(--secondary))',

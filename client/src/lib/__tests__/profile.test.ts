@@ -19,12 +19,12 @@ describe('validatePhotoFile', () => {
     expect(validatePhotoFile({ name: 'me.jpg', type: 'image/jpeg', size: 1000 })).toBeNull();
     expect(validatePhotoFile({ name: 'me.PNG', type: 'image/png', size: PHOTO_MAX_BYTES })).toBeNull();
     expect(validatePhotoFile({ name: 'me.gif', type: 'image/gif', size: 10 })).toBeNull();
+    expect(validatePhotoFile({ name: 'me.webp', type: 'image/webp', size: 10 })).toBeNull();
   });
 
   it('rejects other types, mismatched extensions and large files', () => {
-    expect(validatePhotoFile({ name: 'me.webp', type: 'image/webp', size: 10 })).toMatch(/JPG, PNG or GIF/);
-    expect(validatePhotoFile({ name: 'cv.pdf', type: 'application/pdf', size: 10 })).toMatch(/JPG, PNG or GIF/);
-    expect(validatePhotoFile({ name: 'me.txt', type: 'image/png', size: 10 })).toMatch(/JPG, PNG or GIF/);
+    expect(validatePhotoFile({ name: 'cv.pdf', type: 'application/pdf', size: 10 })).toMatch(/JPG, PNG, GIF or WebP/);
+    expect(validatePhotoFile({ name: 'me.txt', type: 'image/png', size: 10 })).toMatch(/JPG, PNG, GIF or WebP/);
     expect(validatePhotoFile({ name: 'me.jpg', type: 'image/jpeg', size: PHOTO_MAX_BYTES + 1 })).toMatch(/5 MB/);
   });
 });

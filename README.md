@@ -1,6 +1,27 @@
-# AITD Connection
+# AIEM Connection
 
 A comprehensive alumni network platform built with Next.js and Express.js, designed to connect graduates, facilitate networking, and foster a thriving alumni community.
+
+## ⚡ Run it (one command)
+
+With [Docker](https://docs.docker.com/get-docker/) installed:
+
+```bash
+git clone <this-repo> && cd aitd-alumni-network
+./start.sh          # or: make up
+```
+
+`start.sh` generates a `.env` with secure random secrets (including the admin password it prints),
+builds the images, starts Postgres + Redis + API + Web, and runs database migrations + the first-boot
+seed automatically. When it finishes:
+
+- **Web:** http://localhost:3000
+- **API health:** http://localhost:5000/health
+- **Admin login:** the `SEED_ADMIN_EMAIL` / `SEED_ADMIN_PASSWORD` printed by the script (also saved in `.env`)
+
+Useful follow-ups: `docker compose logs -f` (logs), `docker compose down` (stop, keep data),
+`docker compose down -v` (wipe data), `make seed-sample` (load demo content). Single-origin reverse
+proxy on port 80: `docker compose --profile proxy up -d --build`.
 
 ## 🚀 Features
 

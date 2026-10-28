@@ -161,7 +161,7 @@ export class JobService {
       prisma.jobOpportunity.findMany({
         where,
         include: { postedBy: { select: posterSelect } },
-        orderBy: [{ isFeatured: 'desc' }, { createdAt: 'desc' }],
+        orderBy: [{ isOfficial: 'desc' }, { isFeatured: 'desc' }, { createdAt: 'desc' }],
         skip,
         take,
       }),
@@ -248,6 +248,8 @@ export class JobService {
         applicationLink: data.applicationLink,
         deadline,
         status: isAdmin ? 'PUBLISHED' : 'PENDING_REVIEW',
+        // Admin/placement-cell posts are official and skip review.
+        isOfficial: isAdmin,
       },
       include: {
         postedBy: {

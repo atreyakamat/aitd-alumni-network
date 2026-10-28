@@ -194,6 +194,15 @@ const nonEmptyPartial = <T extends z.ZodRawShape>(shape: T) =>
     .partial()
     .refine((body) => Object.values(body).some((value) => value !== undefined), { message: 'Nothing to update' });
 
+const lat = z
+  .number({ invalid_type_error: 'Latitude must be a number' })
+  .min(-90, 'Latitude must be between -90 and 90')
+  .max(90, 'Latitude must be between -90 and 90');
+const lng = z
+  .number({ invalid_type_error: 'Longitude must be a number' })
+  .min(-180, 'Longitude must be between -180 and 180')
+  .max(180, 'Longitude must be between -180 and 180');
+
 export const updateProfileSchema = z.object({
   body: z.object({
     fullName: z
@@ -220,6 +229,12 @@ export const updateProfileSchema = z.object({
       .max(180, 'Longitude must be between -180 and 180')
       .nullable()
       .optional(),
+    // Residence (home) and work coordinates. The server derives the map pin from these.
+    homeLat: lat.nullable().optional(),
+    homeLng: lng.nullable().optional(),
+    workLat: lat.nullable().optional(),
+    workLng: lng.nullable().optional(),
+    workCity: optionalText(100, 'Work city'),
     isLocationPublic: z.boolean().optional(),
     phoneNumber: z.preprocess(
       emptyStringToNull,
@@ -446,7 +461,8 @@ export const sendInviteSchema = z.object({
 // Marketplace listing schemas (mirror MarketplaceListing in schema.prisma).
 // Server-controlled fields (userId, viewCount, isFeatured on create) are stripped by z.object;
 // marketplaceService additionally whitelists fields and restricts isFeatured to admins.
-export const MARKETPLACE_LISTING_TYPES = ['BUSINESS', 'SERVICE', 'REQUIREMENT'] as const;
+export const MARKETPLACE_LISTING_TYPES = ['BUSINESS', 'SERVICE', 'REQUIREMENT', 'FOUNDER'] as const;
+export const MARKETPLACE_MAX_IMAGES = 8;
 export const MARKETPLACE_LIMITS = {
   titleMin: 3,
   titleMax: 150,
@@ -472,8 +488,18 @@ const listingWebsite = z.preprocess(
     .optional()
 );
 
+// Logos/images are URLs produced by our own upload endpoints: either a local /uploads/...
+// path or an https bucket URL. Bounded and shape-checked rather than treated as free URLs.
+const listingMediaUrl = z
+  .string()
+  .trim()
+  .max(500, 'URL must be at most 500 characters')
+  .regex(/^(\/uploads\/|https?:\/\/)/i, 'Must be an uploaded file URL');
+const listingLogo = z.preprocess(emptyStringToNull, listingMediaUrl.nullable().optional());
+const listingImages = z.array(listingMediaUrl).max(MARKETPLACE_MAX_IMAGES, `At most ${MARKETPLACE_MAX_IMAGES} images`).optional();
+
 const listingFields = {
-  type: z.enum(MARKETPLACE_LISTING_TYPES, { errorMap: () => ({ message: 'Type must be BUSINESS, SERVICE or REQUIREMENT' }) }),
+  type: z.enum(MARKETPLACE_LISTING_TYPES, { errorMap: () => ({ message: 'Type must be BUSINESS, SERVICE, REQUIREMENT or FOUNDER' }) }),
   title: z
     .string({ required_error: 'Title is required' })
     .trim()
@@ -494,6 +520,8 @@ const listingFields = {
   contactInfo: optionalText(MARKETPLACE_LIMITS.contactInfoMax, 'Contact info'),
   // Free text in the model (e.g. "INR 500-2,000 / hour"), so it is bounded rather than parsed.
   priceRange: optionalText(MARKETPLACE_LIMITS.priceRangeMax, 'Price range'),
+  logoUrl: listingLogo,
+  images: listingImages,
 };
 
 export const createMarketplaceListingSchema = z.object({
@@ -513,6 +541,8 @@ export const updateMarketplaceListingSchema = z.object({
     website: listingFields.website,
     contactInfo: listingFields.contactInfo,
     priceRange: listingFields.priceRange,
+    logoUrl: listingFields.logoUrl,
+    images: listingFields.images,
     /** Owner may pause/unpublish; admins may moderate. */
     isActive: z.boolean({ invalid_type_error: 'isActive must be a boolean' }).optional(),
     /** Admin-only; marketplaceService ignores it for owners. */

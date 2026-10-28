@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { Clapperboard, Globe2, ImagePlus, Loader2, Lock, Send, Video, X } from 'lucide-react';
+import { Globe2, ImagePlus, Loader2, Lock, Send, Video, X } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
@@ -92,14 +92,11 @@ export function capturePosterFrame(file: File): Promise<{ blob: Blob | null; ver
 
 export function PostComposer({
   onCreated,
-  mode = 'post',
   autoFocus = false,
   className,
   placeholder,
 }: {
   onCreated?: (post: SocialPost) => void;
-  /** 'reel' starts with the reel toggle on and asks for a video first. */
-  mode?: 'post' | 'reel';
   autoFocus?: boolean;
   className?: string;
   placeholder?: string;
@@ -110,7 +107,6 @@ export function PostComposer({
   const [mentions, setMentions] = useState<MentionRef[]>([]);
   const [images, setImages] = useState<PendingImage[]>([]);
   const [video, setVideo] = useState<PendingVideo | null>(null);
-  const [isReel, setIsReel] = useState(mode === 'reel');
   const [visibility, setVisibility] = useState<PostVisibility>('PUBLIC');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -132,7 +128,7 @@ export function PostComposer({
   const readyImages = images.filter((i) => i.url).map((i) => i.url as string);
   const hasMedia = readyImages.length > 0 || Boolean(video?.url);
   const canSubmit =
-    !submitting && !uploading && trimmed.length <= POST_CONTENT_MAX && (trimmed.length > 0 || hasMedia) && (!isReel || Boolean(video?.url));
+    !submitting && !uploading && trimmed.length <= POST_CONTENT_MAX && (trimmed.length > 0 || hasMedia);
 
   const addImages = async (files: FileList | null) => {
     if (!files?.length) return;
@@ -168,7 +164,6 @@ export function PostComposer({
     setImages([]);
     setVideo({ preview: objectUrl(file), url: null, progress: 0, thumbnailUrl: null, vertical: false });
     const posterTask = capturePosterFrame(file).then(async ({ blob, vertical }) => {
-      if (vertical && mode !== 'reel') setIsReel(true);
       setVideo((v) => (v ? { ...v, vertical } : v));
       if (!blob) return;
       try {
@@ -193,7 +188,6 @@ export function PostComposer({
     setMentions([]);
     setImages([]);
     setVideo(null);
-    setIsReel(mode === 'reel');
     setError(null);
   };
 
@@ -205,13 +199,13 @@ export function PostComposer({
       const post = await socialApi.createPost({
         content: trimmed,
         mediaUrls: readyImages,
-        ...(video?.url ? { videoUrl: video.url, thumbnailUrl: video.thumbnailUrl, isReel } : {}),
+        ...(video?.url ? { videoUrl: video.url, thumbnailUrl: video.thumbnailUrl } : {}),
         visibility,
         mentionIds: activeMentionIds(content, mentions),
       });
       reset();
       onCreated?.(post);
-      toast({ title: isReel ? 'Reel posted' : 'Posted', description: visibility === 'CONNECTIONS' ? 'Visible to your connections.' : undefined });
+      toast({ title: 'Posted', description: visibility === 'CONNECTIONS' ? 'Visible to your connections.' : undefined });
     } catch (err) {
       setError(getApiErrorMessage(err, 'Could not publish your post. Please try again.'));
     } finally {
@@ -235,8 +229,8 @@ export function PostComposer({
             onChange={setContent}
             mentions={mentions}
             onMentionsChange={setMentions}
-            ariaLabel={mode === 'reel' ? 'Reel caption' : 'Write a post'}
-            placeholder={placeholder ?? (mode === 'reel' ? 'Add a caption… use #tags and @mentions' : 'Share an update, a win or a question with fellow alumni…')}
+            ariaLabel="Write a post"
+            placeholder={placeholder ?? 'Share an update, a win or a question with fellow alumni…'}
             maxLength={POST_CONTENT_MAX}
             autoFocus={autoFocus}
             className="min-h-[80px] border-0 bg-muted/40 focus-visible:ring-1"
@@ -278,10 +272,7 @@ export function PostComposer({
                 <video src={video.preview} muted playsInline controls className="max-h-72 w-full" aria-label="Video preview" />
                 <button
                   type="button"
-                  onClick={() => {
-                    setVideo(null);
-                    setIsReel(mode === 'reel');
-                  }}
+                  onClick={() => setVideo(null)}
                   aria-label="Remove video"
                   className="absolute right-1 top-1 rounded-full bg-black/60 p-1 text-white hover:bg-black/80"
                 >
@@ -294,16 +285,7 @@ export function PostComposer({
                   <p className="text-xs text-muted-foreground">Uploading video… {video.progress}%</p>
                 </div>
               )}
-              <label className="flex items-center gap-2 text-sm">
-                <input type="checkbox" checked={isReel} onChange={(e) => setIsReel(e.target.checked)} className="accent-primary" />
-                <Clapperboard className="h-4 w-4 text-primary" aria-hidden="true" />
-                Post as a reel {video.vertical && <span className="text-xs text-muted-foreground">(vertical video detected)</span>}
-              </label>
             </div>
-          )}
-
-          {mode === 'reel' && !video && (
-            <p className="text-sm text-muted-foreground">Reels are short vertical videos. Choose a video to get started.</p>
           )}
 
           {error && (
@@ -316,15 +298,13 @@ export function PostComposer({
             <div className="flex items-center gap-1">
               <input ref={imageInput} type="file" accept={IMAGE_ACCEPT} multiple hidden onChange={(e) => { void addImages(e.target.files); e.target.value = ''; }} data-testid="composer-image-input" />
               <input ref={videoInput} type="file" accept={VIDEO_ACCEPT} hidden onChange={(e) => { void addVideo(e.target.files?.[0]); e.target.value = ''; }} data-testid="composer-video-input" />
-              {mode === 'post' && (
-                <Button type="button" variant="ghost" size="sm" onClick={() => imageInput.current?.click()} disabled={submitting || Boolean(video) || images.length >= MAX_POST_IMAGES} aria-label="Add photos">
-                  <ImagePlus className="mr-1.5 h-4 w-4 text-green-600" aria-hidden="true" />
-                  <span className="hidden sm:inline">Photo</span>
-                </Button>
-              )}
+              <Button type="button" variant="ghost" size="sm" onClick={() => imageInput.current?.click()} disabled={submitting || Boolean(video) || images.length >= MAX_POST_IMAGES} aria-label="Add photos">
+                <ImagePlus className="mr-1.5 h-4 w-4 text-green-600" aria-hidden="true" />
+                <span className="hidden sm:inline">Photo</span>
+              </Button>
               <Button type="button" variant="ghost" size="sm" onClick={() => videoInput.current?.click()} disabled={submitting || Boolean(video) || images.length > 0} aria-label="Add a video">
                 <Video className="mr-1.5 h-4 w-4 text-blue-600" aria-hidden="true" />
-                <span className="hidden sm:inline">{mode === 'reel' ? 'Choose video' : 'Video'}</span>
+                <span className="hidden sm:inline">Video</span>
               </Button>
               <label className="sr-only" htmlFor="composer-visibility">Who can see this</label>
               <span className="flex items-center gap-1 rounded-md px-2 text-sm text-muted-foreground">
@@ -346,7 +326,7 @@ export function PostComposer({
               </span>
               <Button type="button" onClick={submit} disabled={!canSubmit} size="sm">
                 {submitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" /> : <Send className="mr-2 h-4 w-4" aria-hidden="true" />}
-                {mode === 'reel' || isReel ? 'Share reel' : 'Post'}
+                Post
               </Button>
             </div>
           </div>

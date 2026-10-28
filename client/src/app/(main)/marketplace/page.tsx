@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 import { getApiErrorMessage, marketplaceApi, readPaginated, type MarketplaceListingInput } from '@/lib/api';
 import { LISTING_TYPES, listingTypeLabel } from '@/lib/marketplace';
+import { mediaSrc } from '@/lib/social';
 import { useAuth } from '@/context/auth-context';
 import { useToast } from '@/hooks/use-toast';
 import { useDebouncedValue } from '@/hooks/use-debounced-value';
@@ -101,7 +102,13 @@ function ListingCard({ listing, onOpen }: { listing: MarketplaceListing; onOpen:
           </Badge>
           {listing.isFeatured && <Badge>Featured</Badge>}
         </div>
-        <h3 className="font-semibold text-lg leading-snug line-clamp-2">{listing.title}</h3>
+        <div className="flex items-start gap-3">
+          {listing.logoUrl && (
+            // eslint-disable-next-line @next/next/no-img-element -- uploaded asset
+            <img src={mediaSrc(listing.logoUrl)} alt="" className="h-12 w-12 shrink-0 rounded-md border object-cover" />
+          )}
+          <h3 className="font-semibold text-lg leading-snug line-clamp-2">{listing.title}</h3>
+        </div>
         <p className="text-sm text-muted-foreground line-clamp-3">{listing.description}</p>
         <div className="space-y-1 text-sm text-muted-foreground">
           {listing.priceRange && (

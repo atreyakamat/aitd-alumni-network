@@ -75,13 +75,6 @@ export class FeedService {
     return this.chronological(ctx, page, authorFilter);
   }
 
-  async getReels(viewer: ViewerInput | null | undefined, query: PageQuery) {
-    const page = parsePage(query.cursor, query.limit);
-    const ctx = await loadViewerContext(viewer);
-    const reelsOnly = { isReel: true };
-    return ctx ? this.ranked(ctx, page, reelsOnly) : this.chronological(null, page, reelsOnly);
-  }
-
   async getHashtagPosts(rawTag: unknown, viewer: ViewerInput | null | undefined, query: PageQuery) {
     const tag = normalizeTag(rawTag);
     if (!tag) throw badRequest('Invalid hashtag', 'INVALID_HASHTAG');

@@ -132,20 +132,6 @@ describe('feedService.getFeed', () => {
 });
 
 describe('feedService lists', () => {
-  it('reels: ranked for members, newest first for visitors', async () => {
-    arrangeViewer(VIEWER);
-    prismaMock.post.findMany.mockResolvedValue([postRow({ id: 'reel', isReel: true, videoUrl: '/uploads/videos/v.mp4' })]);
-
-    await feedService.getReels({ id: VIEWER }, {});
-    expect(prismaMock.post.findMany.mock.calls[0][0]).toMatchObject({ take: RANKING_CANDIDATES });
-    expect(prismaMock.post.findMany.mock.calls[0][0].where.AND[2]).toEqual({ isReel: true });
-
-    prismaMock.post.findMany.mockClear();
-    const anon = await feedService.getReels(undefined, { limit: '5' });
-    expect(prismaMock.post.findMany.mock.calls[0][0]).toMatchObject({ take: 6, orderBy: [{ createdAt: 'desc' }, { id: 'desc' }] });
-    expect(anon.items[0]).toMatchObject({ id: 'reel', isReel: true });
-  });
-
   it('hashtag posts filter by the normalized tag and reject invalid tags', async () => {
     prismaMock.post.findMany.mockResolvedValue([]);
     await feedService.getHashtagPosts('#Placements', null, {});

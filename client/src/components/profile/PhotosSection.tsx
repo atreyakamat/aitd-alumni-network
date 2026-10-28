@@ -1,7 +1,7 @@
 'use client';
 
 import * as React from 'react';
-import { ImageIcon, Loader2, Upload } from 'lucide-react';
+import { Crop, ImageIcon, Loader2, Upload } from 'lucide-react';
 import { userApi } from '@/lib/api';
 import { PHOTO_ACCEPT, validatePhotoFile, type EditableProfile } from '@/lib/profile';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { getInitials } from '@/lib/utils';
 import { useSectionSave, type SectionProps } from './shared';
+import { ImageCropDialog } from './ImageCropDialog';
 
 type PhotoKind = 'profile' | 'cover';
 
@@ -32,6 +33,7 @@ function PhotoPicker({
   const inputId = `${kind}-photo-input`;
   const label = kind === 'profile' ? 'Profile photo' : 'Cover photo';
   const [file, setFile] = React.useState<File | null>(null);
+  const [cropFile, setCropFile] = React.useState<File | null>(null);
   const [preview, setPreview] = React.useState<string | null>(null);
   const [error, setError] = React.useState<string | null>(null);
   const inputRef = React.useRef<HTMLInputElement>(null);
@@ -57,6 +59,13 @@ function PhotoPicker({
     setError(null);
     setFile(selected);
     setPreview(createPreview(selected));
+  };
+
+  // Optional: open the cropper on the already-picked file to frame it before upload.
+  const handleCropped = (cropped: File) => {
+    setCropFile(null);
+    setFile(cropped);
+    setPreview(createPreview(cropped));
   };
 
   const handleUpload = async () => {
@@ -114,6 +123,10 @@ function PhotoPicker({
               {saving && <Loader2 className="h-4 w-4 mr-2 animate-spin" aria-hidden />}
               {saving ? 'Uploading...' : `Upload ${label.toLowerCase()}`}
             </Button>
+            <Button type="button" variant="outline" size="sm" onClick={() => setCropFile(file)} disabled={saving}>
+              <Crop className="h-4 w-4 mr-2" aria-hidden />
+              Crop
+            </Button>
             <Button type="button" variant="ghost" size="sm" onClick={reset} disabled={saving}>
               Cancel
             </Button>
@@ -121,13 +134,21 @@ function PhotoPicker({
         )}
       </div>
       <p id={`${inputId}-hint`} className="text-xs text-muted-foreground">
-        JPG, PNG or GIF, up to 5 MB.
+        JPG, PNG, GIF or WebP, up to 5 MB.
       </p>
       {error && (
         <p role="alert" className="text-sm text-destructive">
           {error}
         </p>
       )}
+
+      <ImageCropDialog
+        file={cropFile}
+        aspect={kind === 'profile' ? 1 : 3}
+        title={kind === 'profile' ? 'Crop profile photo' : 'Crop cover photo'}
+        onCancel={() => setCropFile(null)}
+        onCropped={handleCropped}
+      />
     </div>
   );
 }

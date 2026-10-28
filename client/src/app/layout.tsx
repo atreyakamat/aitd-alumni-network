@@ -5,7 +5,9 @@ import { Providers } from '@/context/providers';
 import { Toaster } from '@/components/ui/toaster';
 import { BRAND } from '@/lib/brand';
 
-export const dynamic = 'force-dynamic';
+// No global force-dynamic: public marketing/legal pages render statically (better SEO +
+// CDN caching), while authenticated pages are client components that fetch after hydration,
+// and dynamic [id] routes (no generateStaticParams) still render on demand.
 
 const bodyFont = Inter({
   subsets: ['latin'],

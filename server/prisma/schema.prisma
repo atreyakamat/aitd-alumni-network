@@ -99,6 +99,7 @@ enum MarketplaceListingType {
   BUSINESS
   SERVICE
   REQUIREMENT
+  FOUNDER
 }
 
 enum ConnectionStatus {
@@ -171,6 +172,41 @@ enum TransactionStatus {
   REFUNDED
 }
 
+enum VideoStatus {
+  PENDING   // submitted by a member/student/alumni, awaiting admin review
+  APPROVED  // live on the public Videos page
+  REJECTED
+}
+
+enum RequirementCategory {
+  HARDWARE
+  SOFTWARE
+  EXPERTISE
+  SPONSORSHIP
+  OTHER
+}
+
+enum RequirementStatus {
+  OPEN
+  FULFILLED
+  CLOSED
+}
+
+enum ReferralStatus {
+  PENDING
+  ACCEPTED
+  DECLINED
+}
+
+enum LandingBlockType {
+  HERO
+  TEXT
+  IMAGE
+  STATS
+  CTA
+  HTML
+}
+
 // ============== MODELS ==============
 
 model User {
@@ -191,11 +227,18 @@ model User {
   currentDesignation String?
   shortBio          String?   @db.Text
   
-  // Location
+  // Location. homeLat/Lng is the residence; workLat/Lng is where the member works.
+  // locationLat/Lng is the map pin, DERIVED on save as work-if-set-else-residence, so the
+  // alumni map/nearby queries (which read locationLat/Lng) prefer the work location.
   city              String?
   hometown          String?
   locationLat       Decimal?  @db.Decimal(10, 8)
   locationLng       Decimal?  @db.Decimal(11, 8)
+  homeLat           Decimal?  @db.Decimal(10, 8)
+  homeLng           Decimal?  @db.Decimal(11, 8)
+  workCity          String?
+  workLat           Decimal?  @db.Decimal(10, 8)
+  workLng           Decimal?  @db.Decimal(11, 8)
   isLocationPublic  Boolean   @default(false)
   
   // Contact & Social
@@ -216,6 +259,7 @@ model User {
   profileCompleteness Int     @default(0)
   lastLoginAt       DateTime?
   twoFactorEnabled  Boolean   @default(false)
+  digestOptOut      Boolean   @default(false) // unsubscribed from the weekly digest email
   tokenVersion      Int       @default(0) // Bumped to invalidate every issued access token
   
   // Membership
@@ -263,14 +307,22 @@ model User {
   postImpressions   PostImpression[]
   reportsFiled      ContentReport[] @relation("ReportsFiled")
   reportsResolved   ContentReport[] @relation("ReportsResolved")
-  
+  collegeVideosSubmitted CollegeVideo[]    @relation("CollegeVideosSubmitted")
+  collegeVideosReviewed  CollegeVideo[]    @relation("CollegeVideosReviewed")
+  collegeMagazines       CollegeMagazine[] @relation("CollegeMagazines")
+  requirementsPosted     CollegeRequirement[]  @relation("RequirementsPosted")
+  requirementResponses   RequirementResponse[]
+  referralsSent          ReferralRequest[] @relation("ReferralRequester")
+  referralsReceived      ReferralRequest[] @relation("ReferralTarget")
+
   @@index([email])
   @@index([batchYear])
   @@index([department])
   @@index([city])
   @@index([isActive])
   @@index([fullName])
-  // Bounding-box scans for the alumni map / nearby search (see userService.getNearbyAlumni)
+  // Bounding-box scans for the alumni map / nearby search (see userService.getNearbyAlumni).
+  // locationLat/Lng is the derived map pin, so one index on it still serves every map query.
   @@index([locationLat, locationLng])
 }
 
@@ -624,10 +676,13 @@ model JobOpportunity {
   status          JobStatus     @default(DRAFT)
   rejectionReason String?       @db.Text
   isFeatured      Boolean       @default(false)
+  isOfficial      Boolean       @default(false) // posted by the placement cell / admin
   viewCount       Int           @default(0)
   createdAt       DateTime      @default(now())
   updatedAt       DateTime      @updatedAt
-  
+
+  referralRequests ReferralRequest[]
+
   @@index([postedById])
   @@index([status])
   @@index([jobType])
@@ -869,6 +924,8 @@ model MarketplaceListing {
   website     String?
   contactInfo String?
   priceRange  String?
+  logoUrl     String?                // business/founder logo or headshot
+  images      Json?                  // array of showcase image URLs
   isActive    Boolean                @default(true)
   isFeatured  Boolean                @default(false)
   viewCount   Int                    @default(0)
@@ -989,6 +1046,137 @@ model Invite {
   @@index([token])
   @@index([inviterId])
   @@index([status])
+}
+
+// ============== COLLEGE VIDEOS ==============
+
+// Admin-managed college videos. Members (students/alumni) may submit videos, which
+// enter as PENDING and become visible only once an admin APPROVES them.
+model CollegeVideo {
+  id              String      @id @default(uuid())
+  title           String
+  description     String?     @db.Text
+  videoUrl        String
+  thumbnailUrl    String?
+  category        String?     // Campus, Convocation, Lectures, Student Life, ...
+  status          VideoStatus @default(PENDING)
+  viewCount       Int         @default(0)
+  // Who submitted it (member or admin) and the admin who reviewed it
+  submittedById   String
+  submittedBy     User        @relation("CollegeVideosSubmitted", fields: [submittedById], references: [id], onDelete: Cascade)
+  reviewedById    String?
+  reviewedBy      User?       @relation("CollegeVideosReviewed", fields: [reviewedById], references: [id], onDelete: SetNull)
+  reviewedAt      DateTime?
+  rejectionReason String?     @db.Text
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  @@index([status, createdAt])
+  @@index([submittedById])
+  @@index([category])
+}
+
+// ============== COLLEGE MAGAZINE ==============
+
+// Admin-published magazine editions (a cover image + a PDF).
+model CollegeMagazine {
+  id            String   @id @default(uuid())
+  title         String
+  edition       String?  // e.g. "Vol 12 • 2026"
+  description   String?  @db.Text
+  coverImageUrl String?
+  fileUrl       String   // the magazine PDF
+  isPublished   Boolean  @default(true)
+  uploadedById  String
+  uploadedBy    User     @relation("CollegeMagazines", fields: [uploadedById], references: [id], onDelete: Cascade)
+  publishedAt   DateTime @default(now())
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([isPublished, publishedAt])
+}
+
+// ============== COLLEGE REQUIREMENTS ==============
+
+// The college posts a requirement; alumni respond offering to provide/help.
+model CollegeRequirement {
+  id          String              @id @default(uuid())
+  title       String
+  description String              @db.Text
+  category    RequirementCategory @default(OTHER)
+  status      RequirementStatus   @default(OPEN)
+  postedById  String
+  postedBy    User                @relation("RequirementsPosted", fields: [postedById], references: [id], onDelete: Cascade)
+  createdAt   DateTime            @default(now())
+  updatedAt   DateTime            @updatedAt
+
+  responses   RequirementResponse[]
+
+  @@index([status, createdAt])
+  @@index([category])
+}
+
+model RequirementResponse {
+  id            String             @id @default(uuid())
+  requirementId String
+  requirement   CollegeRequirement @relation(fields: [requirementId], references: [id], onDelete: Cascade)
+  userId        String
+  user          User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  message       String             @db.Text
+  status        String             @default("OFFERED") // OFFERED, ACCEPTED, DECLINED
+  createdAt     DateTime           @default(now())
+
+  @@unique([requirementId, userId]) // one offer per alum per requirement
+  @@index([requirementId])
+  @@index([userId])
+}
+
+// ============== JOB REFERRALS ==============
+
+model ReferralRequest {
+  id          String         @id @default(uuid())
+  requesterId String
+  requester   User           @relation("ReferralRequester", fields: [requesterId], references: [id], onDelete: Cascade)
+  targetId    String
+  target      User           @relation("ReferralTarget", fields: [targetId], references: [id], onDelete: Cascade)
+  jobId       String?        // optional: a specific job on the board
+  job         JobOpportunity? @relation(fields: [jobId], references: [id], onDelete: SetNull)
+  company     String
+  message     String         @db.Text
+  status      ReferralStatus @default(PENDING)
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+
+  @@unique([requesterId, targetId, jobId]) // no duplicate asks for the same job
+  @@index([targetId, status])
+  @@index([requesterId])
+}
+
+// ============== WEEKLY DIGEST ==============
+
+// Single admin-edited row (id = "default") controlling the weekly digest email.
+model DigestSettings {
+  id        String   @id @default("default")
+  enabled   Boolean  @default(false)
+  dayOfWeek Int      @default(1) // 0=Sunday .. 1=Monday
+  hour      Int      @default(9) // server local hour, 0-23
+  sections  Json     // { nearbyAlumni, jobs, events, videos, requirements } booleans
+  lastRunAt DateTime? // last time the weekly send fired (dedupes to once per week)
+  updatedAt DateTime @updatedAt
+}
+
+// ============== LANDING PAGE BUILDER ==============
+
+model LandingBlock {
+  id          String           @id @default(uuid())
+  type        LandingBlockType
+  config      Json             // per-type fields (title/body/imageUrl/items[] or raw html+css)
+  order       Int              @default(0)
+  isPublished Boolean          @default(true)
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  @@index([isPublished, order])
 }
 
 // ============== AUDIT LOG ==============

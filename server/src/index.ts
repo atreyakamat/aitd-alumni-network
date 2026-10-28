@@ -7,6 +7,8 @@ import { initSocket } from './utils/socket';
 import { createShutdown } from './utils/shutdown';
 import prisma from './config/database';
 import redis from './config/redis';
+import { startNotificationWorker } from './workers/notificationWorker';
+import { startDigestWorker } from './workers/digestWorker';
 
 const PORT = process.env.PORT || 5000;
 const DATABASE_URL = process.env.DATABASE_URL || '';
@@ -32,6 +34,10 @@ const server = createServer(app);
 // Initialize Socket.io
 const io = initSocket(server);
 
+// Background workers (no-op without Redis): broadcast notifications + weekly digest tick
+const notificationWorker = startNotificationWorker();
+const digestWorker = startDigestWorker();
+
 const shutdown = createShutdown({
   server,
   io,
@@ -42,8 +48,15 @@ const shutdown = createShutdown({
   exit: (code) => process.exit(code),
   log: (message) => console.log(message),
 });
-process.on('SIGTERM', () => void shutdown('SIGTERM'));
-process.on('SIGINT', () => void shutdown('SIGINT'));
+const stop = async (signal: string) => {
+  await Promise.all([
+    notificationWorker?.close().catch(() => undefined),
+    digestWorker?.close().catch(() => undefined),
+  ]);
+  await shutdown(signal);
+};
+process.on('SIGTERM', () => void stop('SIGTERM'));
+process.on('SIGINT', () => void stop('SIGINT'));
 process.on('unhandledRejection', (reason) => {
   console.error('Unhandled promise rejection:', reason);
 });

@@ -14,6 +14,11 @@ interface UpdateProfileInput {
   hometown?: string | null;
   locationLat?: number | null;
   locationLng?: number | null;
+  homeLat?: number | null;
+  homeLng?: number | null;
+  workLat?: number | null;
+  workLng?: number | null;
+  workCity?: string | null;
   isLocationPublic?: boolean;
   phoneNumber?: string | null;
   phoneVisibility?: string;
@@ -301,9 +306,8 @@ export class UserService {
 
     // Never expose credentials; hide the rest according to privacy settings.
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const { passwordHash, phoneNumber, locationLat, locationLng, ...userData } = user as typeof user & {
-      passwordHash?: string | null;
-    };
+    const { passwordHash, phoneNumber, locationLat, locationLng, homeLat, homeLng, workLat, workLng, ...userData } =
+      user as typeof user & { passwordHash?: string | null };
     const profile: Record<string, unknown> = { ...userData };
 
     let visiblePhoneNumber: string | null = null;
@@ -329,6 +333,12 @@ export class UserService {
       phoneNumber: visiblePhoneNumber,
       locationLat: showPreciseLocation ? toNumber(locationLat) ?? null : null,
       locationLng: showPreciseLocation ? toNumber(locationLng) ?? null : null,
+      // Residence/work coordinates are precise location data: only the owner (or a public
+      // profile) exposes them so the edit form can prefill both pickers.
+      homeLat: showPreciseLocation ? toNumber(homeLat) ?? null : null,
+      homeLng: showPreciseLocation ? toNumber(homeLng) ?? null : null,
+      workLat: showPreciseLocation ? toNumber(workLat) ?? null : null,
+      workLng: showPreciseLocation ? toNumber(workLng) ?? null : null,
       connectionCount: user._count.connectionsSent + user._count.connectionsReceived,
       postCount: user._count.posts,
       isConnected,
@@ -342,7 +352,11 @@ export class UserService {
 
     const existing = await prisma.user.findUnique({
       where: { id: userId },
-      select: { id: true, isActive: true, coverPhotoUrl: true, ...COMPLETENESS_FIELDS },
+      select: {
+        id: true, isActive: true, coverPhotoUrl: true,
+        homeLat: true, homeLng: true, workLat: true, workLng: true,
+        ...COMPLETENESS_FIELDS,
+      },
     });
 
     if (!existing || !existing.isActive) {
@@ -376,9 +390,37 @@ export class UserService {
       }
     }
 
-    // Only touch coordinates that were actually supplied (undefined = leave unchanged, null = clear).
-    if (data.locationLat !== undefined) update.locationLat = parseCoordinate(data.locationLat, 'locationLat', 90);
-    if (data.locationLng !== undefined) update.locationLng = parseCoordinate(data.locationLng, 'locationLng', 180);
+    // Location coordinates. homeLat/Lng is the residence, workLat/Lng the work location.
+    // Legacy clients send locationLat/Lng for the residence, so those alias to home.
+    // Only touch what was supplied (undefined = leave unchanged, null = clear).
+    if (data.workCity !== undefined) {
+      update.workCity = isNonEmptyString(data.workCity) ? (data.workCity as string).trim() : null;
+    }
+    if (data.homeLat !== undefined || data.locationLat !== undefined) {
+      update.homeLat = parseCoordinate(data.homeLat !== undefined ? data.homeLat : data.locationLat, 'homeLat', 90);
+    }
+    if (data.homeLng !== undefined || data.locationLng !== undefined) {
+      update.homeLng = parseCoordinate(data.homeLng !== undefined ? data.homeLng : data.locationLng, 'homeLng', 180);
+    }
+    if (data.workLat !== undefined) update.workLat = parseCoordinate(data.workLat, 'workLat', 90);
+    if (data.workLng !== undefined) update.workLng = parseCoordinate(data.workLng, 'workLng', 180);
+
+    // Derive the map pin: work location when set, otherwise residence. Uses the new value
+    // where one was supplied, falling back to what is already stored for the other side.
+    const coordsTouched = ['homeLat', 'homeLng', 'workLat', 'workLng', 'locationLat', 'locationLng'].some(
+      (k) => data[k] !== undefined
+    );
+    if (coordsTouched) {
+      const current = (key: 'homeLat' | 'homeLng' | 'workLat' | 'workLng', updKey: string) =>
+        updKey in update ? (update[updKey] as number | null) : toNumber(existing[key]) ?? null;
+      const homeLat = current('homeLat', 'homeLat');
+      const homeLng = current('homeLng', 'homeLng');
+      const workLat = current('workLat', 'workLat');
+      const workLng = current('workLng', 'workLng');
+      const hasWork = workLat !== null && workLng !== null;
+      update.locationLat = hasWork ? workLat : homeLat;
+      update.locationLng = hasWork ? workLng : homeLng;
+    }
 
     update.profileCompleteness = calculateProfileCompleteness({
       profilePhotoUrl: existing.profilePhotoUrl,

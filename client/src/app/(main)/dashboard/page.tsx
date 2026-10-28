@@ -80,7 +80,7 @@ export default function DashboardPage() {
           </CardHeader>
           <CardContent className="space-y-1">
             {[
-              { href: '/reels', label: 'Reels', icon: Clapperboard },
+              { href: '/videos', label: 'Videos', icon: Clapperboard },
               { href: '/saved', label: 'Saved posts', icon: Bookmark },
               { href: '/network', label: 'My connections', icon: Users },
               { href: '/jobs', label: 'Job board', icon: Briefcase },

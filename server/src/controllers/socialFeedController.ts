@@ -32,7 +32,6 @@ const viewer = (req: Request) => req.user!;
 export const socialFeedController = {
   // Feeds
   getFeed: handle((req) => feedService.getFeed(viewer(req), req.query)),
-  getReels: handle((req) => feedService.getReels(req.user, req.query)),
   getTrendingHashtags: handle((req) => hashtagService.getTrending(req.query.days, req.query.limit)),
   getHashtagPosts: handle((req) => feedService.getHashtagPosts(req.params.tag, req.user, req.query)),
   getUserPosts: handle((req) => feedService.getUserPosts(req.params.id, req.user, req.query)),

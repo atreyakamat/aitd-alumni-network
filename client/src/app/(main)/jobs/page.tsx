@@ -185,6 +185,7 @@ export default function JobsPage() {
                   <div className="flex-1 min-w-0">
                     <div className="flex flex-wrap items-start gap-2 mb-2">
                       <h3 className="text-lg font-semibold">{job.title}</h3>
+                      {job.isOfficial && <Badge className="bg-gold text-gold-foreground">Placement Cell</Badge>}
                       <Badge className={jobTypeColors[job.jobType ?? job.type]}>
                         {jobTypeLabels[job.jobType ?? job.type] ?? job.jobType}
                       </Badge>

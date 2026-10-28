@@ -88,7 +88,6 @@ const MATRIX: Record<string, Level> = {
 
   // Social (docs/SOCIAL_API.md)
   'get /feed': 'auth',
-  'get /reels': 'optional',
   'get /saved': 'auth',
   'get /hashtags/trending': 'optional',
   'get /hashtags/:tag/posts': 'optional',
@@ -170,11 +169,64 @@ const MATRIX: Record<string, Level> = {
   'post /news/:id/unpublish': 'admin',
   'delete /news/:id': 'admin',
 
+  // College videos (members submit; admins moderate)
+  'get /videos': 'optional',
+  'get /videos/mine': 'auth',
+  'get /videos/:id': 'optional',
+  'post /videos/upload': 'auth',
+  'post /videos/upload-thumbnail': 'auth',
+  'post /videos': 'auth',
+  'patch /videos/:id': 'admin',
+  'post /videos/:id/approve': 'admin',
+  'post /videos/:id/reject': 'admin',
+  'delete /videos/:id': 'auth',
+
+  // College magazine (admin-managed)
+  'get /magazine': 'optional',
+  'get /magazine/:id': 'optional',
+  'post /magazine/upload-file': 'admin',
+  'post /magazine/upload-cover': 'admin',
+  'post /magazine': 'admin',
+  'patch /magazine/:id': 'admin',
+  'delete /magazine/:id': 'admin',
+
+  // College requirements
+  'get /requirements': 'optional',
+  'post /requirements/responses/:responseId/review': 'admin',
+  'get /requirements/:id': 'optional',
+  'post /requirements': 'admin',
+  'patch /requirements/:id': 'admin',
+  'delete /requirements/:id': 'admin',
+  'post /requirements/:id/respond': 'auth',
+
+  // Job referrals
+  'get /referrals/referrers': 'auth',
+  'get /referrals/received': 'auth',
+  'get /referrals/sent': 'auth',
+  'post /referrals': 'auth',
+  'post /referrals/:id/respond': 'auth',
+
+  // Weekly digest (admin)
+  'get /admin/digest': 'admin',
+  'patch /admin/digest': 'admin',
+  'post /admin/digest/send': 'admin',
+  'post /admin/digest/test': 'admin',
+
+  // Landing page builder
+  'get /landing': 'optional',
+  'get /admin/landing': 'admin',
+  'post /admin/landing': 'admin',
+  'patch /admin/landing/reorder': 'admin',
+  'patch /admin/landing/:id': 'admin',
+  'delete /admin/landing/:id': 'admin',
+
   // Chapters
   'get /chapters': 'public',
   'get /chapters/my': 'auth',
   'get /chapters/:id': 'public',
   'get /chapters/:id/members': 'auth',
+  'post /marketplace/upload-image': 'auth',
+
   'post /chapters': 'admin',
   'patch /chapters/:id': 'chapterAdmin',
   'put /chapters/:id/admin': 'admin',

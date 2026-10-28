@@ -7,6 +7,7 @@ import { useAuth } from '@/context/auth-context';
 import { useToast } from '@/hooks/use-toast';
 import { getApiErrorMessage, networkApi, userApi } from '@/lib/api';
 import { formatMonth, isHttpUrl, profileQueryKey } from '@/lib/profile';
+import { mediaSrc } from '@/lib/social';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -189,13 +190,13 @@ export function ProfileClient({ profile: initialProfile, id }: { profile: any; i
         <div className="h-48 bg-gradient-to-r from-primary to-primary/60">
           {profile.coverPhotoUrl && (
             // eslint-disable-next-line @next/next/no-img-element -- user-uploaded covers come from arbitrary storage hosts
-            <img src={profile.coverPhotoUrl} alt="" className="h-full w-full object-cover" />
+            <img src={mediaSrc(profile.coverPhotoUrl)} alt="" className="h-full w-full object-cover" />
           )}
         </div>
         <CardContent className="relative pb-6">
           <div className="flex flex-col sm:flex-row sm:items-end gap-4 -mt-16 sm:-mt-12">
             <Avatar className="h-32 w-32 border-4 border-white shadow-lg">
-              <AvatarImage src={profile.profilePhotoUrl || profile.avatarUrl || undefined} alt={profile.fullName} />
+              <AvatarImage src={mediaSrc(profile.profilePhotoUrl || profile.avatarUrl) || undefined} alt={profile.fullName} />
               <AvatarFallback className="text-3xl">
                 {getInitials(profile.fullName || 'User')}
               </AvatarFallback>

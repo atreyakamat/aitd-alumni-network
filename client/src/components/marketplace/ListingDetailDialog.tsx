@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { getApiErrorMessage, marketplaceApi } from '@/lib/api';
 import { isSafeHttpUrl, listingTypeLabel } from '@/lib/marketplace';
+import { mediaSrc } from '@/lib/social';
 import { formatDate, getInitials } from '@/lib/utils';
 import type { MarketplaceListing } from '@/types';
 
@@ -77,6 +78,10 @@ export function ListingDetailDialog({
                 {listing.isFeatured && <Badge>Featured</Badge>}
                 {!listing.isActive && <Badge variant="destructive">Paused</Badge>}
               </div>
+              {listing.logoUrl && (
+                // eslint-disable-next-line @next/next/no-img-element -- uploaded asset
+                <img src={mediaSrc(listing.logoUrl)} alt="" className="h-16 w-16 rounded-md border object-cover" />
+              )}
               <DialogTitle className="text-xl">{listing.title}</DialogTitle>
               <DialogDescription className="flex flex-wrap items-center gap-x-4 gap-y-1">
                 <span>Listed {formatDate(listing.createdAt)}</span>
@@ -88,6 +93,19 @@ export function ListingDetailDialog({
             </DialogHeader>
 
             <p className="whitespace-pre-line text-sm leading-relaxed">{listing.description}</p>
+
+            {Array.isArray(listing.images) && listing.images.length > 0 && (
+              <ul className="grid grid-cols-2 gap-2 sm:grid-cols-3" aria-label="Showcase images">
+                {listing.images.map((url, i) => (
+                  <li key={url} className="overflow-hidden rounded-md border bg-muted">
+                    <a href={mediaSrc(url)} target="_blank" rel="noreferrer">
+                      {/* eslint-disable-next-line @next/next/no-img-element -- uploaded asset */}
+                      <img src={mediaSrc(url)} alt={`Showcase ${i + 1}`} className="aspect-square w-full object-cover transition-transform hover:scale-105" />
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            )}
 
             <dl className="grid gap-3 text-sm">
               {listing.priceRange && (

@@ -8,6 +8,7 @@ import { UpcomingEvents } from '@/components/features/UpcomingEvents';
 import { LatestNews } from '@/components/features/LatestNews';
 import { Footer } from '@/components/layout/Footer';
 import { PublicNav } from '@/components/layout/PublicNav';
+import { LandingBlocks } from '@/components/landing/LandingBlocks';
 
 export default function HomePage() {
   return (
@@ -17,6 +18,8 @@ export default function HomePage() {
         <HeroSection />
         <StatsSection />
         <FeaturesSection />
+        {/* Admin-authored custom sections (landing page builder); renders nothing if unused */}
+        <LandingBlocks />
         <NotableAlumni />
         <UpcomingEvents />
         <LatestNews />

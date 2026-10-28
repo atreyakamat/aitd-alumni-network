@@ -80,20 +80,19 @@ describe('PostComposer', () => {
     expect(socialApi.uploadVideo).not.toHaveBeenCalled();
   });
 
-  it('in reel mode, needs a video before it can post and sends isReel', async () => {
+  it('attaches a video to a post and submits it', async () => {
     socialApi.uploadVideo.mockImplementation(async (_f: File, onProgress: (n: number) => void) => {
       onProgress(50);
       return { url: '/uploads/videos/r.mp4', mimeType: 'video/mp4', size: 3 };
     });
-    socialApi.createPost.mockResolvedValue(makePost({ isReel: true, videoUrl: '/uploads/videos/r.mp4' }));
-    render(<PostComposer mode="reel" />);
-    await userEvent.type(screen.getByRole('combobox', { name: 'Reel caption' }), 'Campus tour');
-    expect(screen.getByRole('button', { name: 'Share reel' })).toBeDisabled();
+    socialApi.createPost.mockResolvedValue(makePost({ videoUrl: '/uploads/videos/r.mp4' }));
+    render(<PostComposer />);
+    await userEvent.type(screen.getByRole('combobox', { name: 'Write a post' }), 'Campus tour');
     await userEvent.upload(screen.getByTestId('composer-video-input'), new File(['v'], 'r.mp4', { type: 'video/mp4' }));
-    await waitFor(() => expect(screen.getByRole('button', { name: 'Share reel' })).toBeEnabled());
-    await userEvent.click(screen.getByRole('button', { name: 'Share reel' }));
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Post' })).toBeEnabled());
+    await userEvent.click(screen.getByRole('button', { name: 'Post' }));
     await waitFor(() =>
-      expect(socialApi.createPost).toHaveBeenCalledWith(expect.objectContaining({ content: 'Campus tour', videoUrl: '/uploads/videos/r.mp4', isReel: true }))
+      expect(socialApi.createPost).toHaveBeenCalledWith(expect.objectContaining({ content: 'Campus tour', videoUrl: '/uploads/videos/r.mp4' }))
     );
   });
 

@@ -5,7 +5,10 @@ export const LISTING_TYPES: ReadonlyArray<{ value: MarketplaceListingType; label
   { value: 'BUSINESS', label: 'Business', plural: 'Businesses', hint: 'A company, shop or practice run by an alum' },
   { value: 'SERVICE', label: 'Service', plural: 'Services', hint: 'Consulting, freelancing or professional help' },
   { value: 'REQUIREMENT', label: 'Requirement', plural: 'Requirements', hint: 'Something you are looking for' },
+  { value: 'FOUNDER', label: 'Founder', plural: 'Founders', hint: 'An alum who founded a startup or venture' },
 ];
+
+export const MARKETPLACE_MAX_IMAGES = 8;
 
 export const listingTypeLabel = (type: string) => LISTING_TYPES.find((t) => t.value === type)?.label ?? type;
 
@@ -32,6 +35,8 @@ export interface ListingFormValues {
   website: string;
   contactInfo: string;
   priceRange: string;
+  logoUrl: string | null;
+  images: string[];
 }
 
 export const EMPTY_LISTING_FORM: ListingFormValues = {
@@ -43,6 +48,8 @@ export const EMPTY_LISTING_FORM: ListingFormValues = {
   website: '',
   contactInfo: '',
   priceRange: '',
+  logoUrl: null,
+  images: [],
 };
 
 const OPTIONAL_FIELDS = ['location', 'website', 'contactInfo', 'priceRange'] as const;
@@ -57,6 +64,8 @@ export function listingToFormValues(listing: MarketplaceListing): ListingFormVal
     website: listing.website ?? '',
     contactInfo: listing.contactInfo ?? '',
     priceRange: listing.priceRange ?? '',
+    logoUrl: listing.logoUrl ?? null,
+    images: Array.isArray(listing.images) ? listing.images : [],
   };
 }
 
@@ -110,5 +119,10 @@ export function buildListingPayload(values: ListingFormValues, mode: 'create' | 
     if (value) payload[field] = value;
     else if (mode === 'edit') payload[field] = null;
   }
+  // Media: send images whenever there are any (and always on edit so they can be cleared);
+  // send logoUrl when set, or null on edit to clear it.
+  if (values.images.length > 0 || mode === 'edit') payload.images = values.images;
+  if (values.logoUrl) payload.logoUrl = values.logoUrl;
+  else if (mode === 'edit') payload.logoUrl = null;
   return payload;
 }

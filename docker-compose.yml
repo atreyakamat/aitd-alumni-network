@@ -1,22 +1,24 @@
-# AITD Alumni Network — full stack on PostgreSQL.
+# AIEM Connection — full stack on PostgreSQL.
 #
-#   cp .env.docker.example .env      # then set the secrets marked REQUIRED
-#   docker compose up -d --build
+# One-command setup (generates .env with secrets, builds, starts, runs migrations + seed):
+#   ./start.sh          (or: make up)
+#
+# Manual:  cp .env.docker.example .env  (set the REQUIRED secrets)  &&  docker compose up -d --build
 #
 #   web  -> http://localhost:3000        api -> http://localhost:5000 (health: /health)
 #   With the reverse proxy (single origin on :80):  docker compose --profile proxy up -d --build
 #
 # Data lives in the named volumes below; `docker compose down` keeps it, `down -v` deletes it.
 
-name: aitd-alumni-network
+name: aiem-connection
 
 services:
   postgres:
     image: postgres:17-alpine
     restart: unless-stopped
     environment:
-      POSTGRES_DB: ${POSTGRES_DB:-alumni_connect}
-      POSTGRES_USER: ${POSTGRES_USER:-aitd}
+      POSTGRES_DB: ${POSTGRES_DB:-aiem_connect}
+      POSTGRES_USER: ${POSTGRES_USER:-aiem}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
     volumes:
       - postgres_data:/var/lib/postgresql/data
@@ -56,7 +58,7 @@ services:
     environment:
       NODE_ENV: production
       PORT: 5000
-      DATABASE_URL: postgresql://${POSTGRES_USER:-aitd}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-alumni_connect}?schema=public
+      DATABASE_URL: postgresql://${POSTGRES_USER:-aiem}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-aiem_connect}?schema=public
       REDIS_URL: redis://redis:6379
       JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET (32+ random characters) in .env}
       JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:?Set JWT_REFRESH_SECRET (32+ random characters) in .env}
@@ -66,7 +68,7 @@ services:
       CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3000,http://localhost}
       # First boot: creates the super admin from SEED_ADMIN_EMAIL / SEED_ADMIN_PASSWORD (idempotent)
       SEED_ON_START: ${SEED_ON_START:-true}
-      SEED_ADMIN_EMAIL: ${SEED_ADMIN_EMAIL:-admin@aitdconnection.edu}
+      SEED_ADMIN_EMAIL: ${SEED_ADMIN_EMAIL:-admin@aiemgoa.ac.in}
       SEED_ADMIN_PASSWORD: ${SEED_ADMIN_PASSWORD:-}
       SEED_SAMPLE_DATA: ${SEED_SAMPLE_DATA:-false}
       GEOCODER_URL: ${GEOCODER_URL:-https://nominatim.openstreetmap.org}
@@ -79,7 +81,7 @@ services:
       SMTP_PORT: ${SMTP_PORT:-587}
       SMTP_USER: ${SMTP_USER:-}
       SMTP_PASS: ${SMTP_PASS:-}
-      EMAIL_FROM: ${EMAIL_FROM:-noreply@aitdconnection.edu}
+      EMAIL_FROM: ${EMAIL_FROM:-noreply@aiemgoa.ac.in}
       AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-}
       AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-}
       AWS_REGION: ${AWS_REGION:-ap-south-1}

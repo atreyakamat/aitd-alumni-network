@@ -1,7 +1,8 @@
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
-import { ArrowRight, BookOpen } from 'lucide-react';
+import { ArrowRight } from 'lucide-react';
 import { BRAND } from '@/lib/brand';
+import { HeroStats } from '@/components/features/HeroStats';
 
 export function HeroSection() {
   return (
@@ -47,25 +48,7 @@ export function HeroSection() {
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-4 lg:col-span-5">
-            <div className="flex min-h-[190px] flex-col justify-end rounded-xl border-b-4 border-gold bg-white/80 p-8 backdrop-blur">
-              <span className="font-headline text-4xl font-bold text-primary">24k+</span>
-              <span className="text-xs uppercase tracking-tight text-slate-600 font-label">Global Alumni</span>
-            </div>
-            <div className="flex min-h-[190px] flex-col justify-end rounded-xl bg-primary p-8 text-white">
-              <span className="font-headline text-4xl font-bold">850</span>
-              <span className="text-xs uppercase tracking-tight text-white/70 font-label">Active Careers</span>
-            </div>
-            <div className="col-span-2 flex min-h-[190px] flex-col justify-end rounded-xl bg-slate-100/95 p-8">
-              <div className="flex items-end justify-between">
-                <div>
-                  <span className="font-headline text-4xl font-bold text-primary">120</span>
-                  <span className="mt-1 block text-xs uppercase tracking-tight text-slate-600 font-label">Annual Events</span>
-                </div>
-                <BookOpen className="h-12 w-12 text-gold" />
-              </div>
-            </div>
-          </div>
+          <HeroStats />
         </div>
       </div>
     </section>

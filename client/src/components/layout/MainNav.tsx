@@ -40,6 +40,11 @@ import {
   Clapperboard,
   Bookmark,
   Flag,
+  BookOpen,
+  HandHeart,
+  Handshake,
+  Mail,
+  LayoutTemplate,
 } from 'lucide-react';
 import { getInitials } from '@/lib/utils';
 import { isAdmin as hasAdminRole } from '@/lib/roles';
@@ -48,7 +53,7 @@ import { useState } from 'react';
 
 const navItems = [
   { href: '/dashboard', label: 'Home', icon: Home },
-  { href: '/reels', label: 'Reels', icon: Clapperboard },
+  { href: '/videos', label: 'Videos', icon: Clapperboard },
   { href: '/network', label: 'Network', icon: Users },
   { href: '/jobs', label: 'Jobs', icon: Briefcase },
   { href: '/events', label: 'Events', icon: CalendarDays },
@@ -60,6 +65,9 @@ const moreItems = [
   { href: '/directory', label: 'Directory', icon: Users },
   { href: '/yearbook', label: 'Yearbook', icon: GraduationCap },
   { href: '/gallery', label: 'Gallery', icon: Image },
+  { href: '/magazine', label: 'Magazine', icon: BookOpen },
+  { href: '/referrals', label: 'Referrals', icon: Handshake },
+  { href: '/requirements', label: 'Help the college', icon: HandHeart },
   { href: '/news', label: 'News', icon: Newspaper },
   { href: '/donations', label: 'Donate', icon: Heart },
   { href: '/chapters', label: 'Chapters', icon: MapPin },
@@ -71,6 +79,11 @@ export const adminItems = [
   { href: '/admin', label: 'Admin', icon: Shield },
   { href: '/admin/users', label: 'Manage Users', icon: UserCog },
   { href: '/admin/moderation', label: 'Moderation', icon: ClipboardCheck },
+  { href: '/admin/videos', label: 'College Videos', icon: Clapperboard },
+  { href: '/admin/magazine', label: 'Magazine', icon: BookOpen },
+  { href: '/admin/requirements', label: 'Requirements', icon: HandHeart },
+  { href: '/admin/communications', label: 'Communications', icon: Mail },
+  { href: '/admin/landing', label: 'Landing page', icon: LayoutTemplate },
   { href: '/admin/reports', label: 'Reported content', icon: Flag },
   { href: '/admin/audit', label: 'Audit log', icon: ScrollText },
 ];

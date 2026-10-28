@@ -724,8 +724,6 @@ export const socialApi = {
     normalizeTrending(data(await api.get('/hashtags/trending', { params: { days: opts.days ?? 7, limit: opts.limit ?? 10 }, signal: opts.signal }))),
   hashtagPosts: async (tag: string, cursor?: string | null, opts: Opts = {}) =>
     normalizePage(data(await api.get(`/hashtags/${seg(tag)}/posts`, { params: page(cursor), signal: opts.signal })), normalizePost),
-  reels: async (cursor?: string | null, opts: Opts & { limit?: number } = {}) =>
-    normalizePage(data(await api.get('/reels', { params: page(cursor, opts.limit ?? 10), signal: opts.signal })), normalizePost),
   reportPost: async (id: string, input: { reason: ReportReason; details?: string }) => data(await api.post(`/posts/${seg(id)}/report`, input)),
   reportComment: async (id: string, input: { reason: ReportReason; details?: string }) =>
     data(await api.post(`/comments/${seg(id)}/report`, input)),

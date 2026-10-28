@@ -68,8 +68,11 @@ describe('<PrivacySection>', () => {
         isLocationPublic: true,
         city: 'Delhi',
         hometown: 'Jaipur',
-        locationLat: null,
-        locationLng: null,
+        homeLat: null,
+        homeLng: null,
+        workCity: null,
+        workLat: null,
+        workLng: null,
       })
     );
     expect(toast).toHaveBeenCalledWith({ title: 'Privacy settings saved' });
@@ -82,7 +85,7 @@ describe('<PrivacySection>', () => {
     await save();
     await waitFor(() =>
       expect(userApi.updateProfile).toHaveBeenCalledWith(
-        expect.objectContaining({ isLocationPublic: false, locationLat: 28.6, locationLng: 77.2 })
+        expect.objectContaining({ isLocationPublic: false, homeLat: 28.6, homeLng: 77.2 })
       )
     );
   });
@@ -98,7 +101,7 @@ describe('<PrivacySection>', () => {
     await save();
 
     await waitFor(() =>
-      expect(userApi.updateProfile).toHaveBeenCalledWith(expect.objectContaining({ locationLat: 28.61, locationLng: 77.21 }))
+      expect(userApi.updateProfile).toHaveBeenCalledWith(expect.objectContaining({ homeLat: 28.61, homeLng: 77.21 }))
     );
     expect(geoApi.reverse).toHaveBeenCalledWith(28.61, 77.21, { signal: undefined });
   });
@@ -156,7 +159,7 @@ describe('<PrivacySection>', () => {
     expect(screen.getByLabelText('Current city')).toHaveValue('Delhi');
     await save();
     await waitFor(() =>
-      expect(userApi.updateProfile).toHaveBeenCalledWith(expect.objectContaining({ locationLat: 28.61, locationLng: 77.21 }))
+      expect(userApi.updateProfile).toHaveBeenCalledWith(expect.objectContaining({ homeLat: 28.61, homeLng: 77.21 }))
     );
   });
 

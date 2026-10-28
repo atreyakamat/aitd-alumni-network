@@ -64,7 +64,6 @@ describe('social routes (HTTP)', () => {
   });
 
   it.each([
-    ['/api/reels', feedService, 'getReels'],
     ['/api/hashtags/trending?days=3', hashtagService, 'getTrending'],
     ['/api/hashtags/placements/posts', feedService, 'getHashtagPosts'],
     [`/api/users/${P}/posts?reels=true`, feedService, 'getUserPosts'],

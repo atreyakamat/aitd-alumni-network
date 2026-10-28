@@ -110,6 +110,7 @@ const IMAGE_TYPES: Record<string, string> = {
   '.jpeg': 'image/jpeg',
   '.png': 'image/png',
   '.gif': 'image/gif',
+  '.webp': 'image/webp',
 };
 
 const fileFilter = (req: any, file: any, cb: any) => {
@@ -117,13 +118,26 @@ const fileFilter = (req: any, file: any, cb: any) => {
   if (expected && file.mimetype === expected) {
     return cb(null, true);
   }
-  cb(new AppError('Invalid file type. Only JPG, PNG and GIF images are allowed.', 400, 'INVALID_FILE_TYPE'));
+  cb(new AppError('Invalid file type. Only JPG, PNG, GIF and WebP images are allowed.', 400, 'INVALID_FILE_TYPE'));
 };
 
 export const upload = multer({
   storage: multer.memoryStorage(),
   fileFilter,
   limits: { fileSize: 5 * 1024 * 1024 }, // 5MB limit
+});
+
+// PDF uploads (e.g. the college magazine). Extension and declared MIME type must agree.
+const documentFilter = (_req: any, file: any, cb: any) => {
+  const ext = path.extname(file.originalname || '').toLowerCase();
+  if (ext === '.pdf' && file.mimetype === 'application/pdf') return cb(null, true);
+  cb(new AppError('Invalid file type. Only PDF files are allowed.', 400, 'INVALID_FILE_TYPE'));
+};
+
+export const documentUpload = multer({
+  storage: multer.memoryStorage(),
+  fileFilter: documentFilter,
+  limits: { fileSize: 25 * 1024 * 1024 }, // 25MB limit
 });
 
 /**

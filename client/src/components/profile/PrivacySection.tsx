@@ -24,10 +24,12 @@ interface Coordinates {
   lng: number;
 }
 
+const coordsFrom = (lat?: number | null, lng?: number | null): Coordinates | null =>
+  typeof lat === 'number' && typeof lng === 'number' ? { lat, lng } : null;
+
+// Residence picker prefills from homeLat/Lng, falling back to the legacy locationLat/Lng.
 const initialCoordinates = (profile: EditableProfile): Coordinates | null =>
-  typeof profile.locationLat === 'number' && typeof profile.locationLng === 'number'
-    ? { lat: profile.locationLat, lng: profile.locationLng }
-    : null;
+  coordsFrom(profile.homeLat, profile.homeLng) ?? coordsFrom(profile.locationLat, profile.locationLng);
 
 export function PrivacySection({ profile, onSaved }: SectionProps & { profile: EditableProfile }) {
   const [phoneVisibility, setPhoneVisibility] = React.useState<PhoneVisibility>(profile.phoneVisibility ?? 'PRIVATE');
@@ -35,6 +37,13 @@ export function PrivacySection({ profile, onSaved }: SectionProps & { profile: E
   const [city, setCity] = React.useState(profile.city ?? '');
   const [hometown, setHometown] = React.useState(profile.hometown ?? '');
   const [coords, setCoords] = React.useState<Coordinates | null>(() => initialCoordinates(profile));
+  // Work location (takes priority on the alumni map over the residence).
+  const [workCity, setWorkCity] = React.useState(profile.workCity ?? '');
+  const [workCoords, setWorkCoords] = React.useState<Coordinates | null>(() => coordsFrom(profile.workLat, profile.workLng));
+  const [workQuery, setWorkQuery] = React.useState('');
+  const [workPlaces, setWorkPlaces] = React.useState<Place[] | null>(null);
+  const [workLoading, setWorkLoading] = React.useState(false);
+  const [workError, setWorkError] = React.useState<string | null>(null);
   const [locating, setLocating] = React.useState(false);
   const [locationError, setLocationError] = React.useState<string | null>(null);
   const [errors, setErrors] = React.useState<Record<string, string>>({});
@@ -104,6 +113,35 @@ export function PrivacySection({ profile, onSaved }: SectionProps & { profile: E
     offerCity(place.city);
   };
 
+  const findWorkPlaces = async () => {
+    const q = workQuery.trim();
+    if (q.length < MIN_PLACE_QUERY) {
+      setWorkError(`Type at least ${MIN_PLACE_QUERY} characters.`);
+      return;
+    }
+    setWorkLoading(true);
+    setWorkError(null);
+    try {
+      setWorkPlaces(await searchPlaces(q));
+    } catch (err) {
+      if (isGeocoderUnavailable(err)) {
+        setGeocoderDown(true);
+        setWorkPlaces(null);
+      } else {
+        setWorkError(getApiErrorMessage(err, 'Place search failed. Try again.'));
+      }
+    } finally {
+      setWorkLoading(false);
+    }
+  };
+
+  const pickWorkPlace = (place: Place) => {
+    setWorkCoords({ lat: roundCoordinate(place.lat), lng: roundCoordinate(place.lng) });
+    setWorkPlaces(null);
+    setWorkQuery('');
+    if (place.city && !workCity.trim()) setWorkCity(place.city.trim().slice(0, PLACE_MAX));
+  };
+
   const detectLocation = () => {
     setLocationError(null);
     if (typeof navigator === 'undefined' || !navigator.geolocation) {
@@ -134,6 +172,7 @@ export function PrivacySection({ profile, onSaved }: SectionProps & { profile: E
     const tooLong: Record<string, string> = {};
     if (city.trim().length > PLACE_MAX) tooLong.city = `City must be at most ${PLACE_MAX} characters`;
     if (hometown.trim().length > PLACE_MAX) tooLong.hometown = `Hometown must be at most ${PLACE_MAX} characters`;
+    if (workCity.trim().length > PLACE_MAX) tooLong.workCity = `Work city must be at most ${PLACE_MAX} characters`;
     if (Object.keys(tooLong).length) {
       setErrors(tooLong);
       return;
@@ -145,8 +184,12 @@ export function PrivacySection({ profile, onSaved }: SectionProps & { profile: E
           isLocationPublic,
           city: blankToNull(city),
           hometown: blankToNull(hometown),
-          locationLat: coords?.lat ?? null,
-          locationLng: coords?.lng ?? null,
+          // Residence coordinates (the server derives the map pin from work-then-residence).
+          homeLat: coords?.lat ?? null,
+          homeLng: coords?.lng ?? null,
+          workCity: blankToNull(workCity),
+          workLat: workCoords?.lat ?? null,
+          workLng: workCoords?.lng ?? null,
         }),
       { success: 'Privacy settings saved', failure: 'Could not save privacy settings' }
     );
@@ -330,6 +373,81 @@ export function PrivacySection({ profile, onSaved }: SectionProps & { profile: E
               </p>
             )}
             <FieldError id="locationLat" message={errors.locationLat || errors.locationLng} />
+          </div>
+
+          <div className="space-y-3 rounded-md border p-4">
+            <div>
+              <p className="text-sm font-medium">Work location</p>
+              <p className="text-xs text-muted-foreground">
+                Where you currently work. On the alumni map this takes priority over your residence, so classmates can
+                see where you are building your career.
+              </p>
+            </div>
+            <div className="space-y-2 max-w-sm">
+              <Label htmlFor="workCity">Work city</Label>
+              <Input
+                {...errorProps('workCity', errors.workCity)}
+                value={workCity}
+                onChange={(e) => setWorkCity(e.target.value)}
+                placeholder="e.g. Bengaluru"
+                disabled={saving}
+              />
+              <FieldError id="workCity" message={errors.workCity} />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="work-place-search" className="text-sm font-normal text-muted-foreground">
+                Find your workplace area by name
+              </Label>
+              <div className="flex max-w-md gap-2">
+                <Input
+                  id="work-place-search"
+                  placeholder={geocoderDown ? 'Place search is unavailable' : 'e.g. Electronic City, Bengaluru'}
+                  value={workQuery}
+                  onChange={(e) => {
+                    setWorkQuery(e.target.value);
+                    setWorkError(null);
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      void findWorkPlaces();
+                    }
+                  }}
+                  disabled={saving || geocoderDown}
+                  autoComplete="off"
+                />
+                <Button type="button" variant="secondary" className="h-10" onClick={() => void findWorkPlaces()} disabled={saving || geocoderDown || workLoading}>
+                  {workLoading ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : <Search className="h-4 w-4" aria-hidden />}
+                  <span className="ml-2">Find place</span>
+                </Button>
+              </div>
+              {workError && <p className="text-xs text-destructive">{workError}</p>}
+              {workPlaces && (
+                <ul className="max-w-md divide-y rounded-md border text-sm" aria-label="Matching workplaces">
+                  {workPlaces.length === 0 ? (
+                    <li className="px-3 py-2 text-muted-foreground">No matching places found.</li>
+                  ) : (
+                    workPlaces.map((place) => (
+                      <li key={`${place.lat},${place.lng},${place.label}`}>
+                        <button type="button" className="w-full px-3 py-2 text-left hover:bg-muted focus-visible:bg-muted focus-visible:outline-none" onClick={() => pickWorkPlace(place)}>
+                          {place.label}
+                        </button>
+                      </li>
+                    ))
+                  )}
+                </ul>
+              )}
+            </div>
+            <div className="flex items-center gap-2">
+              <p className="text-sm text-muted-foreground">
+                {workCoords ? `Work location set to ${workCoords.lat}, ${workCoords.lng}.` : 'No work location set.'}
+              </p>
+              {workCoords && (
+                <Button type="button" variant="ghost" size="sm" onClick={() => setWorkCoords(null)} disabled={saving}>
+                  Clear
+                </Button>
+              )}
+            </div>
           </div>
 
           <SaveButton saving={saving} label="Save privacy settings" />

@@ -18,10 +18,12 @@ import { platformController } from '../controllers/platformController';
 import { adminUserController, accountController } from '../controllers/adminUserController';
 import { geoController } from '../controllers/geoController';
 import { socialFeedController as social } from '../controllers/socialFeedController';
+import { collegeVideoController, collegeMagazineController } from '../controllers/collegeContentController';
+import { requirementController, referralController, digestController, landingController } from '../controllers/engagementController';
 import { authenticate, optionalAuth, isAdmin, isSuperAdmin, isChapterAdmin } from '../middleware/auth';
 import { validate } from '../middleware/validate';
 import { cacheMiddleware } from '../middleware/cache';
-import { upload, videoUpload } from '../utils/storage';
+import { upload, videoUpload, documentUpload } from '../utils/storage';
 import config from '../config';
 import {
   registerSchema,
@@ -165,7 +167,6 @@ router.delete('/comments/:id', authenticate, postController.deleteComment);
 
 // ============== SOCIAL (docs/SOCIAL_API.md) ==============
 router.get('/feed', authenticate, social.getFeed);
-router.get('/reels', optionalAuth, social.getReels);
 router.get('/saved', authenticate, social.getSaved);
 router.get('/hashtags/trending', optionalAuth, social.getTrendingHashtags);
 router.get('/hashtags/:tag/posts', optionalAuth, social.getHashtagPosts);
@@ -252,6 +253,59 @@ router.post('/news/:id/publish', authenticate, isAdmin, newsController.publishAr
 router.post('/news/:id/unpublish', authenticate, isAdmin, newsController.unpublishArticle);
 router.delete('/news/:id', authenticate, isAdmin, newsController.deleteArticle);
 
+// ============== COLLEGE VIDEO ROUTES ==============
+// Public listing is APPROVED-only; members can submit, admins moderate.
+router.get('/videos', optionalAuth, collegeVideoController.list);
+router.get('/videos/mine', authenticate, collegeVideoController.mySubmissions);
+router.get('/videos/:id', optionalAuth, collegeVideoController.get);
+router.post('/videos/upload', authenticate, (req, res, next) => videoUpload(req, res, next), collegeVideoController.uploadFile);
+router.post('/videos/upload-thumbnail', authenticate, upload.single('image'), collegeVideoController.uploadThumbnail);
+router.post('/videos', authenticate, collegeVideoController.create);
+router.patch('/videos/:id', authenticate, isAdmin, collegeVideoController.update);
+router.post('/videos/:id/approve', authenticate, isAdmin, collegeVideoController.approve);
+router.post('/videos/:id/reject', authenticate, isAdmin, collegeVideoController.reject);
+router.delete('/videos/:id', authenticate, collegeVideoController.remove);
+
+// ============== COLLEGE MAGAZINE ROUTES ==============
+router.get('/magazine', optionalAuth, collegeMagazineController.list);
+router.get('/magazine/:id', optionalAuth, collegeMagazineController.get);
+// Bound lazily so suites that mock utils/storage without documentUpload can still build the router
+router.post('/magazine/upload-file', authenticate, isAdmin, (req, res, next) => documentUpload.single('file')(req, res, next), collegeMagazineController.uploadFile);
+router.post('/magazine/upload-cover', authenticate, isAdmin, upload.single('image'), collegeMagazineController.uploadCover);
+router.post('/magazine', authenticate, isAdmin, collegeMagazineController.create);
+router.patch('/magazine/:id', authenticate, isAdmin, collegeMagazineController.update);
+router.delete('/magazine/:id', authenticate, isAdmin, collegeMagazineController.remove);
+
+// ============== COLLEGE REQUIREMENTS (college posts needs; alumni offer to help) ==============
+router.get('/requirements', optionalAuth, requirementController.list);
+router.post('/requirements/responses/:responseId/review', authenticate, isAdmin, requirementController.reviewResponse);
+router.get('/requirements/:id', optionalAuth, requirementController.get);
+router.post('/requirements', authenticate, isAdmin, requirementController.create);
+router.patch('/requirements/:id', authenticate, isAdmin, requirementController.update);
+router.delete('/requirements/:id', authenticate, isAdmin, requirementController.remove);
+router.post('/requirements/:id/respond', authenticate, requirementController.respond);
+
+// ============== JOB REFERRALS ==============
+router.get('/referrals/referrers', authenticate, referralController.findReferrers);
+router.get('/referrals/received', authenticate, referralController.received);
+router.get('/referrals/sent', authenticate, referralController.sent);
+router.post('/referrals', authenticate, referralController.create);
+router.post('/referrals/:id/respond', authenticate, referralController.respond);
+
+// ============== WEEKLY DIGEST (admin) ==============
+router.get('/admin/digest', authenticate, isAdmin, digestController.getSettings);
+router.patch('/admin/digest', authenticate, isAdmin, digestController.updateSettings);
+router.post('/admin/digest/send', authenticate, isAdmin, digestController.sendNow);
+router.post('/admin/digest/test', authenticate, isAdmin, digestController.sendTest);
+
+// ============== LANDING PAGE BUILDER ==============
+router.get('/landing', optionalAuth, landingController.publicBlocks);
+router.get('/admin/landing', authenticate, isAdmin, landingController.adminBlocks);
+router.post('/admin/landing', authenticate, isAdmin, landingController.create);
+router.patch('/admin/landing/reorder', authenticate, isAdmin, landingController.reorder);
+router.patch('/admin/landing/:id', authenticate, isAdmin, landingController.update);
+router.delete('/admin/landing/:id', authenticate, isAdmin, landingController.remove);
+
 // ============== CHAPTER ROUTES ==============
 router.get('/chapters', chapterController.getChapters);
 router.get('/chapters/my', authenticate, chapterController.getUserChapters);
@@ -269,6 +323,7 @@ router.get('/marketplace', optionalAuth, marketplaceController.getListings);
 router.get('/marketplace/categories', marketplaceController.getCategories);
 router.get('/marketplace/my', authenticate, marketplaceController.getMyListings);
 router.get('/marketplace/:id', optionalAuth, marketplaceController.getListing);
+router.post('/marketplace/upload-image', authenticate, upload.single('image'), marketplaceController.uploadImage);
 router.post('/marketplace', authenticate, validate(createMarketplaceListingSchema), marketplaceController.createListing);
 router.patch('/marketplace/:id', authenticate, validate(updateMarketplaceListingSchema), marketplaceController.updateListing);
 router.delete('/marketplace/:id', authenticate, marketplaceController.deleteListing);

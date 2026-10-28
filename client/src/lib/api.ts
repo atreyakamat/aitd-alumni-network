@@ -497,6 +497,8 @@ export interface MarketplaceListingInput {
   website?: string | null;
   contactInfo?: string | null;
   priceRange?: string | null;
+  logoUrl?: string | null;
+  images?: string[];
 }
 
 /**
@@ -820,6 +822,13 @@ export const marketplaceApi = {
   updateListing: (id: string, data: MarketplaceListingUpdate) => api.patch(`/marketplace/${seg(id)}`, data),
   /** Owner (or admin) only. */
   deleteListing: (id: string) => api.delete(`/marketplace/${seg(id)}`),
+  /** Upload a logo/showcase image; returns { url } to store on the listing. */
+  uploadImage: async (file: File): Promise<string> => {
+    const form = new FormData();
+    form.append('image', file);
+    const res = await api.post('/marketplace/upload-image', form, { headers: { 'Content-Type': 'multipart/form-data' } });
+    return res.data?.data?.url as string;
+  },
 };
 
 // Membership API

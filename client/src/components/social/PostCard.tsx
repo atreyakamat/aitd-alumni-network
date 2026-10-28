@@ -332,9 +332,9 @@ export function PostCard({
                 <span className="flex items-center gap-0.5" title="Visible to connections"><Lock className="h-3 w-3" aria-hidden="true" /><span className="sr-only">Visible to connections</span></span>
               )}
               {shown.isReel && (
-                <Link href={`/reels?start=${encodeURIComponent(shown.id)}`} className="ml-1 flex items-center gap-0.5 rounded bg-primary/10 px-1 text-[10px] font-semibold text-primary">
-                  <Clapperboard className="h-3 w-3" aria-hidden="true" />Reel
-                </Link>
+                <span className="ml-1 flex items-center gap-0.5 rounded bg-primary/10 px-1 text-[10px] font-semibold text-primary">
+                  <Clapperboard className="h-3 w-3" aria-hidden="true" />Video
+                </span>
               )}
             </p>
           </div>

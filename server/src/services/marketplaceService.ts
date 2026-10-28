@@ -13,7 +13,21 @@ interface CreateListingInput {
   website?: string | null;
   contactInfo?: string | null;
   priceRange?: string | null;
+  logoUrl?: string | null;
+  images?: string[] | null;
 }
+
+const MAX_LISTING_IMAGES = 8;
+
+/** Keep only valid string URLs, capped at MAX_LISTING_IMAGES. Returns undefined to leave unchanged. */
+const sanitizeImages = (value: unknown): string[] | undefined => {
+  if (value === undefined) return undefined;
+  if (value === null) return [];
+  if (!Array.isArray(value)) {
+    throw new AppError('images must be an array of URLs', 400, 'VALIDATION_ERROR');
+  }
+  return value.filter((v): v is string => typeof v === 'string' && v.trim().length > 0).slice(0, MAX_LISTING_IMAGES);
+};
 
 interface ListingFilters {
   type?: MarketplaceListingType;
@@ -33,7 +47,7 @@ const cleanFilter = (value: unknown, max = MAX_SEARCH_LENGTH): string | undefine
 
 const LISTING_TYPES: MarketplaceListingType[] = Object.values(MarketplaceListingType) as MarketplaceListingType[];
 const OWNER_EDITABLE_FIELDS = [
-  'type', 'title', 'category', 'description', 'location', 'website', 'contactInfo', 'priceRange', 'isActive',
+  'type', 'title', 'category', 'description', 'location', 'website', 'contactInfo', 'priceRange', 'logoUrl', 'images', 'isActive',
 ] as const;
 const ADMIN_EDITABLE_FIELDS = [...OWNER_EDITABLE_FIELDS, 'isFeatured'] as const;
 
@@ -173,6 +187,8 @@ export class MarketplaceService {
     const type = assertListingType(data.type) || 'BUSINESS';
     assertWebsite(data.website);
 
+    const images = sanitizeImages(data.images);
+
     return prisma.marketplaceListing.create({
       data: {
         userId,
@@ -184,6 +200,8 @@ export class MarketplaceService {
         website: data.website,
         contactInfo: data.contactInfo,
         priceRange: data.priceRange,
+        logoUrl: typeof data.logoUrl === 'string' ? data.logoUrl.trim() || null : null,
+        images: images ?? [],
       },
     });
   }
@@ -215,6 +233,10 @@ export class MarketplaceService {
     if (updates.category !== undefined) requireText(updates.category, 'Category');
     if (updates.description !== undefined) requireText(updates.description, 'Description');
     if (updates.website !== undefined) assertWebsite(updates.website);
+    if (updates.images !== undefined) updates.images = sanitizeImages(updates.images) ?? [];
+    if (updates.logoUrl !== undefined) {
+      updates.logoUrl = typeof updates.logoUrl === 'string' && updates.logoUrl.trim() ? updates.logoUrl.trim() : null;
+    }
     if (updates.isActive !== undefined) updates.isActive = updates.isActive === true || updates.isActive === 'true';
     if (updates.isFeatured !== undefined) updates.isFeatured = updates.isFeatured === true || updates.isFeatured === 'true';
 
