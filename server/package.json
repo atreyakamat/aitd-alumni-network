@@ -23,6 +23,9 @@
     "test:security": "jest -c jest.security.config.js --runInBand",
     "test:contract": "jest -c jest.contract.config.js --runInBand",
     "contract:inventory": "tsx scripts/extract-client-contract.ts",
+    "preflight": "tsx scripts/preflight.ts",
+    "secrets": "tsx scripts/secrets.ts",
+    "verify:deploy": "node scripts/verify-deployment.mjs",
     "test:all": "npm run test:unit && npm run test:integration && npm run test:security && npm run test:contract",
     "typecheck": "tsc -p tsconfig.test.json",
     "db:local": "node scripts/local-postgres.mjs"

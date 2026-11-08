@@ -6,8 +6,10 @@ import passport from 'passport';
 import { rateLimit } from 'express-rate-limit';
 import routes from './routes';
 import prisma from './config/database';
+import redis from './config/redis';
 import { AppError, errorHandler } from './middleware/errorHandler';
 import { parseTrustProxy } from './utils/trustProxy';
+import { RedisRateLimitStore } from './utils/redisRateLimitStore';
 import { notFoundHandler } from './middleware/notFoundHandler';
 import { sanitizeInput } from './middleware/sanitizeInput';
 import { captureRawBody, isWebhookRequest, WEBHOOK_PATH_PREFIX } from './middleware/rawBody';
@@ -92,7 +94,13 @@ export const createApp = (options: AppOptions = {}) => {
   app.use(passport.initialize());
 
   if (rateLimitEnabled) {
+    // With REDIS_URL set, every limiter counts in Redis so the budget is shared by all API processes/containers
+    // (in memory it would be multiplied by their number). Without Redis, or while it is down, each process counts
+    // for itself. Every limiter has its own key prefix.
+    const shared = (name: string) => (redis ? { store: new RedisRateLimitStore(redis, `rl:${name}:`) } : {});
+
     app.use('/api/', rateLimit({
+      ...shared('global'),
       windowMs: 15 * 60 * 1000, // 15 minutes
       max: 300,
       message: { success: false, error: { message: 'Too many requests, please try again later.', code: 'RATE_LIMITED' } },
@@ -101,7 +109,8 @@ export const createApp = (options: AppOptions = {}) => {
     }));
 
     // Auth endpoints have stricter, per-endpoint rate limits
-    const authLimiter = (max: number) => rateLimit({
+    const authLimiter = (name: string, max: number) => rateLimit({
+      ...shared(`auth:${name}`),
       windowMs: 15 * 60 * 1000,
       max,
       message: { success: false, error: { message: 'Too many authentication attempts, please try again later.', code: 'RATE_LIMITED' } },
@@ -115,37 +124,40 @@ export const createApp = (options: AppOptions = {}) => {
       '/api/auth/verify-2fa',
       '/api/auth/resend-2fa',
       '/api/auth/verify-email',
+      '/api/auth/resend-verification',
       '/api/auth/oauth/exchange',
     ];
     for (const path of strictAuthPaths) {
-      app.use(path, authLimiter(10));
+      app.use(path, authLimiter(path, 10));
     }
-    app.use('/api/auth/refresh-token', authLimiter(60));
+    app.use('/api/auth/refresh-token', authLimiter('/api/auth/refresh-token', 60));
 
     // Abuse-prone endpoints that otherwise only had the global budget. Several paths can share one budget.
-    const budget = (max: number, message: string) =>
+    const budget = (name: string, max: number, message: string) =>
       rateLimit({
+        ...shared(`budget:${name}`),
         windowMs: 15 * 60 * 1000,
         max,
         message: { success: false, error: { message, code: 'RATE_LIMITED' } },
       });
     // 2FA management is rare for a real user
-    app.use('/api/auth/2fa', budget(10, 'Too many two-factor requests, please try again later.'));
+    app.use('/api/auth/2fa', budget('2fa', 10, 'Too many two-factor requests, please try again later.'));
     // Guest checkout creates a gateway order and a PENDING row per call
-    app.use('/api/donations/order', budget(20, 'Too many donation attempts, please try again later.'));
+    app.use('/api/donations/order', budget('donations-order', 20, 'Too many donation attempts, please try again later.'));
     // Search is open to anonymous visitors and runs several ILIKE scans per call
-    app.use('/api/search', budget(100, 'Too many searches, please slow down.'));
+    app.use('/api/search', budget('search', 100, 'Too many searches, please slow down.'));
     // Outbound e-mail from the platform's sender address
-    app.use(['/api/invites/send', '/api/invites/bulk'], budget(30, 'Too many invitations sent, please try again later.'));
+    app.use(['/api/invites/send', '/api/invites/bulk'], budget('invites', 30, 'Too many invitations sent, please try again later.'));
     // Uploads are the heaviest requests the API serves (image decoding, up to 100 MB of video)
     app.use(
       ['/api/posts/video', '/api/posts/media', '/api/users/profile-photo', '/api/users/cover-photo'],
-      budget(30, 'Too many uploads, please try again later.')
+      budget('uploads', 30, 'Too many uploads, please try again later.')
     );
 
     // Gateway webhooks are exempt from the global budget (Razorpay retries and must never be starved), but they are
     // reachable by anybody until the signature has been checked: give them their own, much larger, budget.
     app.use(WEBHOOK_PATH_PREFIX, rateLimit({
+      ...shared('webhook'),
       windowMs: 15 * 60 * 1000,
       max: 1500,
       // The gateway is a machine client: no budget headers on its responses
@@ -156,6 +168,7 @@ export const createApp = (options: AppOptions = {}) => {
 
     // Place search proxies a shared upstream (OSM Nominatim); keep per-client bursts small
     app.use('/api/geo', rateLimit({
+      ...shared('geo'),
       windowMs: 60 * 1000,
       max: 30,
       message: { success: false, error: { message: 'Too many place searches, please slow down.', code: 'RATE_LIMITED' } },

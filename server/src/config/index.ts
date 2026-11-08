@@ -6,7 +6,8 @@ const toInt = (value: string | undefined, fallback: number) => {
 };
 
 const toBool = (value: string | undefined, fallback: boolean) => {
-  if (value === undefined) return fallback;
+  // An empty value counts as unset: docker-compose passes unset variables through as empty strings
+  if (value === undefined || value.trim() === '') return fallback;
   return ['1', 'true', 'yes', 'on'].includes(value.toLowerCase());
 };
 
@@ -31,8 +32,18 @@ export const config = {
   jwt: {
     secret: requiredSecret('JWT_SECRET'),
     refreshSecret: requiredSecret('JWT_REFRESH_SECRET'),
-    expiresIn: process.env.JWT_EXPIRES_IN || '24h',
+    // Short in production (the refresh token keeps members signed in): a stolen access token expires quickly
+    expiresIn: process.env.JWT_EXPIRES_IN || (process.env.NODE_ENV === 'production' ? '15m' : '24h'),
     refreshExpiresIn: process.env.JWT_REFRESH_EXPIRES_IN || '7d',
+  },
+  auth: {
+    /**
+     * No session before the e-mail address is verified, and the verification link only works together with the
+     * password chosen at registration (defence against account pre-hijacking: see docs/SECURITY_AUDIT.md).
+     * On by default in production; local development and the test suites keep the open flow unless it is switched
+     * on. Production needs working outbound e-mail, or nobody can finish registering (the preflight checks that).
+     */
+    requireEmailVerification: toBool(process.env.REQUIRE_EMAIL_VERIFICATION, process.env.NODE_ENV === 'production'),
   },
   email: {
     from: process.env.EMAIL_FROM || 'noreply@aitdconnection.edu',

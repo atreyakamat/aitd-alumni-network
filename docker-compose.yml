@@ -67,6 +67,11 @@ services:
       TRUST_PROXY: ${TRUST_PROXY:-1}
       FRONTEND_URL: ${FRONTEND_URL:-http://localhost:3000}
       CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3000,http://localhost}
+      # The API refuses to start on an unsafe production configuration (src/config/productionChecks.ts). The two settings
+      # below are only for trying the stack on ONE machine without a domain or mail server; see docs/PRODUCTION_CHECKLIST.md.
+      ALLOW_INSECURE_PRODUCTION_CONFIG: ${ALLOW_INSECURE_PRODUCTION_CONFIG:-false}
+      # Empty = the production default (on): no session before the e-mail address is verified
+      REQUIRE_EMAIL_VERIFICATION: ${REQUIRE_EMAIL_VERIFICATION:-}
       # First boot: creates the super admin from SEED_ADMIN_EMAIL / SEED_ADMIN_PASSWORD (idempotent)
       SEED_ON_START: ${SEED_ON_START:-true}
       SEED_ADMIN_EMAIL: ${SEED_ADMIN_EMAIL:-admin@aitdconnection.edu}

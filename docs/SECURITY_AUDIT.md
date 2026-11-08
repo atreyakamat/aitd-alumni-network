@@ -110,16 +110,36 @@ ownership, receipt access control, socket handshake and room authorization, esca
 
 ## Needs a decision or a planned change
 
-1. **Upgrade Next.js 14 → 15.5.x or 16** (React 19, App Router changes). The remaining critical/high advisories on the client are fixed only there. Interim mitigations already in place: image optimizer off, no Server Actions in the app, strict CSP, the API (not Next) holds all data and authorization. Plan this as its own change with a staging soak.
-2. **Move tokens out of `localStorage`** into httpOnly cookies with CSRF protection (CL-05). Today any XSS could read them; the CSP, URL allowlists and output encoding are the compensating controls.
-3. **Rate limiter store:** limits are per process and the PM2 config runs one process per CPU, so effective limits are multiplied by the core count. Use a Redis store (the stack already runs Redis).
-4. **Login lockout / enumeration:** no per-account throttle on login (a hard lockout would let anyone lock out any alumnus); registration answers "e-mail exists". Options: CAPTCHA or progressive delay; generic message plus an e-mailed notice. Both change user experience, so this is your call.
-5. **E-mail verification policy:** login works before the e-mail is verified (AU-01 closes the takeover this enabled). Decide whether to require verification for a session.
-6. **OAuth bypasses the app's e-mail OTP** for accounts with 2FA on; decide whether OAuth should also demand it.
-7. **Account deletion keeps** messages sent, reactions, chapter/event memberships and anonymised audit entries; stored files (photos) are not purged from storage.
-8. **Smaller items:** access tokens last 24 h and single-device logout does not revoke the access token; open sockets outlive token expiry; `getConversations` loads all messages into memory; the password schema allows 128 characters while bcrypt uses 72 bytes (the service rejects the excess with a clear code).
+> **Update 2026-11-08: decided and, where possible, done.** The product owner delegated these decisions; each was taken in
+> favour of the safer option that still behaves like a normal website. The outcome of each item is marked **[DONE]**,
+> **[GATE]** (engineering work that must finish before a public launch) or **[KEPT]**. The full reasoning, costs and revisit
+> triggers are in [PRODUCTION_CHECKLIST.md](PRODUCTION_CHECKLIST.md#6-security-decisions-taken-and-what-they-cost).
 
-## Round 2 (re-test)
+1. **[GATE]** **Upgrade Next.js 14 → 15.5.x or 16** (React 19, App Router changes). The remaining critical/high advisories on the client are fixed only there. Interim mitigations already in place: image optimizer off, no Server Actions in the app, strict CSP, the API (not Next) holds all data and authorization. Plan this as its own change with a staging soak.
+2. **[GATE]** **Move tokens out of `localStorage`** into httpOnly cookies with CSRF protection (CL-05). Today any XSS could read them; the CSP, URL allowlists and output encoding are the compensating controls.
+3. **[DONE]** **Rate limiter store:** shared through Redis when `REDIS_URL` is set (`utils/redisRateLimitStore.ts`, tested with two app instances; falls back to per-process counting if Redis is down). limits are per process and the PM2 config runs one process per CPU, so effective limits are multiplied by the core count. Use a Redis store (the stack already runs Redis).
+4. **[DONE, no lockout]** **Login lockout / enumeration:** decided against an account lockout (it would let anyone lock out any alumnus); layered limits instead: nginx 5 req/s per address on `/api/auth/*`, 10 sign-in attempts per 15 minutes per address (shared through Redis), per-account budgets on every other password check. CAPTCHA/WAF is a go-live item. Original note: no per-account throttle on login (a hard lockout would let anyone lock out any alumnus); registration answers "e-mail exists". Options: CAPTCHA or progressive delay; generic message plus an e-mailed notice. Both change user experience, so this is your call.
+5. **[DONE]** **E-mail verification policy:** required in production (`REQUIRE_EMAIL_VERIFICATION`), the link needs the registration password, an unverified registration is replaced by the next one for that address, resend is rate-limited and enumeration-free; also fixes the missing `/verify-email` page. Original note: login works before the e-mail is verified (AU-01 closes the takeover this enabled). Decide whether to require verification for a session.
+6. **[DONE]** **OAuth bypassed the app's e-mail OTP** for accounts with 2FA on. Now fixed: the exchange returns the same 2FA challenge as a password sign-in.
+7. **[KEPT]** **Account deletion keeps** messages sent, reactions, chapter/event memberships and anonymised audit entries; stored files (photos) are not purged from storage.
+8. **[DONE]** **Smaller items:** access tokens now last 15 minutes in production (were 24 h), which bounds the two items that remain true: single-device logout does not revoke the access token, and open sockets outlive token expiry. Also still open: `getConversations` loads all messages into memory; the password schema allows 128 characters while bcrypt uses 72 bytes (the service rejects the excess with a clear code).
+
+### Decisions implemented (after round 1, before round 2)
+
+| Item | Change | Where | Tests |
+|---|---|---|---|
+| E-mail verification before a session | `login` answers `403 EMAIL_NOT_VERIFIED` once the password is proven; OAuth accounts (`emailVerifiedAt`) pass | `authService.login`, `config.auth.requireEmailVerification` | `authService.verification.test.ts`, `email-verification.sec.test.ts` |
+| Pre-hijacking through the verify link | the link needs the registration password (`PASSWORD_REQUIRED`, `VERIFY_PASSWORD_INVALID`, counted by the per-account budget); a registration over an unverified account that was never signed in to replaces it (old password, sessions and links die); an unverified account that has been used is never replaced, so a stranger cannot lock out a member who predates the policy | `authService.verifyEmail`, `register` | same, incl. the legacy-member case against the real database |
+| Missing verification page | `/verify-email` (the e-mail linked to a page that did not exist), resend flow, login notice, open in the edge gate | `client/src/app/(auth)/verify-email`, `login/page.tsx`, `public-paths.ts` | `verify-email.test.tsx`, `login-verification.test.tsx`, `route-access.test.ts` |
+| Resend verification | `POST /auth/resend-verification`: identical answer for every address, one mail per account per minute, limited per address | `authService.resendVerification`, `app.ts` | unit + security + RBAC matrix + contract |
+| OAuth skipped 2FA | exchange returns the 2FA challenge (and the e-mailed code) for members with 2FA on; the login page handles the challenge | `authService.exchangeOAuthCode`, `authController` | unit + security + `login-verification.test.tsx` |
+| Shared rate limits | Redis-backed store, one key prefix per limiter, per-process fallback | `utils/redisRateLimitStore.ts`, `app.ts` | `redisRateLimitStore.test.ts`, `tests/app/rateLimitRedis.test.ts` |
+| Short access tokens | `15m` default in production | `config/index.ts` | `configDefaults.test.ts` |
+| Unsafe production configuration | the API refuses to start (weak/leaked secrets, empty or default DB password, rate limiting off, http/localhost origins, no mail server while verification is required, sample data on) | `config/productionChecks.ts`, `index.ts` | `productionChecks.test.ts` |
+| Defaults left in the database | `npm run preflight` finds demo accounts, privileged accounts with published passwords and a missing super admin | `config/databaseChecks.ts`, `scripts/preflight.ts` | `databaseChecks.test.ts` |
+| Backups | `backup-db.sh` was still the MySQL script with a hardcoded host address; now PostgreSQL, atomic, verified | `backup-db.sh` | run against PostgreSQL (success and failure paths) |
+| Proxy | request-rate limit on `/api/auth/*`, slow-client timeouts, no dotfiles | `nginx/nginx.conf` | not run through `nginx -t` here (no nginx/Docker on the development machine) |
+| Post-deploy check | `npm run verify:deploy`: read-only checks of headers, gating, CORS, receipts, rate-limit headers | `scripts/verify-deployment.mjs` | run against the local stack |
 
 Round 2 re-ran every suite above against the fixed code, then looked for *incomplete fixes*: variants of each payload
 (other control characters, encodings, other fields and routes that take the same input), other places with the same
@@ -218,15 +238,15 @@ were confirmed to **fail without their fix**. The single-invite burst test passe
 * `/api//...` now routes as `/api/...`.
 * The payments webhook accepts at most 256 KB.
 
-## Test results (after round 2 fixes)
+## Test results (after round 2 and the production decisions)
 
 | Suite | Command | Result |
 |---|---|---|
-| Server unit | `npm test -w server` | 84 suites, 3,240 tests |
-| Server security (real PostgreSQL) | `npm run test:security -w server` | 30 suites, 386 tests (89 from round 1, 297 in `tests/security/round2/`) |
+| Server unit | `npm test -w server` | 90 suites, 3,334 tests |
+| Server security (real PostgreSQL) | `npm run test:security -w server` | 31 suites, 394 tests (89 from round 1, 297 in `tests/security/round2/`, 8 for e-mail verification and OAuth 2FA) |
 | Server integration (real PostgreSQL) | `npm run test:integration -w server` | 5 suites, 36 tests |
-| Client/server contract | `npm run test:contract -w server` | 5 suites, 779 tests |
-| Client (vitest) | `npm test -w client` | 83 files, 957 tests (151 in `src/__security__/`) |
+| Client/server contract | `npm run test:contract -w server` | 5 suites, 782 tests |
+| Client (vitest) | `npm test -w client` | 85 files, 968 tests (151 in `src/__security__/`) |
 | Type checks | server `tsc -p tsconfig.test.json`, client `tsc --noEmit` | clean |
 | Lint | server eslint, client `next lint` | 0 errors |
 

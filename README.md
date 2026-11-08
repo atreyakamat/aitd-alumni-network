@@ -157,6 +157,8 @@ See `server/.env.example` (local) and `.env.docker.example` (docker-compose) for
 
 ### Production Deployment
 
+> **Before anything goes live, read [docs/PRODUCTION_CHECKLIST.md](docs/PRODUCTION_CHECKLIST.md).** It lists every setting that must change from its development value, the security decisions already taken, and what is still open. `npm run secrets -w server` generates the secrets, `npm run preflight -w server` checks the configuration and the database, and the API refuses to start in production on an unsafe configuration.
+
 **Option 1: Backend on separate domain (Heroku, Railway, AWS, etc.)**
 
 Frontend (on Netlify):

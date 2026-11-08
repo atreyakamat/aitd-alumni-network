@@ -7,6 +7,7 @@ import { initSocket } from './utils/socket';
 import { createShutdown } from './utils/shutdown';
 import prisma from './config/database';
 import redis from './config/redis';
+import { assertProductionConfig } from './config/productionChecks';
 
 const PORT = process.env.PORT || 5000;
 const DATABASE_URL = process.env.DATABASE_URL || '';
@@ -19,11 +20,10 @@ if (!/^postgres(ql)?:\/\//i.test(DATABASE_URL)) {
   throw new Error('DATABASE_URL must use PostgreSQL (postgresql://...) for this project.');
 }
 
+// Production refuses to start on an unsafe configuration (weak or leaked secrets, plain-http origins, no mail server
+// while e-mail verification is required, ...). The same rules run in `npm run preflight`. See docs/PRODUCTION_CHECKLIST.md.
 if (process.env.NODE_ENV === 'production') {
-  const weak = (s?: string) => !s || s.startsWith('default-') || s.length < 32;
-  if (weak(process.env.JWT_SECRET) || weak(process.env.JWT_REFRESH_SECRET)) {
-    throw new Error('JWT_SECRET and JWT_REFRESH_SECRET must be set to strong (32+ char) values in production.');
-  }
+  assertProductionConfig(process.env);
 }
 
 const app = createApp();

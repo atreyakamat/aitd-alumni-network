@@ -1,3 +1,5 @@
+> **Superseded (2026-11-08):** the "ready" claims in this report are historical and no longer accurate (the platform moved to PostgreSQL, and two rounds of security fixes changed what must be configured). Go-live is gated by [docs/PRODUCTION_CHECKLIST.md](docs/PRODUCTION_CHECKLIST.md); run `npm run preflight -w server` before deploying.
+
 # 🚀 AITD Alumni Network - Production Deployment Complete
 
 ## Project Status: ✅ READY FOR PRODUCTION

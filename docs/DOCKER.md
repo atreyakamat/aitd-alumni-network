@@ -4,13 +4,19 @@
 socket.io) and the **web** app (Next.js), plus an optional **nginx** reverse proxy. This is the canonical deployment
 guide. The root `DEPLOYMENT_*.md` files describe the old MySQL shared-host setup and are superseded.
 
-## Quick start
+> **Real deployment?** Follow [PRODUCTION_CHECKLIST.md](PRODUCTION_CHECKLIST.md) instead of the quick start below. The API
+> runs with `NODE_ENV=production` and **refuses to start** on an unsafe configuration (weak or leaked secrets, localhost or
+> plain-http origins, no mail server while e-mail verification is required, ...). `npm run preflight -w server` shows what to fix.
+
+## Quick start (a trial on one machine)
 
 ```bash
 cp .env.docker.example .env
-# Generate each secret with:
-node -e "console.log(require('crypto').randomBytes(48).toString('base64url'))"
+# Generate every secret (printed, not saved):  npm run secrets -w server
 # then set POSTGRES_PASSWORD, JWT_SECRET, JWT_REFRESH_SECRET and SEED_ADMIN_PASSWORD (12+ chars) in .env
+# and, because a trial has no domain or mail server, add these two lines (NEVER on a real server):
+#   ALLOW_INSECURE_PRODUCTION_CONFIG=true
+#   REQUIRE_EMAIL_VERIFICATION=false
 
 docker compose up -d --build
 docker compose ps            # wait until api and web are "healthy"
@@ -111,12 +117,15 @@ curl http://localhost:5000/health         # {"status":"ok","database":"postgresq
 
 ### Backups
 
-```bash
-# Backup (plain SQL)
-docker compose exec -T postgres pg_dump -U aitd alumni_connect > backup-$(date +%F).sql
+`backup-db.sh` (repository root) dumps the database in PostgreSQL's custom format from inside the `postgres` container,
+checks that the dump can be read back, keeps 30 days and can upload to S3 encrypted. Schedule it and copy the dumps off the server:
 
-# Restore into an empty database
-docker compose exec -T postgres psql -U aitd alumni_connect < backup-2026-10-18.sql
+```bash
+./backup-db.sh                                  # writes ./backups/aitd_<timestamp>.dump
+# cron:  0 2 * * * cd /srv/aitd && ./backup-db.sh
+
+# Restore into an EMPTY database (try this on a scratch server regularly: an untested backup is a hope, not a backup)
+docker compose exec -T postgres pg_restore --no-owner --clean --if-exists -U aitd -d alumni_connect < backups/aitd_20261108_020000.dump
 ```
 
 Also back up the `uploads_data` volume when not using S3:
