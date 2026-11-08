@@ -418,7 +418,10 @@ export const authApi = {
   login: (data: { email: string; password: string }) =>
     api.post('/auth/login', data),
 
-  verifyEmail: (token: string) => api.post('/auth/verify-email', { token }),
+  /** The password chosen at registration: the link alone does not verify anything (account pre-hijacking). */
+  verifyEmail: (token: string, password?: string) => api.post('/auth/verify-email', { token, password }),
+
+  resendVerification: (email: string) => api.post('/auth/resend-verification', { email }),
 
   forgotPassword: (email: string) =>
     api.post('/auth/forgot-password', { email }),

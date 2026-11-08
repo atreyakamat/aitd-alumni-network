@@ -73,6 +73,14 @@ export const changePasswordSchema = z.object({
 export const verifyEmailSchema = z.object({
   body: z.object({
     token: z.string().min(1, 'Token is required').max(256),
+    // The password chosen at registration: required by the service while e-mail verification is enforced
+    password: z.string().max(128).optional(),
+  }),
+});
+
+export const resendVerificationSchema = z.object({
+  body: z.object({
+    email: emailField,
   }),
 });
 

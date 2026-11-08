@@ -208,6 +208,10 @@ const cases: Record<string, Case> = {
     },
     bad: () => ({ as: null, path: '/auth/verify-email', body: { token: 'not-a-real-token' } }),
   },
+  'post /auth/resend-verification': {
+    ok: (x) => ({ as: null, path: '/auth/resend-verification', body: { email: x.member.user.email } }),
+    bad: () => ({ as: null, path: '/auth/resend-verification', body: { email: 'not-an-email' } }),
+  },
   'post /auth/forgot-password': {
     ok: (x) => ({ as: null, path: '/auth/forgot-password', body: { email: x.member.user.email } }),
     bad: () => ({ as: null, path: '/auth/forgot-password', body: { email: 'not-an-email' } }),

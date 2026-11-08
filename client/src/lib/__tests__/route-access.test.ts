@@ -21,7 +21,7 @@ describe('decideAccess (middleware decision)', () => {
     });
   });
 
-  it.each([...PUBLIC_PATH_PREFIXES, '/events/42', '/news/some-slug', '/posts/p1', '/search', '/', '/login', '/register', '/forgot-password', '/reset-password', '/privacy', '/terms', '/contact', '/cookies'])(
+  it.each([...PUBLIC_PATH_PREFIXES, '/events/42', '/news/some-slug', '/posts/p1', '/search', '/', '/login', '/register', '/forgot-password', '/reset-password', '/verify-email', '/privacy', '/terms', '/contact', '/cookies'])(
     'lets anonymous visitors through to %s',
     (p) => expect(gate(p)).toEqual({ action: 'next' })
   );

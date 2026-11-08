@@ -25,6 +25,7 @@ const MATRIX: Record<string, Level> = {
   'post /auth/register': 'public',
   'post /auth/login': 'public',
   'post /auth/verify-email': 'public',
+  'post /auth/resend-verification': 'public',
   'post /auth/forgot-password': 'public',
   'post /auth/reset-password': 'public',
   'post /auth/refresh-token': 'public',

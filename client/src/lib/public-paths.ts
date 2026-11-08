@@ -78,6 +78,7 @@ export const OPEN_PATH_PREFIXES: readonly string[] = [
   '/register',
   '/forgot-password',
   '/reset-password',
+  '/verify-email',
   '/privacy',
   '/terms',
   '/contact',

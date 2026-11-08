@@ -108,8 +108,17 @@ export class AuthController {
 
   async verifyEmail(req: Request, res: Response, next: NextFunction) {
     try {
-      const { token } = req.body;
-      const result = await authService.verifyEmail(token);
+      const { token, password } = req.body;
+      const result = await authService.verifyEmail(token, password);
+      res.json({ success: true, data: result });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async resendVerification(req: Request, res: Response, next: NextFunction) {
+    try {
+      const result = await authService.resendVerification(req.body.email);
       res.json({ success: true, data: result });
     } catch (error) {
       next(error);
@@ -200,6 +209,21 @@ export class AuthController {
         throw new AppError('Exchange code is required', 400, 'VALIDATION_ERROR');
       }
       const result = await authService.exchangeOAuthCode(code);
+
+      // 2FA enabled: the provider proved the mailbox, not the second factor. Same challenge as a password login.
+      if ('requires2FA' in result && result.requires2FA) {
+        await twoFactorService.sendOTP(result.user.id, result.user.email);
+        return res.json({
+          success: true,
+          data: {
+            requires2FA: true,
+            userId: result.user.id,
+            twoFactorToken: result.twoFactorToken,
+            message: 'Verification code sent to your email',
+          },
+        });
+      }
+
       res.json({ success: true, data: result });
     } catch (error) {
       next(error);

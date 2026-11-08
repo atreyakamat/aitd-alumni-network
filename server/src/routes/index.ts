@@ -46,6 +46,7 @@ import {
   verify2FASchema,
   resend2FASchema,
   oauthExchangeSchema,
+  resendVerificationSchema,
   updateCommentSchema,
   createMarketplaceListingSchema,
   updateMarketplaceListingSchema,
@@ -57,6 +58,7 @@ const router = Router();
 router.post('/auth/register', validate(registerSchema), authController.register);
 router.post('/auth/login', validate(loginSchema), authController.login);
 router.post('/auth/verify-email', validate(verifyEmailSchema), authController.verifyEmail);
+router.post('/auth/resend-verification', validate(resendVerificationSchema), authController.resendVerification);
 router.post('/auth/forgot-password', validate(forgotPasswordSchema), authController.forgotPassword);
 router.post('/auth/reset-password', validate(resetPasswordSchema), authController.resetPassword);
 router.post('/auth/change-password', authenticate, validate(changePasswordSchema), authController.changePassword);

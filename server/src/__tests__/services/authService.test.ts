@@ -741,7 +741,8 @@ describe('authService', () => {
 
     it('exchanges a valid code exactly once for a session', async () => {
       arrangeOneTimeToken(dbUser());
-      const result = await authService.exchangeOAuthCode('code');
+      // (the result is a session, or a 2FA challenge for members who have the second factor on)
+      const result: any = await authService.exchangeOAuthCode('code');
       expect(prismaMock.verificationToken.findFirst.mock.calls[0][0].where).toMatchObject({
         token: hashToken('code'),
         type: TOKEN_TYPES.OAUTH_EXCHANGE,

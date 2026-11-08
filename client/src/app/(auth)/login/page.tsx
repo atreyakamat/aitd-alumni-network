@@ -14,7 +14,7 @@ import { Label } from '@/components/ui/label';
 import { useAuth } from '@/context/auth-context';
 import { useToast } from '@/hooks/use-toast';
 import { Eye, EyeOff, Loader2, ShieldCheck } from 'lucide-react';
-import { api, authApi, twoFactorApi, isTwoFactorChallenge, getApiErrorMessage } from '@/lib/api';
+import { api, authApi, twoFactorApi, isTwoFactorChallenge, getApiErrorCode, getApiErrorMessage } from '@/lib/api';
 import { getAuthErrorMessage, shouldRestart2FA } from '@/lib/auth';
 import { buildRegisterHref, getSafeNextPath } from '@/lib/public-paths';
 
@@ -34,6 +34,10 @@ function LoginContent() {
   const [twoFactorToken, setTwoFactorToken] = useState<string | null>(null);
   const [otpCode, setOtpCode] = useState('');
   const [isVerifying2FA, setIsVerifying2FA] = useState(false);
+  // Set when the API refused a session because the e-mail address is not verified yet
+  const [unverifiedEmail, setUnverifiedEmail] = useState<string | null>(null);
+  const [resendNotice, setResendNotice] = useState<string | null>(null);
+  const [isResending, setIsResending] = useState(false);
   const { setAuthData, isAuthenticated } = useAuth();
   const { toast } = useToast();
   const router = useRouter();
@@ -104,7 +108,21 @@ function LoginContent() {
       const exchange = async () => {
         try {
           const response = await api.post('/auth/oauth/exchange', { code: oauthCode });
-          setAuthData(response.data.data);
+          const result = response.data.data;
+
+          // A provider proves the mailbox, not the second factor: members who have it on still enter the code
+          if (isTwoFactorChallenge(result)) {
+            setRequires2FA(true);
+            setOtpCode('');
+            setTwoFactorToken(result.twoFactorToken);
+            toast({
+              title: 'Verification Required',
+              description: 'A verification code has been sent to your email.',
+            });
+            return;
+          }
+
+          setAuthData(result);
 
           const message =
             newUser === 'true'
@@ -169,6 +187,12 @@ function LoginContent() {
         router.push(afterLoginPath);
       }
     } catch (error: any) {
+      if (getApiErrorCode(error) === 'EMAIL_NOT_VERIFIED') {
+        setUnverifiedEmail(data.email);
+        setResendNotice(null);
+        return;
+      }
+      setUnverifiedEmail(null);
       toast({
         variant: 'destructive',
         title: 'Login failed',
@@ -176,6 +200,21 @@ function LoginContent() {
       });
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const resendVerification = async () => {
+    if (!unverifiedEmail) return;
+    setIsResending(true);
+    try {
+      const response = await authApi.resendVerification(unverifiedEmail);
+      setResendNotice(
+        response.data?.data?.message ?? 'If that address has an unverified account, a new verification link has been sent.'
+      );
+    } catch (error: any) {
+      setResendNotice(getApiErrorMessage(error, 'Could not send a new link. Please try again in a moment.'));
+    } finally {
+      setIsResending(false);
     }
   };
 
@@ -402,6 +441,22 @@ function LoginContent() {
           {registered && (
             <div className="mb-6 rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-green-700 font-body">
               Registration successful! Please check your email to verify your account.
+            </div>
+          )}
+
+          {unverifiedEmail && (
+            <div role="alert" className="mb-6 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-amber-900 font-body">
+              <p>
+                Please verify your email address before signing in. We sent a link to <strong>{unverifiedEmail}</strong> when you
+                registered; open it and confirm with your password.
+              </p>
+              {resendNotice ? (
+                <p className="mt-2 text-sm">{resendNotice}</p>
+              ) : (
+                <Button type="button" variant="outline" size="sm" className="mt-3" disabled={isResending} onClick={resendVerification}>
+                  {isResending ? 'Sending...' : 'Resend verification email'}
+                </Button>
+              )}
             </div>
           )}
 

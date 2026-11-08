@@ -1,5 +1,6 @@
 import crypto from 'crypto';
 import prisma from '../config/database';
+import config from '../config';
 import { hashPassword, comparePassword, assertPasswordAllowed } from '../utils/password';
 import { checkPasswordWithBudget } from './attemptLimiter';
 import {
@@ -64,6 +65,13 @@ export const TOKEN_TYPES = {
 type TokenType = (typeof TOKEN_TYPES)[keyof typeof TOKEN_TYPES];
 
 const GENERIC_RESET_MESSAGE = 'If the email exists, a password reset link has been sent.';
+const GENERIC_RESEND_MESSAGE = 'If that address has an unverified account, a new verification link has been sent.';
+/** One verification mail per account per minute: "resend" must not become a way to flood somebody's inbox. */
+const RESEND_COOLDOWN_MS = 60 * 1000;
+
+/** Provider-verified (OAuth) accounts carry `emailVerifiedAt` even though `isVerified` stays false. */
+const isEmailVerified = (user: { isVerified: boolean; emailVerifiedAt?: Date | null }) =>
+  Boolean(user.isVerified || user.emailVerifiedAt);
 
 const normaliseEmail = (email: string) => email.trim().toLowerCase();
 
@@ -199,6 +207,15 @@ export class AuthService {
     const existingUser = await prisma.user.findUnique({ where: { email } });
 
     if (existingUser) {
+      // Anyone can register an address they do not own. While verification is required, an account that was never
+      // verified has not been used by anybody, so the next registration for that address REPLACES it: the real owner
+      // can never be locked out of their own address by somebody who got there first (pre-hijacking).
+      // Never for an account somebody has signed in to: that predates the policy and belongs to a real member, who must
+      // not be locked out by a stranger registering their address. They verify through "resend verification" or reset the password.
+      const neverUsed = !existingUser.lastLoginAt;
+      if (config.auth.requireEmailVerification && neverUsed && existingUser.isActive && existingUser.passwordHash && !isEmailVerified(existingUser)) {
+        return this.replacePendingRegistration(existingUser.id, input);
+      }
       throw new AppError('Email already registered', 409, 'EMAIL_EXISTS');
     }
 
@@ -243,6 +260,51 @@ export class AuthService {
     };
   }
 
+  /** Re-registration over an unverified account: new credentials, nothing from the earlier registration survives. */
+  private async replacePendingRegistration(userId: string, input: RegisterInput) {
+    const passwordHash = await hashPassword(input.password);
+
+    const { user, verificationToken } = await prisma.$transaction(async (tx) => {
+      const updated = await tx.user.update({
+        where: { id: userId },
+        data: {
+          passwordHash,
+          fullName: input.fullName.trim(),
+          batchYear: input.batchYear,
+          department: input.department,
+          degree: input.degree,
+          roleType: input.roleType || 'ALUMNI',
+          tokenVersion: { increment: 1 },
+        },
+      });
+      await tx.refreshToken.deleteMany({ where: { userId } });
+      await tx.verificationToken.deleteMany({ where: { userId, type: TOKEN_TYPES.EMAIL_VERIFY } });
+      const raw = generateToken();
+      await tx.verificationToken.create({
+        data: {
+          userId,
+          token: hashToken(raw),
+          type: TOKEN_TYPES.EMAIL_VERIFY,
+          expiresAt: new Date(Date.now() + EMAIL_VERIFY_TTL_MS),
+        },
+      });
+      return { user: updated, verificationToken: raw };
+    });
+
+    try {
+      await sendVerificationEmail(user.email, user.fullName, verificationToken);
+    } catch (error) {
+      console.error('Failed to send verification email:', error);
+    }
+
+    return {
+      id: user.id,
+      email: user.email,
+      fullName: user.fullName,
+      message: 'Registration successful. Please check your email to verify your account.',
+    };
+  }
+
   async login(input: LoginInput) {
     const user = await prisma.user.findUnique({
       where: { email: normaliseEmail(input.email) },
@@ -261,6 +323,15 @@ export class AuthService {
 
     if (!user.isActive) {
       throw new AppError('Account is deactivated', 401, 'ACCOUNT_DEACTIVATED');
+    }
+
+    // Said only after the password is proven, so it tells a stranger nothing about the account
+    if (config.auth.requireEmailVerification && !isEmailVerified(user)) {
+      throw new AppError(
+        'Please verify your email address before signing in. Check your inbox for the link, or request a new one.',
+        403,
+        'EMAIL_NOT_VERIFIED'
+      );
     }
 
     // 2FA: no session yet - hand back a short-lived challenge bound to this user
@@ -289,7 +360,35 @@ export class AuthService {
     }
   }
 
-  async verifyEmail(token: string) {
+  /**
+   * The link only completes together with the password chosen at registration. Somebody who registered an address
+   * that is not theirs (and so got a link mailed to its owner) cannot have the owner "verify" that account.
+   * The token is read, not spent, until the password has been checked, so a wrong guess does not burn the link.
+   */
+  private async assertRegistrationPassword(token: string, password: string | undefined) {
+    const record = token
+      ? await prisma.verificationToken.findFirst({
+          where: { token: hashToken(token), type: TOKEN_TYPES.EMAIL_VERIFY, isUsed: false, expiresAt: { gt: new Date() } },
+          include: { user: true },
+        })
+      : null;
+    if (!record) {
+      throw new AppError('Invalid or expired verification token', 400, 'INVALID_TOKEN');
+    }
+    if (!password) {
+      throw new AppError('Enter your password to confirm your email address', 400, 'PASSWORD_REQUIRED');
+    }
+    const storedHash = record.user.passwordHash;
+    const matches = await checkPasswordWithBudget(record.userId, () => comparePassword(password, storedHash || ''));
+    if (!storedHash || !matches) {
+      throw new AppError('That is not the password this account was registered with', 400, 'VERIFY_PASSWORD_INVALID');
+    }
+  }
+
+  async verifyEmail(token: string, password?: string) {
+    if (config.auth.requireEmailVerification) {
+      await this.assertRegistrationPassword(token, password);
+    }
     const record = await this.consumeOneTimeToken(token, TOKEN_TYPES.EMAIL_VERIFY);
     if (!record) {
       throw new AppError('Invalid or expired verification token', 400, 'INVALID_TOKEN');
@@ -310,6 +409,37 @@ export class AuthService {
     }
 
     return { message: 'Email verified successfully' };
+  }
+
+  /** Same answer for every address: unknown, verified, deactivated and rate-limited all look alike. */
+  async resendVerification(email: string) {
+    const user = await prisma.user.findUnique({ where: { email: normaliseEmail(email) } });
+    if (!user || !user.isActive || !user.passwordHash || isEmailVerified(user)) {
+      return { message: GENERIC_RESEND_MESSAGE };
+    }
+
+    const recent = await prisma.verificationToken.findFirst({
+      where: {
+        userId: user.id,
+        type: TOKEN_TYPES.EMAIL_VERIFY,
+        createdAt: { gt: new Date(Date.now() - RESEND_COOLDOWN_MS) },
+      },
+      select: { id: true },
+    });
+    if (recent) {
+      return { message: GENERIC_RESEND_MESSAGE };
+    }
+
+    // Only the newest link is valid
+    await prisma.verificationToken.deleteMany({ where: { userId: user.id, type: TOKEN_TYPES.EMAIL_VERIFY } });
+    const raw = await this.createOneTimeToken(user.id, TOKEN_TYPES.EMAIL_VERIFY, EMAIL_VERIFY_TTL_MS);
+
+    // Not awaited: response time must not reveal whether a mail was sent
+    sendVerificationEmail(user.email, user.fullName, raw).catch((error: unknown) => {
+      console.error('Failed to send verification email:', error);
+    });
+
+    return { message: GENERIC_RESEND_MESSAGE };
   }
 
   async forgotPassword(email: string) {
@@ -577,6 +707,20 @@ export class AuthService {
 
     if (!record.user.isActive) {
       throw new AppError('Account is deactivated', 401, 'ACCOUNT_DEACTIVATED');
+    }
+
+    // A provider sign-in proves the mailbox, not the second factor the member chose to protect the account with
+    if (record.user.twoFactorEnabled) {
+      return {
+        requires2FA: true as const,
+        twoFactorToken: generateTwoFactorToken(record.user.id),
+        user: {
+          id: record.user.id,
+          email: record.user.email,
+          fullName: record.user.fullName,
+          twoFactorEnabled: true,
+        },
+      };
     }
 
     return this.issueSession(record.user);

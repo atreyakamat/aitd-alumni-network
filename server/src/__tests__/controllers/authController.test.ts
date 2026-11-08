@@ -209,12 +209,48 @@ describe('authController', () => {
     expect(res.json).toHaveBeenCalledWith({ success: true, data: { google: false, linkedin: false } });
   });
 
+  describe('verifyEmail / resendVerification', () => {
+    it('hands the registration password to the service along with the token', async () => {
+      const spy = jest.spyOn(authService, 'verifyEmail').mockResolvedValue({ message: 'ok' });
+      const { res } = await run('verifyEmail', { body: { token: 't', password: 'Secret#Pass1' } });
+      expect(spy).toHaveBeenCalledWith('t', 'Secret#Pass1');
+      expect(res.json).toHaveBeenCalledWith({ success: true, data: { message: 'ok' } });
+    });
+
+    it('resends through the service and answers with its generic message', async () => {
+      const spy = jest.spyOn(authService, 'resendVerification').mockResolvedValue({ message: 'generic' });
+      const { res } = await run('resendVerification', { body: { email: 'a@b.io' } });
+      expect(spy).toHaveBeenCalledWith('a@b.io');
+      expect(res.json).toHaveBeenCalledWith({ success: true, data: { message: 'generic' } });
+    });
+  });
+
   describe('exchangeOAuthCode', () => {
     it('exchanges a code for a session', async () => {
       const spy = jest.spyOn(authService, 'exchangeOAuthCode').mockResolvedValue(session as any);
       const { res } = await run('exchangeOAuthCode', { body: { code: 'abc' } });
       expect(spy).toHaveBeenCalledWith('abc');
       expect(res.json).toHaveBeenCalledWith({ success: true, data: session });
+    });
+
+    it('sends an OTP and returns a challenge (never session tokens) when the member has 2FA on', async () => {
+      jest.spyOn(authService, 'exchangeOAuthCode').mockResolvedValue({
+        requires2FA: true,
+        twoFactorToken: 'challenge',
+        user: { id: 'u1', email: 'u1@x.io', fullName: 'U', twoFactorEnabled: true },
+      });
+      const send = jest.spyOn(twoFactorService, 'sendOTP').mockResolvedValue({ message: '' });
+
+      const { res } = await run('exchangeOAuthCode', { body: { code: 'abc' } });
+
+      expect(send).toHaveBeenCalledWith('u1', 'u1@x.io');
+      const body = res.json.mock.calls[0][0];
+      expect(body).toEqual({
+        success: true,
+        data: { requires2FA: true, userId: 'u1', twoFactorToken: 'challenge', message: expect.any(String) },
+      });
+      expect(body.data.accessToken).toBeUndefined();
+      expect(body.data.refreshToken).toBeUndefined();
     });
 
     it.each([[{}], [{ code: '' }], [{ code: { $ne: null } }]])('rejects a missing/non-string code %j', async (body) => {
