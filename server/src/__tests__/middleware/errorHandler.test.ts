@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { AppError, errorHandler } from '../../middleware/errorHandler';
+import { log } from '../../utils/logger';
 import { validate } from '../../middleware/validate';
 import {
   createEventSchema,
@@ -10,6 +11,8 @@ import {
   updateProfileSchema,
 } from '../../utils/validators';
 import { mockReqRes } from '../../../tests/helpers';
+
+jest.mock('../../utils/logger', () => ({ log: { debug: jest.fn(), info: jest.fn(), warn: jest.fn(), error: jest.fn() } }));
 
 const handle = (err: Error) => {
   const { req, res, next } = mockReqRes();
@@ -26,6 +29,42 @@ describe('AppError', () => {
     expect(err).toBeInstanceOf(Error);
     expect(err).toMatchObject({ message: 'Nope', statusCode: 418, code: 'TEAPOT', isOperational: true });
     expect(new AppError('x').statusCode).toBe(500);
+  });
+});
+
+describe('errorHandler logging', () => {
+  beforeEach(() => jest.clearAllMocks());
+
+  it.each([
+    ['an AppError 401', new AppError('Bad creds', 401, 'INVALID_CREDENTIALS')],
+    ['an AppError 404', new AppError('Not found', 404, 'NOT_FOUND')],
+    ['a validation error', new z.ZodError([])],
+    ['an expired token', namedError('TokenExpiredError')],
+    ['a bad token', namedError('JsonWebTokenError')],
+    ['a unique violation', namedError('PrismaClientKnownRequestError', { code: 'P2002' })],
+    ['an oversized upload', namedError('MulterError', { code: 'LIMIT_FILE_SIZE' })],
+    ['malformed JSON', namedError('SyntaxError', { type: 'entity.parse.failed' })],
+  ])('does not log %s as an error: the client got a 4xx and the access log has the status', (_label, error) => {
+    handle(error);
+    expect(log.error).not.toHaveBeenCalled();
+  });
+
+  it('logs an unexpected failure once, with the request id and the stack, and still answers a generic 500', () => {
+    const { req, res, next } = mockReqRes();
+    (req as any).id = 'req-1234567890';
+    (req as any).method = 'POST';
+    const failure = new Error('database exploded');
+
+    errorHandler(failure, req, res, next);
+
+    expect(log.error).toHaveBeenCalledTimes(1);
+    expect(log.error).toHaveBeenCalledWith('Unhandled error', expect.objectContaining({ id: 'req-1234567890', err: failure }));
+    expect(res.status).toHaveBeenCalledWith(500);
+  });
+
+  it('logs an operational 5xx (a dependency that is down) as an error too', () => {
+    handle(new AppError('Geocoder unavailable', 503, 'GEOCODER_UNAVAILABLE'));
+    expect(log.error).toHaveBeenCalledTimes(1);
   });
 });
 

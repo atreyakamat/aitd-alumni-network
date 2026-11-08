@@ -25,6 +25,7 @@ export default function Error({
       <p className="text-muted-foreground mb-8 max-w-md">
         An error occurred while rendering this page. Please try again or contact support if the problem persists.
       </p>
+      {error.digest && <p className="-mt-4 mb-8 text-xs text-muted-foreground">Reference: {error.digest}</p>}
       <div className="flex gap-4">
         <Button onClick={() => reset()} size="lg">Try again</Button>
         <Button variant="outline" size="lg" onClick={() => window.location.href = '/'}>

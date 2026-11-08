@@ -20,7 +20,8 @@ export interface ShutdownDeps {
 export const createShutdown = (deps: ShutdownDeps) => {
   let pending: Promise<void> | null = null;
 
-  return (signal: string): Promise<void> => {
+  // `failed` marks a shutdown caused by a crash: still graceful, but the exit code is non-zero
+  return (signal: string, failed = false): Promise<void> => {
     if (pending) return pending;
 
     deps.log(`${signal} received: shutting down gracefully`);
@@ -31,7 +32,7 @@ export const createShutdown = (deps: ShutdownDeps) => {
     timer.unref?.();
 
     pending = (async () => {
-      let code = 0;
+      let code = failed ? 1 : 0;
       try {
         // socket.io first: its close() also closes the attached HTTP server's upgrade handling
         if (deps.io) await new Promise<void>((resolve) => deps.io!.close(() => resolve()));

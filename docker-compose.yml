@@ -10,12 +10,21 @@
 #
 # Data lives in the named volumes below; `docker compose down` keeps it, `down -v` deletes it.
 
+# Container logs are kept on the host disk. Unbounded, a busy API fills it in weeks and takes the whole server down with it:
+# keep at most 3 files of 10 MB per service (the access log is one line per request, see docs/PRODUCTION_CHECKLIST.md).
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
 name: aiem-connection
 
 services:
   postgres:
     image: postgres:17-alpine
     restart: unless-stopped
+    logging: *default-logging
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-aiem_connect}
       POSTGRES_USER: ${POSTGRES_USER:-aiem}
@@ -35,6 +44,7 @@ services:
   redis:
     image: redis:7-alpine
     restart: unless-stopped
+    logging: *default-logging
     command: ["redis-server", "--appendonly", "yes", "--maxmemory", "256mb", "--maxmemory-policy", "allkeys-lru"]
     volumes:
       - redis_data:/data
@@ -50,6 +60,7 @@ services:
       context: .
       dockerfile: server/Dockerfile
     restart: unless-stopped
+    logging: *default-logging
     depends_on:
       postgres:
         condition: service_healthy
@@ -125,6 +136,7 @@ services:
         NEXT_PUBLIC_MAP_TILE_URL: ${NEXT_PUBLIC_MAP_TILE_URL:-}
         NEXT_PUBLIC_MAP_TILE_ATTRIBUTION: ${NEXT_PUBLIC_MAP_TILE_ATTRIBUTION:-}
     restart: unless-stopped
+    logging: *default-logging
     depends_on:
       api:
         condition: service_healthy
@@ -147,6 +159,7 @@ services:
   nginx:
     image: nginx:1.27-alpine
     restart: unless-stopped
+    logging: *default-logging
     profiles: [proxy]
     depends_on:
       api:

@@ -1,6 +1,7 @@
 import crypto from 'crypto';
 import prisma from '../config/database';
 import config from '../config';
+import { log } from '../utils/logger';
 import { hashPassword, comparePassword, assertPasswordAllowed } from '../utils/password';
 import { checkPasswordWithBudget } from './attemptLimiter';
 import {
@@ -246,11 +247,7 @@ export class AuthService {
       return { user: created, verificationToken: raw };
     });
 
-    try {
-      await sendVerificationEmail(user.email, user.fullName, verificationToken);
-    } catch (error) {
-      console.error('Failed to send verification email:', error);
-    }
+    this.sendVerificationInBackground(user.email, user.fullName, verificationToken);
 
     return {
       id: user.id,
@@ -258,6 +255,16 @@ export class AuthService {
       fullName: user.fullName,
       message: 'Registration successful. Please check your email to verify your account.',
     };
+  }
+
+  /**
+   * Sends the verification mail without making the caller wait for it. A slow or failing mail server must neither hold up nor
+   * fail a sign-up (the member can ask for a new link), and a failure is logged, never left as an unhandled rejection.
+   */
+  private sendVerificationInBackground(to: string, fullName: string, token: string): void {
+    void Promise.resolve(sendVerificationEmail(to, fullName, token)).catch((error: unknown) => {
+      log.error('Failed to send verification email', { err: error });
+    });
   }
 
   /** Re-registration over an unverified account: new credentials, nothing from the earlier registration survives. */
@@ -291,11 +298,7 @@ export class AuthService {
       return { user: updated, verificationToken: raw };
     });
 
-    try {
-      await sendVerificationEmail(user.email, user.fullName, verificationToken);
-    } catch (error) {
-      console.error('Failed to send verification email:', error);
-    }
+    this.sendVerificationInBackground(user.email, user.fullName, verificationToken);
 
     return {
       id: user.id,
@@ -435,9 +438,7 @@ export class AuthService {
     const raw = await this.createOneTimeToken(user.id, TOKEN_TYPES.EMAIL_VERIFY, EMAIL_VERIFY_TTL_MS);
 
     // Not awaited: response time must not reveal whether a mail was sent
-    sendVerificationEmail(user.email, user.fullName, raw).catch((error: unknown) => {
-      console.error('Failed to send verification email:', error);
-    });
+    this.sendVerificationInBackground(user.email, user.fullName, raw);
 
     return { message: GENERIC_RESEND_MESSAGE };
   }

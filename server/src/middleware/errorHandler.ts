@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import { ZodError } from 'zod';
+import { log } from '../utils/logger';
 
 export class AppError extends Error {
   public statusCode: number;
@@ -15,13 +16,33 @@ export class AppError extends Error {
   }
 }
 
+const CLIENT_ERROR_NAMES = new Set(['MulterError', 'ZodError', 'JsonWebTokenError', 'TokenExpiredError', 'NotBeforeError']);
+const CLIENT_PRISMA_CODES = new Set(['P2002', 'P2003', 'P2000', 'P2025']);
+
+/** Errors that end in a 4xx for the caller: expected traffic, not an incident. */
+const isClientError = (err: Error | AppError): boolean => {
+  if (err instanceof AppError) return err.statusCode < 500;
+  const e = err as { type?: unknown; code?: unknown; status?: unknown; statusCode?: unknown };
+  if (e.type === 'entity.parse.failed' || e.type === 'entity.too.large') return true;
+  if (CLIENT_ERROR_NAMES.has(err.name) || err instanceof ZodError) return true;
+  if (err.name === 'PrismaClientKnownRequestError' && CLIENT_PRISMA_CODES.has(String(e.code))) return true;
+  const status = e.status ?? e.statusCode;
+  return typeof status === 'number' && status >= 400 && status < 500;
+};
+
 export const errorHandler = (
   err: Error | AppError,
   req: Request,
   res: Response,
   next: NextFunction
 ) => {
-  console.error('Error:', err);
+  // Only real failures are logged as errors (with the request id, so a report can be matched to its log line). A wrong
+  // password or a missing page used to print a stack trace each, which buried the failures that matter.
+  if (isClientError(err)) {
+    log.debug('request rejected', { id: req.id, status: err instanceof AppError ? err.statusCode : undefined, error: err.message });
+  } else {
+    log.error('Unhandled error', { id: req.id, method: req.method, err });
+  }
 
   if (err instanceof AppError) {
     return res.status(err.statusCode).json({

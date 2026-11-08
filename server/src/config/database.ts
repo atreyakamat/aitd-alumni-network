@@ -1,4 +1,5 @@
 import { PrismaClient } from '@prisma/client';
+import { prismaLogLevels } from './prismaLog';
 
 declare global {
   // eslint-disable-next-line no-var
@@ -6,7 +7,7 @@ declare global {
 }
 
 export const prisma = global.prisma || new PrismaClient({
-  log: process.env.NODE_ENV === 'development' ? ['query', 'error', 'warn'] : ['error'],
+  log: prismaLogLevels(),
 });
 
 if (process.env.NODE_ENV !== 'production') {

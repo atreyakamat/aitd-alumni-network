@@ -19,6 +19,23 @@ All notable changes to AITD Connection. The newest release is first. Dates are w
 | `backup-db.sh` is now a PostgreSQL script (it was MySQL) | Reschedule it; keep the dumps off the server |
 | **Reels are removed** (the Reels page, the `/reels` feed, the "reel" flag on posts and its database column) | Nothing: migration `20261108000000_remove_reels` drops the flag. Posts that were reels stay as ordinary video posts; the old `isReel` and `?reels=` inputs are ignored |
 
+### Reliability (see [docs/ROBUSTNESS.md](docs/ROBUSTNESS.md))
+
+* **Mail:** SendGrid-only configurations now actually send (they passed the production checks but the sender ignored the key); connection
+  timeouts; transient failures retried; sign-up no longer waits for the mail server.
+* **Conversation list** (`GET /api/messages`) no longer loads a member's whole message history: the database returns one page.
+* **14 foreign keys got indexes** (migration `20261108010000_foreign_key_indexes`).
+* **Logging and tracing:** structured logger, `X-Request-Id` on every response, one access-log line per request, only real failures logged as errors.
+* **Process:** crash handling that restarts clean, HTTP timeouts above the proxy's, `redisStatus` on `/health`.
+* **Browser:** 30 s request timeout (uploads exempt), plain-language network messages, sensible query retries, error boundaries in the signed-in
+  area and at the root, and messages for offline, server error and ended session (three events that had no listener).
+* **`./start.sh` on a machine without a working Node** (a Docker-only server): the fallback secret generator aborted the script under
+  `set -o pipefail`; it now reads a fixed chunk of `/dev/urandom` and also covers a `node` that exists but cannot run.
+* **Development logs:** Prisma prints SQL only with `PRISMA_LOG_QUERIES=true` (it hid the request log); production stays errors-only.
+* **Containers and proxy:** log rotation, a JSON 503 from nginx while the API restarts, upstream timeouts; `./start.sh` produces an `.env` the
+  production guard accepts and reports a crashed API at once.
+* **Tooling:** removed the wrong `packageManager: yarn`; `node >= 20` to match CI and Docker.
+
 ### Merged from `main`
 
 The branch includes everything `main` gained since the first merge (2026-10-22 to 2026-10-28): college videos, a magazine,
@@ -44,8 +61,8 @@ empty list pages: see [docs/SECURITY_AUDIT.md](docs/SECURITY_AUDIT.md) ("Review 
 * **Docker Compose** (PostgreSQL 17, Redis, API, web, optional nginx) with health checks, idempotent migrate-and-seed on start.
 * **Production tooling:** start-up guard, `npm run preflight`, `npm run secrets`, `npm run verify:deploy`, a PostgreSQL
   `backup-db.sh`, request limits in `nginx/nginx.conf`.
-* **Test suites:** security regressions (400 tests, real PostgreSQL), client/server contract (926), plus unit (3,728),
-  integration (38) and client (993). CI runs all of them.
+* **Test suites:** security regressions (400 tests, real PostgreSQL), client/server contract (926), plus unit (3,841),
+  integration (43) and client (1,052). CI runs all of them.
 * **Documentation:** [docs/README.md](docs/README.md) (index), [AUTHENTICATION.md](docs/AUTHENTICATION.md),
   [PRODUCTION_CHECKLIST.md](docs/PRODUCTION_CHECKLIST.md), [SECURITY_AUDIT.md](docs/SECURITY_AUDIT.md).
 

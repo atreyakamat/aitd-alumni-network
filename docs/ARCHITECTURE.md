@@ -29,6 +29,8 @@ npm workspaces monorepo:
 
 `src/app.ts`, in order:
 
+0. **Request id and access log** (`middleware/requestContext.ts`): every request gets an `X-Request-Id` and, when it finishes, one log line
+   (route pattern, status, duration; never the query string). Logging is `utils/logger.ts`: JSON in production, `LOG_LEVEL`, secrets redacted.
 1. **Path normalisation:** repeated slashes are collapsed (also behind an absolute-form request target), so no spelling of a
    path can dodge a per-endpoint limiter that is mounted on the exact path.
 2. helmet security headers; CORS against `CORS_ORIGINS` (a foreign origin gets `403 FORBIDDEN_ORIGIN`); passport (OAuth).
@@ -180,6 +182,8 @@ admins. Receipts are emailed.
     configuration (weak or leaked secrets, rate limiting off, plain-http origins, no mail server while verification is required, ...)
     and says what to change. `npm run preflight -w server` runs the same rules plus checks of the database.
   - Starts HTTP and socket.io.
+- **Crashes:** `utils/processHandlers.ts`. An uncaught exception drains in-flight work and exits non-zero so the orchestrator starts a clean process; an
+  unhandled rejection is logged and the server keeps running. Keep-alive and header timeouts sit above nginx's so the proxy never reuses a closed connection.
 - **Shutdown:** SIGTERM/SIGINT run `createShutdown` (`src/utils/shutdown.ts`): close socket.io and HTTP, disconnect
   Prisma and Redis, and force-exit after `SHUTDOWN_TIMEOUT_MS`.
 - **Readiness:** `GET /api/platform/readiness` (admin) reports the PRD release gate; `/admin/control` shows it.

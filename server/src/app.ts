@@ -11,6 +11,7 @@ import { AppError, errorHandler } from './middleware/errorHandler';
 import { parseTrustProxy } from './utils/trustProxy';
 import { RedisRateLimitStore } from './utils/redisRateLimitStore';
 import { notFoundHandler } from './middleware/notFoundHandler';
+import { requestContext } from './middleware/requestContext';
 import { sanitizeInput } from './middleware/sanitizeInput';
 import { captureRawBody, isWebhookRequest, WEBHOOK_PATH_PREFIX } from './middleware/rawBody';
 import './config/passport'; // Initialize passport strategies
@@ -48,6 +49,9 @@ export const createApp = (options: AppOptions = {}) => {
   const rateLimitEnabled = options.disableRateLimit !== undefined
     ? !options.disableRateLimit
     : process.env.DISABLE_RATE_LIMIT !== 'true';
+
+  // First of all: every request gets an id (X-Request-Id) and one access-log line when it finishes
+  app.use(requestContext);
 
   // Collapse repeated slashes in the path before ANYTHING matches it. `app.use('/api', router)` also matches
   // "/api//auth/login" (its mount pattern swallows one slash), while the per-endpoint limiters mounted on
@@ -216,6 +220,8 @@ export const createApp = (options: AppOptions = {}) => {
         status: 'ok',
         database: 'postgresql',
         databaseStatus: 'up',
+        // Informational: the API keeps working without Redis (per-process limits, no cache, no background jobs)
+        redisStatus: redis ? (redis.status === 'ready' ? 'up' : 'down') : 'disabled',
         timestamp: new Date().toISOString(),
       });
     } catch {

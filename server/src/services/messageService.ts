@@ -26,31 +26,49 @@ export class MessageService {
   async getConversations(userId: string, page: number = 1, limit: number = 20) {
     const { skip, take, page: safePage, limit: safeLimit } = paginationHelper(page, limit);
 
-    // Latest-first list of every message the user is part of
-    const messages = await prisma.message.findMany({
-      where: {
-        OR: [
-          { senderId: userId },
-          { receiverId: userId },
-        ],
-      },
-      include: {
-        sender: { select: participantSelect },
-        receiver: { select: participantSelect },
-      },
-      orderBy: { createdAt: 'desc' },
-    });
+    // The database picks the latest message of every conversation and hands back just the requested page of them. The
+    // member's whole history used to be loaded and grouped here, which got slower with every message ever sent.
+    const latest = await prisma.$queryRaw<Array<{ id: string; partnerId: string; total: bigint | number }>>`
+      WITH mine AS (
+        SELECT id, "createdAt",
+               CASE WHEN "senderId" = ${userId} THEN "receiverId" ELSE "senderId" END AS "partnerId"
+        FROM "Message"
+        WHERE "senderId" = ${userId} OR "receiverId" = ${userId}
+      ),
+      latest AS (
+        SELECT DISTINCT ON ("partnerId") id, "partnerId", "createdAt"
+        FROM mine
+        ORDER BY "partnerId", "createdAt" DESC, id DESC
+      )
+      SELECT id, "partnerId", COUNT(*) OVER () AS total
+      FROM latest
+      ORDER BY "createdAt" DESC, id DESC
+      LIMIT ${take} OFFSET ${skip}`;
 
-    // Group by conversation partner, keeping the latest message
-    const conversationMap = new Map<string, typeof messages[0]>();
-    for (const msg of messages) {
-      const partnerId = msg.senderId === userId ? msg.receiverId : msg.senderId;
-      if (!conversationMap.has(partnerId)) {
-        conversationMap.set(partnerId, msg);
-      }
+    let total = latest.length > 0 ? Number(latest[0].total) : 0;
+    if (latest.length === 0 && skip > 0) {
+      // A page past the end still reports how many conversations there really are
+      const [counted] = await prisma.$queryRaw<Array<{ total: bigint | number }>>`
+        SELECT COUNT(DISTINCT CASE WHEN "senderId" = ${userId} THEN "receiverId" ELSE "senderId" END) AS total
+        FROM "Message"
+        WHERE "senderId" = ${userId} OR "receiverId" = ${userId}`;
+      total = Number(counted?.total ?? 0);
     }
 
-    const page_ = Array.from(conversationMap.entries()).slice(skip, skip + take);
+    const lastMessages =
+      latest.length > 0
+        ? await prisma.message.findMany({
+            where: { id: { in: latest.map((row) => row.id) } },
+            include: {
+              sender: { select: participantSelect },
+              receiver: { select: participantSelect },
+            },
+          })
+        : [];
+    const byId = new Map(lastMessages.map((message) => [message.id, message]));
+    const page_ = latest
+      .map((row) => [row.partnerId, byId.get(row.id)] as const)
+      .filter((entry): entry is readonly [string, NonNullable<ReturnType<typeof byId.get>>] => entry[1] !== undefined);
 
     // One grouped query for unread counts instead of one count per conversation
     const unreadByPartner = new Map<string, number>();
@@ -84,7 +102,7 @@ export class MessageService {
       unreadCount: unreadByPartner.get(partnerId) ?? 0,
     }));
 
-    return buildPaginationResponse(conversations, conversationMap.size, safePage, safeLimit);
+    return buildPaginationResponse(conversations, total, safePage, safeLimit);
   }
 
   async getMessages(userId: string, partnerId: string, page: number = 1, limit: number = 50) {

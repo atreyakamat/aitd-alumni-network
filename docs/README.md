@@ -13,6 +13,7 @@ by tests); **historical** ones are kept for context only.
 | Call or change the API | [API_REFERENCE.md](API_REFERENCE.md) (generated from the router: `npm run docs:api`) and [SOCIAL_API.md](SOCIAL_API.md) for the social layer |
 | Write or run tests | [TESTING.md](TESTING.md): the test layers, TDD loop, how to add an endpoint |
 | Put it on a server | **[PRODUCTION_CHECKLIST.md](PRODUCTION_CHECKLIST.md) first**, then [DOCKER.md](DOCKER.md) |
+| See how it behaves when things go wrong, and what is still open | [ROBUSTNESS.md](ROBUSTNESS.md): timeouts, retries, logging and request ids, error boundaries, the backlog |
 | See what was audited and fixed | [SECURITY_AUDIT.md](SECURITY_AUDIT.md): every finding, the fix and its test; two rounds; the decisions taken |
 | See what is built | [FEATURE_STATUS.md](FEATURE_STATUS.md) and the overview in [PROJECT_OVERVIEW.md](PROJECT_OVERVIEW.md) |
 
@@ -22,6 +23,7 @@ by tests); **historical** ones are kept for context only.
 |---|---|---|
 | [PRODUCTION_CHECKLIST.md](PRODUCTION_CHECKLIST.md) | current | Every setting that must change for production, decisions taken, launch gates |
 | [AUTHENTICATION.md](AUTHENTICATION.md) | current | |
+| [ROBUSTNESS.md](ROBUSTNESS.md) | current | What was hardened for reliability, how to operate it, the open backlog |
 | [ARCHITECTURE.md](ARCHITECTURE.md) | current | |
 | [SECURITY_AUDIT.md](SECURITY_AUDIT.md) | current | Round 1, round 2, decisions implemented, test results |
 | [DOCKER.md](DOCKER.md) | current | Compose services, configuration, backups, upgrades, migrating old MySQL data |

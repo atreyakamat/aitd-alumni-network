@@ -39,8 +39,12 @@ if (isBrowser) {
   }
 }
 
+/** Ordinary requests give up after this long (uploads are exempt, see the request interceptor). */
+export const REQUEST_TIMEOUT_MS = 30_000;
+
 export const api = axios.create({
   baseURL: currentApiUrl,
+  timeout: REQUEST_TIMEOUT_MS,
   headers: {
     'Content-Type': 'application/json',
   },
@@ -153,6 +157,10 @@ api.interceptors.request.use(
     const token = typeof window !== 'undefined' ? localStorage.getItem('accessToken') : null;
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
+    }
+    // A video of up to 100 MB can take minutes on a slow connection: file uploads are not cut off by the timeout
+    if (typeof FormData !== 'undefined' && config.data instanceof FormData) {
+      config.timeout = 0;
     }
     return config;
   },
@@ -320,7 +328,12 @@ export function getApiErrorMessage(err: unknown, fallback: string): string {
   const anyErr = err as any;
   const fromBody = pickMessage(anyErr?.response?.data);
   if (fromBody) return fromBody;
-  if (!anyErr?.response && anyErr instanceof Error && anyErr.message) return anyErr.message;
+  if (!anyErr?.response) {
+    // Axios' own wording ("timeout of 30000ms exceeded", "Network Error") means nothing to a member
+    if (anyErr?.code === 'ECONNABORTED' || anyErr?.code === 'ETIMEDOUT') return 'The server took too long to answer. Please try again.';
+    if (anyErr?.code === 'ERR_NETWORK' || anyErr?.message === 'Network Error') return 'Cannot reach the server. Check your connection and try again.';
+    if (anyErr instanceof Error && anyErr.message) return anyErr.message;
+  }
   return fallback;
 }
 

@@ -14,6 +14,7 @@ guide. The root `DEPLOYMENT_*.md` files describe the old MySQL shared-host setup
 cp .env.docker.example .env
 # Generate every secret (printed, not saved):  npm run secrets -w server
 # then set POSTGRES_PASSWORD, JWT_SECRET, JWT_REFRESH_SECRET and SEED_ADMIN_PASSWORD (12+ chars) in .env
+# (./start.sh does all of this for you, including the two trial lines below)
 # and, because a trial has no domain or mail server, add these two lines (NEVER on a real server):
 #   ALLOW_INSECURE_PRODUCTION_CONFIG=true
 #   REQUIRE_EMAIL_VERIFICATION=false

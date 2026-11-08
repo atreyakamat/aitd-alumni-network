@@ -166,6 +166,38 @@ describe('verifyEmail with the registration password (policy on)', () => {
   });
 });
 
+describe('registration does not wait for the mail server', () => {
+  const input = { email: 'new@aitd.edu', password: PASSWORD, fullName: 'New Member', batchYear: 2020, department: 'Civil', degree: 'B.E.' };
+  const neverFinishes = () => new Promise<void>(() => undefined);
+
+  it('a new sign-up returns at once even if the mail server hangs (the member can use "resend")', async () => {
+    prismaMock.user.findUnique.mockResolvedValue(null);
+    prismaMock.user.create.mockResolvedValue(dbUser({ id: 'new1', email: 'new@aitd.edu' }));
+    (sendVerificationEmail as jest.Mock).mockImplementationOnce(neverFinishes);
+
+    await expect(authService.register(input)).resolves.toMatchObject({ id: 'new1' });
+    expect(sendVerificationEmail).toHaveBeenCalledTimes(1);
+  });
+
+  it('the replaced pending registration returns at once too', async () => {
+    config.auth.requireEmailVerification = true;
+    prismaMock.user.findUnique.mockResolvedValue(dbUser());
+    prismaMock.user.update.mockResolvedValue(dbUser());
+    (sendVerificationEmail as jest.Mock).mockImplementationOnce(neverFinishes);
+
+    await expect(authService.register({ ...input, email: 'alum@aitd.edu' })).resolves.toMatchObject({ id: 'u1' });
+  });
+
+  it('a failing mail server does not fail the sign-up or leave an unhandled rejection', async () => {
+    prismaMock.user.findUnique.mockResolvedValue(null);
+    prismaMock.user.create.mockResolvedValue(dbUser({ id: 'new2', email: 'new@aitd.edu' }));
+    (sendVerificationEmail as jest.Mock).mockRejectedValueOnce(new Error('smtp down'));
+
+    await expect(authService.register(input)).resolves.toMatchObject({ id: 'new2' });
+    await new Promise((resolve) => setImmediate(resolve)); // the rejection is caught and logged, not thrown
+  });
+});
+
 describe('register over an address whose account is still unverified (policy on)', () => {
   const input = {
     email: 'Alum@AITD.edu',

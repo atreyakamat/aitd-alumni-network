@@ -8,6 +8,8 @@ import { createShutdown } from './utils/shutdown';
 import prisma from './config/database';
 import redis from './config/redis';
 import { assertProductionConfig } from './config/productionChecks';
+import { registerProcessHandlers } from './utils/processHandlers';
+import { log } from './utils/logger';
 import { startNotificationWorker } from './workers/notificationWorker';
 import { startDigestWorker } from './workers/digestWorker';
 
@@ -48,23 +50,25 @@ const shutdown = createShutdown({
   exit: (code) => process.exit(code),
   log: (message) => console.log(message),
 });
-const stop = async (signal: string) => {
+const stop = async (signal: string, failed = false) => {
   await Promise.all([
     notificationWorker?.close().catch(() => undefined),
     digestWorker?.close().catch(() => undefined),
   ]);
-  await shutdown(signal);
+  await shutdown(signal, failed);
 };
-process.on('SIGTERM', () => void stop('SIGTERM'));
-process.on('SIGINT', () => void stop('SIGINT'));
-process.on('unhandledRejection', (reason) => {
-  console.error('Unhandled promise rejection:', reason);
-});
+// SIGTERM/SIGINT drain gracefully; a crash drains and exits non-zero; a stray rejection is logged (utils/processHandlers.ts)
+registerProcessHandlers({ proc: process, shutdown: stop });
+
+// Behind nginx or a load balancer the proxy closes idle connections first (nginx keepalive_timeout is 65s). If Node closed
+// them sooner, the proxy would occasionally reuse a connection that is already gone and return a 502.
+// headersTimeout must stay above keepAliveTimeout. Uploads of up to 100 MB can take minutes: requestTimeout is generous.
+server.keepAliveTimeout = 65_000;
+server.headersTimeout = 66_000;
+server.requestTimeout = Number(process.env.REQUEST_TIMEOUT_MS) || 10 * 60 * 1000;
 
 server.listen(PORT, () => {
-  console.log(`🚀 Server running on http://localhost:${PORT}`);
-  console.log(`📝 Health check: http://localhost:${PORT}/health`);
-  console.log(`📁 Uploads: http://localhost:${PORT}/uploads`);
+  log.info('Server running', { port: Number(PORT), health: `http://localhost:${PORT}/health`, env: process.env.NODE_ENV || 'development' });
 });
 
 export default app;

@@ -24,12 +24,17 @@ fi
 
 # --- random secret helper ---------------------------------------------------
 gen() {
+  local out=""
   if command -v node >/dev/null 2>&1; then
-    node -e "console.log(require('crypto').randomBytes(36).toString('base64url'))"
-  else
-    # base64url-safe output (no / + = @ : so it's safe in URLs and .env)
-    LC_ALL=C tr -dc 'A-Za-z0-9_-' < /dev/urandom | head -c 48
+    # A node that is on the PATH but cannot run (an unselected nvm version) must not stop the setup: use the fallback below.
+    out="$(node -e "console.log(require('crypto').randomBytes(36).toString('base64url'))" 2>/dev/null || true)"
   fi
+  if [ -z "$out" ]; then
+    # base64url-safe output (no / + = @ : so it's safe in URLs and .env). A fixed chunk is read first and nothing closes
+    # a pipe early: with `set -o pipefail` a SIGPIPE from `head` would abort the whole script.
+    out="$(LC_ALL=C tr -dc 'A-Za-z0-9_-' < <(head -c 4096 /dev/urandom) | cut -c1-48)"
+  fi
+  printf '%s\n' "$out"
 }
 
 # --- generate .env on first run ---------------------------------------------
@@ -54,6 +59,14 @@ SEED_SAMPLE_DATA=false
 FRONTEND_URL=http://localhost:3000
 CORS_ORIGINS=http://localhost:3000,http://localhost
 NEXT_PUBLIC_API_URL=http://localhost:5000/api
+
+# --- LOCAL TRIAL ONLY ---------------------------------------------------------------------
+# The API runs in production mode and refuses to start on a configuration meant for the public internet
+# (https addresses, a mail server, ...). These two lines let this stack run on ONE machine with neither.
+# For a real deployment REMOVE THEM, set real values, and follow docs/PRODUCTION_CHECKLIST.md
+# (check with:  npm run preflight -w server -- --env-file ../.env).
+ALLOW_INSECURE_PRODUCTION_CONFIG=true
+REQUIRE_EMAIL_VERIFICATION=false
 EOF
   chmod 600 .env
   green "Created .env."
@@ -70,7 +83,20 @@ docker compose up -d --build
 echo
 yellow "Waiting for services to become healthy…"
 deadline=$(( $(date +%s) + 300 ))
+poll="${START_POLL_SECONDS:-5}"
 while :; do
+  # A container that has stopped will not become healthy: say why now, not after five minutes
+  api_run="$(docker compose ps api --format '{{.State}}' 2>/dev/null || echo '')"
+  case "$api_run" in
+    exited|dead|restarting)
+      echo
+      yellow "The API container is not staying up ($api_run). Its last log lines:"
+      docker compose logs --tail 30 api 2>&1 || true
+      echo
+      echo "A production configuration problem is the usual cause: see docs/PRODUCTION_CHECKLIST.md" >&2
+      exit 1
+      ;;
+  esac
   web_state="$(docker compose ps web --format '{{.Health}}' 2>/dev/null || echo '')"
   api_state="$(docker compose ps api --format '{{.Health}}' 2>/dev/null || echo '')"
   if [ "$web_state" = "healthy" ] && [ "$api_state" = "healthy" ]; then
@@ -80,7 +106,7 @@ while :; do
     yellow "Still starting after 5 min. Check logs with:  docker compose logs -f"
     break
   fi
-  sleep 5
+  sleep "$poll"
 done
 
 echo

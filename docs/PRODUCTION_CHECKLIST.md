@@ -46,7 +46,7 @@ npm run verify:deploy -w server -- --web https://alumni.example.edu
 | `TRUST_PROXY` | `1` | number of proxies in front of the API (`1` for the bundled nginx, `2` behind Cloudflare + nginx) | Rate limits key on the client address. Too high: clients can spoof it. Too low: everyone shares one bucket |
 | `API_BIND` | `127.0.0.1` | leave it | The API port stays on loopback; only the proxy is public |
 | `REQUIRE_EMAIL_VERIFICATION` | off | leave unset (**on** in production) | No session before the address is verified; see decision 2 below |
-| `SENDGRID_API_KEY` or `SMTP_HOST`/`SMTP_USER`/`SMTP_PASS`, `EMAIL_FROM` | unset (mails are logged) | a working mail server | Required once verification is on, or nobody can finish registering. Send a real test registration |
+| `SENDGRID_API_KEY` or `SMTP_HOST`/`SMTP_USER`/`SMTP_PASS`, `EMAIL_FROM` | unset (mails are logged) | a working mail server (SendGrid is used through its SMTP relay; transient failures are retried) | Required once verification is on, or nobody can finish registering. Send a real test registration |
 | `SEED_ADMIN_EMAIL`, `SEED_ADMIN_PASSWORD` | `Admin@123` default | your address; 12+ random characters | The first super admin. Change the password after the first sign-in |
 | `SEED_SAMPLE_DATA` | `true` for demos | unset / `false` | Demo users (`user1..6@example.com`) have passwords that are in the repository |
 | `RAZORPAY_KEY_ID`, `RAZORPAY_KEY_SECRET` | test keys | **live** keys | `rzp_test_` keys move no money (preflight warns) |
@@ -104,7 +104,9 @@ Secrets and database-password checks still apply. Remove both lines for any real
 * **Backups:** `backup-db.sh` (PostgreSQL, custom format, verified, 30-day retention, optional encrypted S3 upload). Schedule it
   (`0 2 * * * cd /srv/aitd && ./backup-db.sh`), copy dumps off the server, and **restore one to a scratch database** before go-live
   and after every schema change. Back up the uploads volume or use S3.
-* **Monitoring:** alert on `GET /health` (it reports the database state), on 5xx rate and on a spike of 401/429 on `/api/auth/*`.
+* **Monitoring:** alert on `GET /health` (database state; `redisStatus` is informational), on 5xx rate and on a spike of 401/429 on `/api/auth/*`.
+  Every API response has an `X-Request-Id` and every request one access-log line (route pattern, status, duration, never the query string); set
+  `LOG_LEVEL=warn` to keep only slow requests and errors. See [ROBUSTNESS.md](ROBUSTNESS.md).
   The audit log (`/api/admin/audit`) records security events (refresh-token reuse, role changes, deletions).
 * **Logs** hold e-mail addresses and IPs: restrict access and set a retention period.
 * **Updates:** run `npm audit` on every release; patch releases of Next.js, Express and Prisma are routine, not optional.

@@ -324,6 +324,7 @@ model User {
   // Bounding-box scans for the alumni map / nearby search (see userService.getNearbyAlumni).
   // locationLat/Lng is the derived map pin, so one index on it still serves every map query.
   @@index([locationLat, locationLng])
+  @@index([membershipTierId])
 }
 
 // Verification tokens for 2FA, email verification, password reset
@@ -450,6 +451,8 @@ model UserMembership {
   
   @@index([userId])
   @@index([status])
+  @@index([tierId])
+  @@index([transactionId])
 }
 
 // ============== NOTICE BOARD (SOCIAL FEED) ==============
@@ -649,6 +652,7 @@ model ContentReport {
   @@index([postId])
   @@index([commentId])
   @@index([reporterId])
+  @@index([resolvedById])
 }
 
 // ============== CAREERS ==============
@@ -722,6 +726,7 @@ model MentorshipRequest {
   @@index([menteeId])
   @@index([mentorId])
   @@index([status])
+  @@index([profileId])
 }
 
 model MentorshipSession {
@@ -770,6 +775,7 @@ model Event {
   @@index([startDate])
   @@index([status])
   @@index([chapterId])
+  @@index([createdById])
 }
 
 model EventRSVP {
@@ -821,6 +827,7 @@ model GalleryPhoto {
   createdAt   DateTime     @default(now())
   
   @@index([albumId])
+  @@index([uploadedById])
 }
 
 // ============== NEWS & STORIES ==============
@@ -846,6 +853,7 @@ model NewsArticle {
   @@index([category])
   @@index([status])
   @@index([publishedAt])
+  @@index([authorId])
 }
 
 // ============== DONATIONS ==============
@@ -869,6 +877,7 @@ model Donation {
   @@index([userId])
   @@index([chapterId])
   @@index([createdAt])
+  @@index([transactionId])
 }
 
 // ============== CHAPTERS ==============
@@ -893,6 +902,7 @@ model Chapter {
   
   @@index([region])
   @@index([isActive])
+  @@index([adminUserId])
 }
 
 model ChapterMembership {
@@ -1072,6 +1082,7 @@ model CollegeVideo {
   @@index([status, createdAt])
   @@index([submittedById])
   @@index([category])
+  @@index([reviewedById])
 }
 
 // ============== COLLEGE MAGAZINE ==============
@@ -1092,6 +1103,7 @@ model CollegeMagazine {
   updatedAt     DateTime @updatedAt
 
   @@index([isPublished, publishedAt])
+  @@index([uploadedById])
 }
 
 // ============== COLLEGE REQUIREMENTS ==============
@@ -1112,6 +1124,7 @@ model CollegeRequirement {
 
   @@index([status, createdAt])
   @@index([category])
+  @@index([postedById])
 }
 
 model RequirementResponse {
@@ -1148,6 +1161,7 @@ model ReferralRequest {
   @@unique([requesterId, targetId, jobId]) // no duplicate asks for the same job
   @@index([targetId, status])
   @@index([requesterId])
+  @@index([jobId])
 }
 
 // ============== WEEKLY DIGEST ==============

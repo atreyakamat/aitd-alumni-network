@@ -172,8 +172,12 @@ describe('getApiErrorMessage', () => {
     expect(getApiErrorMessage(new Error(''), 'fallback')).toBe('fallback');
   });
 
-  it('uses Error.message for non-HTTP errors', () => {
-    expect(getApiErrorMessage(new Error('Network Error'), 'fallback')).toBe('Network Error');
+  it('uses Error.message for non-HTTP errors it does not recognise', () => {
+    expect(getApiErrorMessage(new Error('Something unexpected happened'), 'fallback')).toBe('Something unexpected happened');
+  });
+
+  it('turns the raw network-library wording into something a member can act on', () => {
+    expect(getApiErrorMessage(new Error('Network Error'), 'fallback')).toMatch(/cannot reach the server/i);
   });
 });
 

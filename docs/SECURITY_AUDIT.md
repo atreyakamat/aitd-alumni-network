@@ -265,11 +265,11 @@ the `isReel` flag, its database column and the `?reels=` filter went now). Posts
 
 | Suite | Command | Result |
 |---|---|---|
-| Server unit | `npm test -w server` | 99 suites, 3,728 tests |
+| Server unit | `npm test -w server` | 107 suites, 3,841 tests (also green on Node 20, which CI and Docker use) |
 | Server security (real PostgreSQL) | `npm run test:security -w server` | 32 suites, 400 tests (89 from round 1, 297 in `tests/security/round2/` plus the college privacy tests, 8 for e-mail verification and OAuth 2FA) |
-| Server integration (real PostgreSQL) | `npm run test:integration -w server` | 6 suites, 38 tests |
+| Server integration (real PostgreSQL) | `npm run test:integration -w server` | 7 suites, 43 tests |
 | Client/server contract | `npm run test:contract -w server` | 5 suites, 926 tests |
-| Client (vitest) | `npm test -w client` | 89 files, 993 tests (151 in `src/__security__/`) |
+| Client (vitest) | `npm test -w client` | 93 files, 1,052 tests (151 in `src/__security__/`) |
 | Type checks | server `tsc -p tsconfig.test.json`, client `tsc --noEmit` | clean |
 | Lint | server eslint, client `next lint` | 0 errors |
 

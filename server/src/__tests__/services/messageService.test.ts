@@ -44,17 +44,23 @@ afterEach(() => {
 
 describe('messageService', () => {
   describe('getConversations', () => {
-    it('groups by partner keeping the latest message, with per-partner unread counts', async () => {
+    // The database returns the id of the latest message of each conversation, newest first, and the total
+    const latestRows = (...rows: Array<[string, string]>) =>
+      rows.map(([id, partnerId]) => ({ id, partnerId, total: BigInt(rows.length) }));
+
+    it('shows the latest message of each conversation, with per-partner unread counts', async () => {
+      prismaMock.$queryRaw.mockResolvedValue(latestRows(['n1', THEM], ['n2', 'x']));
       prismaMock.message.findMany.mockResolvedValue([
-        { ...msg({ id: 'n1', senderId: THEM, receiverId: ME, content: 'latest from them' }), sender: { id: THEM }, receiver: { id: ME } },
+        // (returned in any order: the page keeps the order the database chose)
         { ...msg({ id: 'n2', senderId: ME, receiverId: 'x', content: 'to x', isRequest: true, requestStatus: 'PENDING' }), sender: { id: ME }, receiver: { id: 'x' } },
-        { ...msg({ id: 'old', senderId: ME, receiverId: THEM, content: 'older' }), sender: { id: ME }, receiver: { id: THEM } },
+        { ...msg({ id: 'n1', senderId: THEM, receiverId: ME, content: 'latest from them' }), sender: { id: THEM }, receiver: { id: ME } },
       ]);
       prismaMock.message.groupBy.mockResolvedValue([{ senderId: THEM, _count: { _all: 3 } }]);
 
       const result = await messageService.getConversations(ME);
 
-      expect(prismaMock.message.findMany.mock.calls[0][0].where).toEqual({ OR: [{ senderId: ME }, { receiverId: ME }] });
+      // only the messages of the page are fetched, by id - never the member's whole history
+      expect(prismaMock.message.findMany.mock.calls[0][0].where).toEqual({ id: { in: ['n1', 'n2'] } });
       expect(prismaMock.message.groupBy.mock.calls[0][0].where).toEqual({
         receiverId: ME,
         isRead: false,
@@ -77,25 +83,37 @@ describe('messageService', () => {
       expect(result.pagination).toMatchObject({ total: 2, page: 1, totalPages: 1, hasNextPage: false });
     });
 
-    it('paginates conversations', async () => {
+    it('asks the database for one page (LIMIT/OFFSET) and reports the total of all conversations', async () => {
+      prismaMock.$queryRaw.mockResolvedValue([{ id: 'c', partnerId: 'p3', total: BigInt(3) }]);
       prismaMock.message.findMany.mockResolvedValue([
-        { ...msg({ id: 'a', receiverId: 'p1' }), sender: { id: ME }, receiver: { id: 'p1' } },
-        { ...msg({ id: 'b', receiverId: 'p2' }), sender: { id: ME }, receiver: { id: 'p2' } },
         { ...msg({ id: 'c', receiverId: 'p3' }), sender: { id: ME }, receiver: { id: 'p3' } },
       ]);
       prismaMock.message.groupBy.mockResolvedValue(undefined);
 
       const result = await messageService.getConversations(ME, 2, 2);
 
+      const call = prismaMock.$queryRaw.mock.calls[0] as unknown as [string[], ...unknown[]];
+      expect(call[0].join('?')).toContain('DISTINCT ON');
+      expect(call.slice(1)).toEqual([ME, ME, ME, 2, 2]); // the user (CASE, sender, receiver), then LIMIT 2 OFFSET 2
       expect(result.data.map((c: any) => c.partnerId)).toEqual(['p3']);
       expect(result.pagination).toMatchObject({ total: 3, page: 2, limit: 2, totalPages: 2, hasPrevPage: true, hasNextPage: false });
     });
 
-    it('skips the unread query when there are no conversations', async () => {
-      prismaMock.message.findMany.mockResolvedValue([]);
+    it('a page past the end is empty but still reports the real total', async () => {
+      prismaMock.$queryRaw.mockResolvedValueOnce([]).mockResolvedValueOnce([{ total: BigInt(5) }]);
+      const result = await messageService.getConversations(ME, 9, 2);
+      expect(result.data).toEqual([]);
+      expect(result.pagination).toMatchObject({ total: 5, page: 9 });
+      expect(prismaMock.message.findMany).not.toHaveBeenCalled();
+    });
+
+    it('skips the message and unread queries when there are no conversations', async () => {
+      prismaMock.$queryRaw.mockResolvedValue([]);
       const result = await messageService.getConversations(ME);
+      expect(prismaMock.message.findMany).not.toHaveBeenCalled();
       expect(prismaMock.message.groupBy).not.toHaveBeenCalled();
       expect(result.data).toEqual([]);
+      expect(result.pagination).toMatchObject({ total: 0 });
     });
   });
 

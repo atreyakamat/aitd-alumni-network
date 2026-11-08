@@ -22,6 +22,13 @@ describe('createShutdown', () => {
     expect(d.exit).toHaveBeenCalledWith(0);
   });
 
+  it('exits 1 after a crash even when everything closed cleanly, so the orchestrator restarts a fresh process', async () => {
+    const d = deps();
+    await createShutdown(d as any)('uncaughtException', true);
+    expect(d.prisma.$disconnect).toHaveBeenCalled();
+    expect(d.exit).toHaveBeenCalledWith(1);
+  });
+
   it('works without socket.io or redis', async () => {
     const d = deps({ io: null, redis: null });
     await createShutdown(d as any)('SIGINT');

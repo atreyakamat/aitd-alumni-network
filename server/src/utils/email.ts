@@ -1,20 +1,60 @@
 import nodemailer from 'nodemailer';
 import { config } from '../config';
+import { log } from './logger';
 
-// Create transporter only if SMTP config is available
-const hasSmtpConfig = config.email.smtp.user && config.email.smtp.pass;
+// A stuck mail server must not hold a request for minutes (registration waits for the verification mail): nodemailer's
+// own defaults are 2 minutes to connect and 10 minutes of silence.
+const TIMEOUTS = { connectionTimeout: 10_000, greetingTimeout: 10_000, socketTimeout: 20_000 };
 
-const transporter = hasSmtpConfig 
-  ? nodemailer.createTransport({
-      host: config.email.smtp.host,
-      port: config.email.smtp.port,
-      secure: config.email.smtp.port === 465,
-      auth: {
-        user: config.email.smtp.user,
-        pass: config.email.smtp.pass,
-      },
-    })
-  : null;
+/**
+ * Where mail goes. SendGrid (an API key) is used through its SMTP relay, so no extra dependency is needed; otherwise the
+ * configured SMTP server; with neither, null: development just prints the mail.
+ */
+export const buildTransportOptions = (email: typeof config.email = config.email) => {
+  if (email.sendgridApiKey) {
+    return { host: 'smtp.sendgrid.net', port: 587, secure: false, auth: { user: 'apikey', pass: email.sendgridApiKey }, ...TIMEOUTS };
+  }
+  if (email.smtp.user && email.smtp.pass) {
+    return {
+      host: email.smtp.host,
+      port: email.smtp.port,
+      secure: email.smtp.port === 465,
+      auth: { user: email.smtp.user, pass: email.smtp.pass },
+      ...TIMEOUTS,
+    };
+  }
+  return null;
+};
+
+const transportOptions = buildTransportOptions();
+const transporter = transportOptions ? nodemailer.createTransport(transportOptions) : null;
+
+const TRANSIENT_CODES = new Set(['ECONNECTION', 'ETIMEDOUT', 'ETIMEOUT', 'ESOCKET', 'ECONNRESET', 'EDNS']);
+
+/** Worth another try: the network or the server had a bad moment (a 4xx SMTP reply means "try again later"). */
+export const isTransientMailError = (error: unknown): boolean => {
+  const e = error as { code?: unknown; responseCode?: unknown } | undefined;
+  if (!e) return false;
+  if (typeof e.code === 'string' && TRANSIENT_CODES.has(e.code)) return true;
+  return typeof e.responseCode === 'number' && e.responseCode >= 400 && e.responseCode < 500;
+};
+
+const defaultSleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
+
+/** Runs `send`, retrying transient failures with a growing pause. A rejected recipient or bad login is not retried. */
+export const sendWithRetry = async <T>(
+  send: () => Promise<T>,
+  { retries = 2, baseDelayMs = 500, sleep = defaultSleep }: { retries?: number; baseDelayMs?: number; sleep?: (ms: number) => Promise<void> } = {}
+): Promise<T> => {
+  for (let attempt = 0; ; attempt++) {
+    try {
+      return await send();
+    } catch (error) {
+      if (attempt >= retries || !isTransientMailError(error)) throw error;
+      await sleep(baseDelayMs * (attempt === 0 ? 1 : 3 ** attempt));
+    }
+  }
+};
 
 interface EmailOptions {
   to: string;
@@ -38,17 +78,19 @@ export const sendEmail = async (options: EmailOptions): Promise<void> => {
   }
 
   try {
-    await transporter.sendMail({
-      from: config.email.from,
-      to: options.to,
-      subject: options.subject,
-      html: options.html,
-      text: options.text,
-      attachments: options.attachments,
-    });
-    console.log(`Email sent to ${options.to}`);
+    await sendWithRetry(() =>
+      transporter.sendMail({
+        from: config.email.from,
+        to: options.to,
+        subject: options.subject,
+        html: options.html,
+        text: options.text,
+        attachments: options.attachments,
+      })
+    );
+    log.info('E-mail sent', { subject: options.subject });
   } catch (error) {
-    console.error('Error sending email:', error);
+    log.error('Sending e-mail failed', { subject: options.subject, err: error });
     // Don't throw error in development to avoid crashing the flow
     if (config.nodeEnv === 'production') {
       throw error;
