@@ -80,6 +80,25 @@ docker compose --profile proxy up -d --build
 the API, with a 10 MB body limit. It listens on plain HTTP. Terminate TLS in front of it (host nginx/Caddy,
 Cloudflare, a cloud load balancer), or add a 443 server block with your certificates.
 
+### Network exposure and rate limits (`API_BIND`, `TRUST_PROXY`)
+
+Rate limits key on the client IP. Behind a proxy that IP comes from the `X-Forwarded-For` header, which any client
+can also set, so the API must trust exactly as many proxy hops as really exist:
+
+| Setup | `API_BIND` | `TRUST_PROXY` |
+|---|---|---|
+| nginx `proxy` profile (or one load balancer) in front, default | `127.0.0.1` (default) | `1` (default) |
+| Cloudflare **plus** nginx | `127.0.0.1` | `2` |
+| API reachable directly, no proxy | `0.0.0.0` | `0` |
+
+The API container is published on `127.0.0.1` only by default, so the only way in from the network is through your
+proxy. If you expose it directly and leave `TRUST_PROXY=1`, anyone can dodge every per-IP limit by rotating a header.
+A value too low has the opposite effect: all visitors share the proxy's address and one rate-limit bucket.
+`true` and `*` are refused (they would trust any address a client claims).
+
+Receipts are never served as static files; they are only available through the authenticated receipt endpoint
+(and are private objects in S3). Video uploads are limited to 110 MB at nginx (100 MB at the API).
+
 ## Day-to-day operations
 
 ```bash

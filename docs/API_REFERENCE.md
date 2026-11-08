@@ -13,9 +13,9 @@ Responses use the envelope `{ "success": true, "data": ..., "pagination"?: {...}
 
 | Level | Meaning | Endpoints |
 |---|---|---|
-| Public | No token needed | 32 |
+| Public | No token needed | 33 |
 | Public (personalised when signed in) | Works anonymously; returns more (for example members-only items) with a token | 21 |
-| Signed in | Any active, signed-in user. Ownership rules are enforced per resource | 110 |
+| Signed in | Any active, signed-in user. Ownership rules are enforced per resource | 109 |
 | Chapter admin+ | CHAPTER_ADMIN, ADMIN or SUPER_ADMIN. Chapter admins are limited to their own chapter | 2 |
 | Admin+ | ADMIN or SUPER_ADMIN | 30 |
 | Super admin | SUPER_ADMIN only | 2 |
@@ -54,7 +54,7 @@ Auth endpoints (login, register, password reset, 2FA, email verification, OAuth 
 
 | Method | Path | Access | Validated |
 |---|---|---|---|
-| GET | `/search` | Signed in |  |
+| GET | `/search` | Public |  |
 
 ## Users
 

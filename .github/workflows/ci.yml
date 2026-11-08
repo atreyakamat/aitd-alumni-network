@@ -68,6 +68,18 @@ jobs:
         env:
           TEST_DATABASE_URL: postgresql://postgres:testpassword@127.0.0.1:5432/alumni_test
 
+      - name: Security regression tests (every audit finding, real PostgreSQL)
+        working-directory: ./server
+        run: npm run test:security
+        env:
+          TEST_DATABASE_URL: postgresql://postgres:testpassword@127.0.0.1:5432/alumni_test
+
+      - name: Client/server contract tests (every route, real PostgreSQL)
+        working-directory: ./server
+        run: npm run test:contract
+        env:
+          TEST_DATABASE_URL: postgresql://postgres:testpassword@127.0.0.1:5432/alumni_test
+
       - name: Build
         working-directory: ./server
         run: npm run build

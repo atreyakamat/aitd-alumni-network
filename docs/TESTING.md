@@ -10,14 +10,17 @@ AITD Connection is developed test-first. Every behaviour change starts with a fa
 | Route-level RBAC matrix | `server/tests/routes/rbac-matrix.test.ts` | Real Express app, mocked Prisma | `npm test` |
 | Contracts (API reference freshness, notification links resolve to client pages) | `server/tests/docs/`, `server/src/__tests__/utils/clientLinks.test.ts` | Live router, client `app/` tree | `npm test` |
 | Integration (end-to-end HTTP + DB) | `server/tests/integration/*.int.test.ts` | Real PostgreSQL 17 (embedded, auto-started, no Docker) | `npm run test:integration` |
+| Security regressions (authorization, input handling, auth/payments/realtime; each finding in [SECURITY_AUDIT.md](SECURITY_AUDIT.md) has a test that fails without its fix) | `server/tests/security/**/*.sec.test.ts` | Real PostgreSQL 17 (embedded) | `npm run test:security` |
+| Client/server contract (every client call vs the router and zod schemas; all routes driven with valid, invalid and fuzzed input) | `server/tests/contract/` | Real PostgreSQL 17 (embedded) | `npm run test:contract` (regenerate the call inventory with `npm run contract:inventory`) |
 | Frontend unit/component | `client/src/**/*.test.ts(x)` | Vitest + Testing Library (jsdom) | `npm test` (in `client/`) |
+| Frontend security (safe links, security headers, route gating, token hygiene) | `client/src/__security__/`, `client/src/lib/__tests__/safe-url.test.ts`, `client/src/__tests__/next-config-headers.test.ts` | Vitest | `npm test` (in `client/`) |
 
 Other useful commands:
 
 ```bash
 npm run typecheck        # server: src + tests
 npm run test:coverage    # server unit coverage report (server/coverage)
-npm run test:all         # unit + integration
+npm run test:all         # unit + integration + security + contract
 ```
 
 ## The TDD loop
