@@ -42,10 +42,10 @@ describe('<PhotosSection>', () => {
   it('rejects non-image and unsupported image types', async () => {
     render(<PhotosSection profile={profile} onSaved={vi.fn()} />);
     await user().upload(screen.getByLabelText('Choose cover photo'), fileOfSize('cv.pdf', 'application/pdf', 1000));
-    expect(screen.getByRole('alert')).toHaveTextContent('JPG, PNG or GIF');
+    expect(screen.getByRole('alert')).toHaveTextContent('JPG, PNG, GIF or WebP');
 
-    await user().upload(screen.getByLabelText('Choose cover photo'), fileOfSize('me.webp', 'image/webp', 1000));
-    expect(screen.getByRole('alert')).toHaveTextContent('JPG, PNG or GIF');
+    await user().upload(screen.getByLabelText('Choose cover photo'), fileOfSize('me.bmp', 'image/bmp', 1000));
+    expect(screen.getByRole('alert')).toHaveTextContent('JPG, PNG, GIF or WebP');
     expect(userApi.uploadCoverPhoto).not.toHaveBeenCalled();
   });
 

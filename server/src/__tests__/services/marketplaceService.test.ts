@@ -119,6 +119,8 @@ describe('marketplaceService', () => {
         website: 'https://cafe.example',
         contactInfo: undefined,
         priceRange: undefined,
+        logoUrl: null,
+        images: [],
       });
     });
 

@@ -97,6 +97,9 @@ interface F extends Users {
   mentorRequest: { id: string };
   session: { id: string };
   transaction: { id: string };
+  video: { id: string; title: string };
+  magazine: { id: string };
+  requirement: { id: string };
 }
 
 let f: F;
@@ -113,6 +116,20 @@ const signCheckout = (orderId: string, paymentId: string) =>
 
 const tokenOfLink = (link: string) => new URL(link).searchParams.get('ref') as string;
 const MISSING_ID = '00000000-0000-4000-8000-000000000000';
+
+/** Minimal bytes the upload endpoints sniff as an MP4 and a PDF. */
+const MP4 = Buffer.concat([Buffer.from([0, 0, 0, 0x18]), Buffer.from('ftypisom'), Buffer.alloc(64)]);
+const PDF = Buffer.from('%PDF-1.4\n1 0 obj\n<< /Type /Catalog >>\nendobj\ntrailer\n<< /Root 1 0 R >>\n%%EOF\n');
+/**
+ * The college-content lists answer `{ success, data: { data: [...], pagination } }`, the paginated result nested one level
+ * deeper than /jobs or /events (the mentorship list does the same), so `shape: 'list'` does not fit them.
+ */
+const nestedPage = (b: any) => {
+  expect(Array.isArray(b.data.data)).toBe(true);
+  expect(b.data.pagination).toEqual(expect.objectContaining({ total: expect.any(Number), page: expect.any(Number), limit: expect.any(Number), totalPages: expect.any(Number) }));
+};
+/** A fresh reference to a stored file: a file may belong to one record only. */
+const ref = (folder: string, ext: string) => `/uploads/${folder}/${fx.uniq(folder)}.${ext}`;
 
 beforeAll(async () => {
   config.razorpay.keyId = 'rzp_test_contract';
@@ -155,6 +172,9 @@ beforeAll(async () => {
     mentorRequest: request,
     session: await fx.newSession(request.id),
     transaction,
+    video: await fx.newVideo(users.member.user.id, 'APPROVED'),
+    magazine: await fx.newMagazine(users.admin.user.id),
+    requirement: await fx.newRequirement(users.admin.user.id),
   };
 }, 120000);
 
@@ -334,7 +354,7 @@ const cases: Record<string, Case> = {
   'delete /users/:id/follow': { ok: (x) => ({ path: `/users/${x.third.user.id}/follow` }), shape: 'obj', bad: null },
   'get /users/:id/followers': { ok: (x) => ({ path: `/users/${x.other.user.id}/followers`, query: { limit: 10 } }), shape: 'obj' },
   'get /users/:id/following': { ok: (x) => ({ path: `/users/${x.other.user.id}/following`, query: { limit: 10 } }), shape: 'obj' },
-  'get /users/:id/posts': { ok: (x) => ({ as: null, path: `/users/${x.member.user.id}/posts`, query: { limit: 10, reels: 'true' } }), shape: 'obj' },
+  'get /users/:id/posts': { ok: (x) => ({ as: null, path: `/users/${x.member.user.id}/posts`, query: { limit: 10 } }), shape: 'obj' },
   'patch /users/profile': {
     ok: () => ({
       as: 'third',
@@ -461,7 +481,6 @@ const cases: Record<string, Case> = {
 
   // ---- Social ----
   'get /feed': { ok: () => ({ path: '/feed', query: { tab: 'latest', limit: 10 } }), shape: 'obj', bad: () => ({ as: null, path: '/feed' }), badStatus: 401 },
-  'get /reels': { ok: () => ({ as: null, path: '/reels', query: { limit: 5 } }), shape: 'obj', bad: null },
   'get /saved': { ok: () => ({ path: '/saved', query: { limit: 5 } }), shape: 'obj', bad: () => ({ as: null, path: '/saved' }), badStatus: 401 },
   'get /hashtags/trending': { ok: () => ({ as: null, path: '/hashtags/trending', query: { days: 7, limit: 10 } }), shape: 'any', bad: null },
   'get /hashtags/:tag/posts': { ok: () => ({ as: null, path: '/hashtags/contract/posts', query: { limit: 5 } }), shape: 'obj', bad: null },
@@ -797,6 +816,228 @@ const cases: Record<string, Case> = {
     badStatus: 404,
   },
 
+  // ---- College videos ----
+  'get /videos': {
+    ok: (x) => ({ as: null, path: '/videos', query: { page: 1, limit: 12, category: 'Campus', search: x.video.title } }),
+    shape: 'obj',
+    check: (b, x) => {
+      nestedPage(b);
+      expect(b.data.data.map((v: any) => v.id)).toContain(x.video.id);
+    },
+    bad: () => ({ as: 'admin', path: '/videos', query: { status: 'NOPE' } }),
+  },
+  'get /videos/mine': {
+    ok: () => ({ path: '/videos/mine', query: { page: 1, limit: 50 } }),
+    shape: 'obj',
+    check: (b, x) => {
+      nestedPage(b);
+      expect(b.data.data.map((v: any) => v.id)).toContain(x.video.id);
+    },
+    bad: () => ({ as: null, path: '/videos/mine' }),
+    badStatus: 401,
+  },
+  'get /videos/:id': {
+    ok: (x) => ({ as: null, path: `/videos/${x.video.id}` }),
+    shape: 'obj',
+    check: (b, x) => expect(b.data).toMatchObject({ id: x.video.id, status: 'APPROVED' }),
+    bad: () => ({ as: null, path: `/videos/${MISSING_ID}` }),
+    badStatus: 404,
+  },
+  'post /videos/upload': {
+    ok: () => ({ path: '/videos/upload', attach: { field: 'video', buffer: MP4, filename: 'a.mp4', contentType: 'video/mp4' } }),
+    status: 201,
+    shape: 'obj',
+    check: (b) => expect(b.data).toMatchObject({ videoUrl: expect.stringMatching(/^\/uploads\/college-videos\/[\w.-]+\.mp4$/), mimeType: 'video/mp4' }),
+    bad: () => ({ path: '/videos/upload' }),
+  },
+  'post /videos/upload-thumbnail': {
+    ok: () => ({ path: '/videos/upload-thumbnail', attach: { field: 'image', buffer: fx.PNG_1X1, filename: 't.png', contentType: 'image/png' } }),
+    status: 201,
+    shape: 'obj',
+    check: (b) => expect(b.data.url).toMatch(/^\/uploads\/video-thumbnails\/[\w.-]+\.png$/),
+    bad: () => ({ path: '/videos/upload-thumbnail' }),
+  },
+  'post /videos': {
+    ok: () => ({ path: '/videos', body: { title: 'Smoke Video', description: 'Campus tour', category: 'Campus', videoUrl: ref('college-videos', 'mp4'), thumbnailUrl: ref('video-thumbnails', 'png') } }),
+    status: 201,
+    shape: 'obj',
+    check: (b, x) => expect(b.data).toMatchObject({ title: 'Smoke Video', status: 'PENDING', submittedById: x.member.user.id }),
+    // somebody else's upload cannot be claimed as a video
+    bad: () => ({ path: '/videos', body: { title: 'Foreign file', videoUrl: '/uploads/gallery/contract.png' } }),
+  },
+  'patch /videos/:id': {
+    ok: async (x) => ({
+      as: 'admin',
+      path: `/videos/${(await fx.newVideo(x.member.user.id, 'PENDING')).id}`,
+      body: { title: 'Edited video', description: 'Updated', category: 'Lectures', thumbnailUrl: ref('video-thumbnails', 'png') },
+    }),
+    shape: 'obj',
+    check: (b) => expect(b.data).toMatchObject({ title: 'Edited video', category: 'Lectures' }),
+    bad: (x) => ({ as: 'admin', path: `/videos/${x.video.id}`, body: { title: '  ' } }),
+  },
+  'post /videos/:id/approve': {
+    ok: async (x) => ({ as: 'admin', path: `/videos/${(await fx.newVideo(x.member.user.id, 'PENDING')).id}/approve`, body: {} }),
+    shape: 'obj',
+    check: (b) => expect(b.data.status).toBe('APPROVED'),
+    bad: () => ({ as: 'admin', path: `/videos/${MISSING_ID}/approve`, body: {} }),
+    badStatus: 404,
+  },
+  'post /videos/:id/reject': {
+    ok: async (x) => ({ as: 'admin', path: `/videos/${(await fx.newVideo(x.member.user.id, 'PENDING')).id}/reject`, body: { reason: 'Off topic' } }),
+    shape: 'obj',
+    check: (b) => expect(b.data).toMatchObject({ status: 'REJECTED', rejectionReason: 'Off topic' }),
+    bad: () => ({ as: 'admin', path: `/videos/${MISSING_ID}/reject`, body: { reason: 'x' } }),
+    badStatus: 404,
+  },
+  'delete /videos/:id': {
+    ok: async (x) => ({ path: `/videos/${(await fx.newVideo(x.member.user.id, 'PENDING')).id}` }),
+    shape: 'any',
+    bad: () => ({ path: `/videos/${MISSING_ID}` }),
+    badStatus: 404,
+  },
+
+  // ---- College magazine ----
+  'get /magazine': {
+    ok: () => ({ as: null, path: '/magazine', query: { page: 1, limit: 12 } }),
+    shape: 'obj',
+    check: (b) => {
+      nestedPage(b);
+      expect(b.data.data.every((m: any) => m.isPublished)).toBe(true);
+    },
+    bad: null,
+  },
+  'get /magazine/:id': {
+    ok: (x) => ({ as: null, path: `/magazine/${x.magazine.id}` }),
+    shape: 'obj',
+    check: (b, x) => expect(b.data.id).toBe(x.magazine.id),
+    bad: () => ({ as: null, path: `/magazine/${MISSING_ID}` }),
+    badStatus: 404,
+  },
+  'post /magazine/upload-file': {
+    ok: () => ({ as: 'admin', path: '/magazine/upload-file', attach: { field: 'file', buffer: PDF, filename: 'm.pdf', contentType: 'application/pdf' } }),
+    status: 201,
+    shape: 'obj',
+    check: (b) => expect(b.data.fileUrl).toMatch(/^\/uploads\/magazines\/[\w.-]+\.pdf$/),
+    bad: () => ({ as: 'admin', path: '/magazine/upload-file' }),
+  },
+  'post /magazine/upload-cover': {
+    ok: () => ({ as: 'admin', path: '/magazine/upload-cover', attach: { field: 'image', buffer: fx.PNG_1X1, filename: 'c.png', contentType: 'image/png' } }),
+    status: 201,
+    shape: 'obj',
+    check: (b) => expect(b.data.url).toMatch(/^\/uploads\/magazine-covers\/[\w.-]+\.png$/),
+    bad: () => ({ as: 'admin', path: '/magazine/upload-cover' }),
+  },
+  'post /magazine': {
+    ok: () => ({ as: 'admin', path: '/magazine', body: { title: 'Smoke Issue', edition: 'Vol 9', description: 'Annual edition', coverImageUrl: ref('magazine-covers', 'png'), fileUrl: ref('magazines', 'pdf') } }),
+    status: 201,
+    shape: 'obj',
+    check: (b) => expect(b.data).toMatchObject({ title: 'Smoke Issue', edition: 'Vol 9', isPublished: true }),
+    bad: () => ({ as: 'admin', path: '/magazine', body: { title: 'No PDF' } }),
+  },
+  'patch /magazine/:id': {
+    ok: async (x) => ({
+      as: 'admin',
+      path: `/magazine/${(await fx.newMagazine(x.admin.user.id)).id}`,
+      body: { title: 'Edited issue', edition: 'Vol 2', description: 'Updated', coverImageUrl: ref('magazine-covers', 'png'), isPublished: false },
+    }),
+    shape: 'obj',
+    check: (b) => expect(b.data).toMatchObject({ title: 'Edited issue', edition: 'Vol 2', isPublished: false }),
+    bad: (x) => ({ as: 'admin', path: `/magazine/${x.magazine.id}`, body: { title: '' } }),
+  },
+  'delete /magazine/:id': {
+    ok: async (x) => ({ as: 'admin', path: `/magazine/${(await fx.newMagazine(x.admin.user.id)).id}` }),
+    shape: 'any',
+    bad: () => ({ as: 'admin', path: `/magazine/${MISSING_ID}` }),
+    badStatus: 404,
+  },
+
+  // ---- College requirements ----
+  'get /requirements': {
+    ok: () => ({ as: null, path: '/requirements', query: { page: 1, limit: 12, category: 'SOFTWARE', search: 'Contract' } }),
+    shape: 'obj',
+    check: (b) => {
+      nestedPage(b);
+      expect(b.data.data.every((r: any) => r.status === 'OPEN')).toBe(true);
+    },
+    bad: () => ({ as: 'admin', path: '/requirements', query: { status: 'NOPE' } }),
+  },
+  'post /requirements/responses/:responseId/review': {
+    ok: async (x) => {
+      const offer = await fx.newRequirementResponse((await fx.newRequirement(x.admin.user.id)).id, x.other.user.id);
+      return { as: 'admin', path: `/requirements/responses/${offer.id}/review`, body: { accept: true } };
+    },
+    shape: 'obj',
+    check: (b) => expect(b.data.status).toBe('ACCEPTED'),
+    bad: () => ({ as: 'admin', path: `/requirements/responses/${MISSING_ID}/review`, body: { accept: true } }),
+    badStatus: 404,
+  },
+  'get /requirements/:id': {
+    ok: (x) => ({ as: null, path: `/requirements/${x.requirement.id}` }),
+    shape: 'obj',
+    check: (b, x) => expect(b.data.id).toBe(x.requirement.id),
+    bad: () => ({ as: null, path: `/requirements/${MISSING_ID}` }),
+    badStatus: 404,
+  },
+  'post /requirements': {
+    ok: () => ({ as: 'admin', path: '/requirements', body: { title: 'Smoke Requirement', description: 'We need a projector', category: 'HARDWARE' } }),
+    status: 201,
+    shape: 'obj',
+    check: (b) => expect(b.data).toMatchObject({ title: 'Smoke Requirement', category: 'HARDWARE', status: 'OPEN' }),
+    bad: () => ({ as: 'admin', path: '/requirements', body: { title: 'No description' } }),
+  },
+  'patch /requirements/:id': {
+    ok: async (x) => ({
+      as: 'admin',
+      path: `/requirements/${(await fx.newRequirement(x.admin.user.id)).id}`,
+      body: { title: 'Edited requirement', description: 'Updated need', category: 'EXPERTISE', status: 'FULFILLED' },
+    }),
+    shape: 'obj',
+    check: (b) => expect(b.data).toMatchObject({ title: 'Edited requirement', category: 'EXPERTISE', status: 'FULFILLED' }),
+    bad: (x) => ({ as: 'admin', path: `/requirements/${x.requirement.id}`, body: { status: 'NOPE' } }),
+  },
+  'delete /requirements/:id': {
+    ok: async (x) => ({ as: 'admin', path: `/requirements/${(await fx.newRequirement(x.admin.user.id)).id}` }),
+    shape: 'any',
+    bad: () => ({ as: 'admin', path: `/requirements/${MISSING_ID}` }),
+    badStatus: 404,
+  },
+  'post /requirements/:id/respond': {
+    // one offer per alum per requirement, so each call targets a fresh requirement
+    ok: async (x) => ({ as: 'other', path: `/requirements/${(await fx.newRequirement(x.admin.user.id)).id}/respond`, body: { message: 'I can help with this' } }),
+    status: 201,
+    shape: 'obj',
+    check: (b, x) => expect(b.data).toMatchObject({ userId: x.other.user.id, status: 'OFFERED' }),
+    bad: (x) => ({ as: 'other', path: `/requirements/${x.requirement.id}/respond`, body: { message: '  ' } }),
+  },
+
+  // ---- Job referrals ----
+  'get /referrals/referrers': {
+    ok: () => ({ as: 'other', path: '/referrals/referrers', query: { company: 'Contract Co' } }),
+    shape: 'arr',
+    check: (b, x) => expect(b.data.map((p: any) => p.user.id)).toContain(x.member.user.id),
+    bad: () => ({ as: 'other', path: '/referrals/referrers', query: { company: 'x' } }),
+  },
+  'get /referrals/received': { ok: () => ({ path: '/referrals/received', query: { page: 1, limit: 20 } }), shape: 'obj', check: nestedPage, bad: () => ({ as: null, path: '/referrals/received' }), badStatus: 401 },
+  'get /referrals/sent': { ok: () => ({ path: '/referrals/sent', query: { page: 1, limit: 20 } }), shape: 'obj', check: nestedPage, bad: () => ({ as: null, path: '/referrals/sent' }), badStatus: 401 },
+  'post /referrals': {
+    // a member may hold only 10 pending requests, so every call comes from a fresh requester
+    ok: async (x) => {
+      const requester = await fx.newUser();
+      return { as: null, path: '/referrals', headers: { Authorization: requester.auth }, body: { targetId: x.other.user.id, company: 'Contract Co', message: 'Could you refer me?', jobId: x.job.id } };
+    },
+    status: 201,
+    shape: 'obj',
+    check: (b, x) => expect(b.data).toMatchObject({ targetId: x.other.user.id, company: 'Contract Co', status: 'PENDING', jobId: x.job.id }),
+    bad: () => ({ path: '/referrals', body: { company: 'Contract Co' } }),
+  },
+  'post /referrals/:id/respond': {
+    ok: async (x) => ({ as: 'member', path: `/referrals/${(await fx.newReferral((await fx.newUser()).user.id, x.member.user.id)).id}/respond`, body: { accept: true } }),
+    shape: 'obj',
+    check: (b) => expect(b.data.status).toBe('ACCEPTED'),
+    bad: () => ({ path: `/referrals/${MISSING_ID}/respond`, body: { accept: true } }),
+    badStatus: 404,
+  },
+
   // ---- Chapters ----
   'get /chapters': {
     ok: () => ({ as: null, path: '/chapters', query: { page: 1, limit: 20, search: 'Chapter', region: 'Pune' } }),
@@ -861,6 +1102,13 @@ const cases: Record<string, Case> = {
     shape: 'obj',
     bad: () => ({ as: null, path: `/marketplace/${MISSING_ID}` }),
     badStatus: 404,
+  },
+  'post /marketplace/upload-image': {
+    ok: () => ({ path: '/marketplace/upload-image', attach: { field: 'image', buffer: fx.PNG_1X1, filename: 'l.png', contentType: 'image/png' } }),
+    status: 201,
+    shape: 'obj',
+    check: (b) => expect(b.data.url).toMatch(/^\/uploads\/marketplace\/[\w.-]+\.png$/),
+    bad: () => ({ path: '/marketplace/upload-image' }),
   },
   'post /marketplace': {
     ok: () => ({
@@ -1130,6 +1378,86 @@ const cases: Record<string, Case> = {
   'get /admin/audit/activity': { ok: () => ({ as: 'admin', path: '/admin/audit/activity', query: { limit: 10 } }), shape: 'any', check: (b) => expect(b.logs).toEqual(expect.any(Array)), bad: () => ({ as: 'member', path: '/admin/audit/activity' }), badStatus: 403 },
   'get /admin/audit/:entityType/:entityId': { ok: (x) => ({ as: 'admin', path: `/admin/audit/USER/${x.member.user.id}` }), shape: 'any', bad: () => ({ as: 'member', path: `/admin/audit/USER/${MISSING_ID}` }), badStatus: 403 },
   'post /admin/audit/cleanup': { ok: () => ({ as: 'superAdmin', path: '/admin/audit/cleanup', body: { daysToKeep: 3650 } }), shape: 'any', bad: () => ({ as: 'superAdmin', path: '/admin/audit/cleanup', body: { daysToKeep: 'abc' } }) },
+  // ---- Weekly digest (e-mail is stubbed in beforeEach) ----
+  'get /admin/digest': {
+    ok: () => ({ as: 'admin', path: '/admin/digest' }),
+    shape: 'obj',
+    check: (b) => expect(b.data).toMatchObject({ id: 'default', enabled: expect.any(Boolean), sections: expect.any(Object) }),
+    bad: () => ({ as: 'member', path: '/admin/digest' }),
+    badStatus: 403,
+  },
+  'patch /admin/digest': {
+    ok: () => ({ as: 'admin', path: '/admin/digest', body: { enabled: false, dayOfWeek: 2, hour: 8, sections: { jobs: true, events: true, videos: true, requirements: true, nearbyAlumni: true } } }),
+    shape: 'obj',
+    check: (b) => expect(b.data).toMatchObject({ enabled: false, dayOfWeek: 2, hour: 8 }),
+    bad: () => ({ as: 'member', path: '/admin/digest', body: { enabled: true } }),
+    badStatus: 403,
+  },
+  'post /admin/digest/send': {
+    ok: () => ({ as: 'admin', path: '/admin/digest/send', body: {} }),
+    shape: 'obj',
+    // every counted send went through the stub
+    check: (b) => expect(email.sendEmail).toHaveBeenCalledTimes(b.data.sent),
+    bad: () => ({ as: 'member', path: '/admin/digest/send', body: {} }),
+    badStatus: 403,
+  },
+  'post /admin/digest/test': {
+    ok: () => ({ as: 'admin', path: '/admin/digest/test', body: {} }),
+    shape: 'obj',
+    // the test digest goes to the calling admin only
+    check: (b, x) => {
+      expect(b.data.sent).toBe(1);
+      expect(email.sendEmail).toHaveBeenCalledTimes(1);
+      expect(email.sendEmail).toHaveBeenCalledWith(expect.objectContaining({ to: x.admin.user.email }));
+    },
+    bad: () => ({ as: 'member', path: '/admin/digest/test', body: {} }),
+    badStatus: 403,
+  },
+
+  // ---- Landing page builder ----
+  'get /landing': {
+    ok: () => ({ as: null, path: '/landing' }),
+    shape: 'arr',
+    check: (b) => expect(b.data.every((block: any) => block.isPublished)).toBe(true),
+    bad: null,
+  },
+  'get /admin/landing': { ok: () => ({ as: 'admin', path: '/admin/landing' }), shape: 'arr', bad: () => ({ as: 'member', path: '/admin/landing' }), badStatus: 403 },
+  'post /admin/landing': {
+    ok: () => ({ as: 'admin', path: '/admin/landing', body: { type: 'TEXT', config: { title: 'Welcome', body: 'Hello alumni' }, isPublished: true } }),
+    status: 201,
+    shape: 'obj',
+    check: (b) => expect(b.data).toMatchObject({ type: 'TEXT', config: { title: 'Welcome' }, isPublished: true }),
+    bad: () => ({ as: 'admin', path: '/admin/landing', body: { type: 'NOPE' } }),
+  },
+  'patch /admin/landing/reorder': {
+    ok: async () => {
+      const [first, second] = [await fx.newLandingBlock(), await fx.newLandingBlock()];
+      (f as any).reordered = [second.id, first.id];
+      return { as: 'admin', path: '/admin/landing/reorder', body: { ids: [second.id, first.id] } };
+    },
+    shape: 'arr',
+    check: (b) => {
+      const ids: string[] = (f as any).reordered;
+      const order = b.data.map((block: any) => block.id);
+      expect(order).toEqual(expect.arrayContaining(ids));
+      expect(order.indexOf(ids[0])).toBeLessThan(order.indexOf(ids[1]));
+    },
+    bad: () => ({ as: 'admin', path: '/admin/landing/reorder', body: { ids: [MISSING_ID] } }),
+    badStatus: 404,
+  },
+  'patch /admin/landing/:id': {
+    ok: async () => ({ as: 'admin', path: `/admin/landing/${(await fx.newLandingBlock()).id}`, body: { type: 'CTA', config: { title: 'Edited', buttonLabel: 'Join' }, isPublished: false } }),
+    shape: 'obj',
+    check: (b) => expect(b.data).toMatchObject({ type: 'CTA', config: { title: 'Edited' }, isPublished: false }),
+    bad: () => ({ as: 'admin', path: `/admin/landing/${MISSING_ID}`, body: { isPublished: true } }),
+    badStatus: 404,
+  },
+  'delete /admin/landing/:id': {
+    ok: async () => ({ as: 'admin', path: `/admin/landing/${(await fx.newLandingBlock()).id}` }),
+    shape: 'any',
+    bad: () => ({ as: 'admin', path: `/admin/landing/${MISSING_ID}` }),
+    badStatus: 404,
+  },
 };
 
 // ---------------------------------------------------------------------------------------------

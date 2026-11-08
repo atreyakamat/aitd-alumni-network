@@ -68,8 +68,11 @@ describe('<PrivacySection>', () => {
         isLocationPublic: true,
         city: 'Delhi',
         hometown: 'Jaipur',
-        locationLat: null,
-        locationLng: null,
+        homeLat: null,
+        homeLng: null,
+        workCity: null,
+        workLat: null,
+        workLng: null,
       })
     );
     expect(toast).toHaveBeenCalledWith({ title: 'Privacy settings saved' });
@@ -82,7 +85,7 @@ describe('<PrivacySection>', () => {
     await save();
     await waitFor(() =>
       expect(userApi.updateProfile).toHaveBeenCalledWith(
-        expect.objectContaining({ isLocationPublic: false, locationLat: 28.6, locationLng: 77.2 })
+        expect.objectContaining({ isLocationPublic: false, homeLat: 28.6, homeLng: 77.2 })
       )
     );
   });
@@ -98,7 +101,7 @@ describe('<PrivacySection>', () => {
     await save();
 
     await waitFor(() =>
-      expect(userApi.updateProfile).toHaveBeenCalledWith(expect.objectContaining({ locationLat: 28.61, locationLng: 77.21 }))
+      expect(userApi.updateProfile).toHaveBeenCalledWith(expect.objectContaining({ homeLat: 28.61, homeLng: 77.21 }))
     );
     expect(geoApi.reverse).toHaveBeenCalledWith(28.61, 77.21, { signal: undefined });
   });
@@ -156,7 +159,7 @@ describe('<PrivacySection>', () => {
     expect(screen.getByLabelText('Current city')).toHaveValue('Delhi');
     await save();
     await waitFor(() =>
-      expect(userApi.updateProfile).toHaveBeenCalledWith(expect.objectContaining({ locationLat: 28.61, locationLng: 77.21 }))
+      expect(userApi.updateProfile).toHaveBeenCalledWith(expect.objectContaining({ homeLat: 28.61, homeLng: 77.21 }))
     );
   });
 
@@ -181,7 +184,7 @@ describe('<PrivacySection>', () => {
     await save();
     await waitFor(() =>
       expect(userApi.updateProfile).toHaveBeenCalledWith(
-        expect.objectContaining({ city: 'Panaji', locationLat: 15.49, locationLng: 73.83 })
+        expect.objectContaining({ city: 'Panaji', homeLat: 15.49, homeLng: 73.83 })
       )
     );
   });
@@ -189,12 +192,12 @@ describe('<PrivacySection>', () => {
   it('tells the member when no place matches or the query is too short', async () => {
     render(<PrivacySection profile={profile} onSaved={vi.fn()} />);
     await userEvent.type(screen.getByLabelText('Or find your area by name'), 'x');
-    await userEvent.click(screen.getByRole('button', { name: 'Find place' }));
+    await userEvent.click(screen.getAllByRole('button', { name: 'Find place' })[0]);
     expect(screen.getByText(/at least 2 characters/i)).toBeInTheDocument();
     expect(geoApi.search).not.toHaveBeenCalled();
 
     await userEvent.type(screen.getByLabelText('Or find your area by name'), 'yzzy');
-    await userEvent.click(screen.getByRole('button', { name: 'Find place' }));
+    await userEvent.click(screen.getAllByRole('button', { name: 'Find place' })[0]);
     expect(await screen.findByText('No matching places found.')).toBeInTheDocument();
   });
 
@@ -202,7 +205,7 @@ describe('<PrivacySection>', () => {
     geoApi.search.mockRejectedValue(apiError(503, 'Geocoder unavailable'));
     render(<PrivacySection profile={profile} onSaved={vi.fn()} />);
     await userEvent.type(screen.getByLabelText('Or find your area by name'), 'Pune');
-    await userEvent.click(screen.getByRole('button', { name: 'Find place' }));
+    await userEvent.click(screen.getAllByRole('button', { name: 'Find place' })[0]);
 
     expect(await screen.findByTestId('geocoder-down')).toBeInTheDocument();
     expect(screen.getByLabelText('Or find your area by name')).toBeDisabled();
@@ -213,7 +216,7 @@ describe('<PrivacySection>', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Clear location' }));
     await save();
     await waitFor(() =>
-      expect(userApi.updateProfile).toHaveBeenCalledWith(expect.objectContaining({ locationLat: null, locationLng: null }))
+      expect(userApi.updateProfile).toHaveBeenCalledWith(expect.objectContaining({ homeLat: null, homeLng: null }))
     );
   });
 });

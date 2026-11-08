@@ -52,7 +52,7 @@ npm run verify:deploy -w server -- --web https://alumni.example.edu
 | `RAZORPAY_KEY_ID`, `RAZORPAY_KEY_SECRET` | test keys | **live** keys | `rzp_test_` keys move no money (preflight warns) |
 | `RAZORPAY_WEBHOOK_SECRET` | any | the secret set on the Razorpay dashboard webhook for `https://<domain>/api/payments/webhook/razorpay` | Without it the webhook is refused and payments never complete |
 | `GOOGLE_*`, `LINKEDIN_*` + `*_CALLBACK_URL` | localhost callbacks | `https://<domain>/api/auth/google/callback` (and `/linkedin/`), registered with the provider | Callbacks that point at localhost break sign-in. See "LinkedIn" in section 6 |
-| `REDIS_URL` | unset | set (compose does it) | Rate limits are shared by every API process only with Redis. Required before running more than one instance |
+| `REDIS_URL` | unset | set (compose does it) | Rate limits are shared by every API process only with Redis, and the background jobs (notification broadcasts, the weekly digest) run only with it. Required before running more than one instance |
 | `AWS_*`, `AWS_S3_BUCKET` | unset (local disk) | an S3 bucket, **or** a backed-up volume for `uploads_data` | Container disks are not durable storage |
 | `GEOCODER_URL`, `GEOCODER_EMAIL`, `NEXT_PUBLIC_MAP_TILE_URL` | public OpenStreetMap | your own/paid provider, or at least `GEOCODER_EMAIL` | The public OSM servers have usage policies that real traffic will break |
 | `DISABLE_RATE_LIMIT` | used by tests | **never set** | The guard refuses to start |

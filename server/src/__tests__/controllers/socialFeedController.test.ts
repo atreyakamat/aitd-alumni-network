@@ -64,10 +64,9 @@ describe('social routes (HTTP)', () => {
   });
 
   it.each([
-    ['/api/reels', feedService, 'getReels'],
     ['/api/hashtags/trending?days=3', hashtagService, 'getTrending'],
     ['/api/hashtags/placements/posts', feedService, 'getHashtagPosts'],
-    [`/api/users/${P}/posts?reels=true`, feedService, 'getUserPosts'],
+    [`/api/users/${P}/posts?limit=10`, feedService, 'getUserPosts'],
     [`/api/posts/${P}/comments?sort=newest`, postService, 'listComments'],
     [`/api/comments/${P}/replies`, postService, 'listReplies'],
   ] as const)('GET %s works anonymously', async (url, service, fn) => {

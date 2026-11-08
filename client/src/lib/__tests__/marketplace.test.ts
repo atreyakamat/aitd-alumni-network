@@ -128,6 +128,8 @@ describe('buildListingPayload', () => {
       website: null,
       contactInfo: 'call me',
       priceRange: null,
+      images: [],
+      logoUrl: null,
     });
   });
 });
@@ -155,6 +157,8 @@ describe('helpers', () => {
       website: 'https://cafe.example',
       contactInfo: '',
       priceRange: 'INR 200',
+      logoUrl: null,
+      images: [],
     });
   });
 

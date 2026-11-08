@@ -305,18 +305,22 @@ describe('eventService', () => {
     it('creates an RSVP, increments the count atomically and notifies the creator', async () => {
       prismaMock.event.findUnique.mockResolvedValue(event());
       prismaMock.eventRSVP.findUnique.mockResolvedValue(null);
-      prismaMock.$executeRaw.mockResolvedValue(1);
       prismaMock.user.findUnique.mockResolvedValue({ fullName: 'Ann' });
+      // Atomic, capacity-guarded increment returns the new count
+      prismaMock.$queryRaw.mockResolvedValue([{ rsvpCount: 4 }]);
 
       const result = await eventService.rsvpEvent('u1', 'e1');
 
       expect(result).toEqual({ rsvped: true, rsvpCount: 4 });
       expect(prismaMock.$transaction).toHaveBeenCalled();
+      expect(prismaMock.$queryRaw).toHaveBeenCalled();
       expect(prismaMock.eventRSVP.create).toHaveBeenCalledWith({ data: { eventId: 'e1', userId: 'u1' } });
       // One conditional UPDATE: only counts the seat while rsvpCount < capacity (no check-then-act gap)
-      const sql = (prismaMock.$executeRaw.mock.calls[0][0] as string[]).join('?');
-      expect(sql).toContain('UPDATE "Event" SET "rsvpCount" = "rsvpCount" + 1');
+      const sql = (prismaMock.$queryRaw.mock.calls[0][0] as unknown as string[]).join('?');
+      expect(sql).toContain('UPDATE "Event"');
+      expect(sql).toContain('"rsvpCount" = "rsvpCount" + 1');
       expect(sql).toContain('"capacity" IS NULL OR "rsvpCount" < "capacity"');
+      expect(sql).toContain('RETURNING "rsvpCount"');
       expect(prismaMock.event.update).not.toHaveBeenCalled();
       expect(notify).toHaveBeenCalledWith(
         expect.objectContaining({ userId: 'owner', type: 'EVENT_RSVP', message: 'Ann is attending "Alumni Meetup"' })
@@ -326,7 +330,7 @@ describe('eventService', () => {
     it('rolls the RSVP back and answers 409 when a concurrent request took the last seat', async () => {
       prismaMock.event.findUnique.mockResolvedValue(event({ capacity: 4, rsvpCount: 3 }));
       prismaMock.eventRSVP.findUnique.mockResolvedValue(null);
-      prismaMock.$executeRaw.mockResolvedValue(0); // the guarded UPDATE matched no row: event filled up meanwhile
+      prismaMock.$queryRaw.mockResolvedValue([]); // the guarded UPDATE matched no row: event filled up meanwhile
       await expect(eventService.rsvpEvent('u1', 'e1')).rejects.toMatchObject({ statusCode: 409, code: 'EVENT_FULL' });
       expect(notify).not.toHaveBeenCalled();
     });
@@ -342,7 +346,7 @@ describe('eventService', () => {
     it("doesn't notify creators about their own RSVP", async () => {
       prismaMock.event.findUnique.mockResolvedValue(event());
       prismaMock.eventRSVP.findUnique.mockResolvedValue(null);
-      prismaMock.$executeRaw.mockResolvedValue(1);
+      prismaMock.$queryRaw.mockResolvedValue([{ rsvpCount: 4 }]);
       await eventService.rsvpEvent('owner', 'e1');
       expect(notify).not.toHaveBeenCalled();
     });
@@ -350,8 +354,8 @@ describe('eventService', () => {
     it('keeps the RSVP when the notification fails', async () => {
       prismaMock.event.findUnique.mockResolvedValue(event());
       prismaMock.eventRSVP.findUnique.mockResolvedValue(null);
-      prismaMock.$executeRaw.mockResolvedValue(1);
       prismaMock.user.findUnique.mockResolvedValue(null);
+      prismaMock.$queryRaw.mockResolvedValue([{ rsvpCount: 4 }]);
       notify.mockRejectedValue(new Error('down'));
       await expect(eventService.rsvpEvent('u1', 'e1')).resolves.toEqual({ rsvped: true, rsvpCount: 4 });
     });
@@ -390,8 +394,12 @@ describe('eventService', () => {
     it('returns 409 when the event is full', async () => {
       prismaMock.event.findUnique.mockResolvedValue(event({ capacity: 3, rsvpCount: 3 }));
       prismaMock.eventRSVP.findUnique.mockResolvedValue(null);
+      // The capacity-guarded UPDATE matches no row when the event is full
+      prismaMock.$queryRaw.mockResolvedValue([]);
       await expect(eventService.rsvpEvent('u1', 'e1')).rejects.toMatchObject({ statusCode: 409, code: 'EVENT_FULL' });
-      expect(prismaMock.eventRSVP.create).not.toHaveBeenCalled();
+      // The RSVP row is written first and rolled back by the transaction when the guarded UPDATE finds no seat
+      // (the real-database concurrency test proves the rollback); nobody is notified
+      expect(notify).not.toHaveBeenCalled();
     });
 
     it('still lets an attendee withdraw from a full event', async () => {
@@ -404,7 +412,8 @@ describe('eventService', () => {
     it('accepts the last seat', async () => {
       prismaMock.event.findUnique.mockResolvedValue(event({ capacity: 4, rsvpCount: 3 }));
       prismaMock.eventRSVP.findUnique.mockResolvedValue(null);
-      prismaMock.$executeRaw.mockResolvedValue(1);
+      // The guarded UPDATE takes the last seat and returns the new count
+      prismaMock.$queryRaw.mockResolvedValue([{ rsvpCount: 4 }]);
       await expect(eventService.rsvpEvent('u1', 'e1')).resolves.toEqual({ rsvped: true, rsvpCount: 4 });
     });
   });

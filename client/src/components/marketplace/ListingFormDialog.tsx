@@ -1,7 +1,7 @@
 'use client';
 
 import * as React from 'react';
-import { Loader2 } from 'lucide-react';
+import { ImagePlus, Loader2, Upload, X } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -14,11 +14,13 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { getApiErrorMessage, getApiFieldErrors, type MarketplaceListingInput } from '@/lib/api';
+import { getApiErrorMessage, getApiFieldErrors, marketplaceApi, type MarketplaceListingInput } from '@/lib/api';
+import { mediaSrc } from '@/lib/social';
 import {
   EMPTY_LISTING_FORM,
   LISTING_TYPES,
   MARKETPLACE_LIMITS as L,
+  MARKETPLACE_MAX_IMAGES,
   buildListingPayload,
   listingToFormValues,
   validateListingForm,
@@ -46,6 +48,38 @@ export function ListingFormDialog({ open, onOpenChange, listing, categories = []
   const [errors, setErrors] = React.useState<Record<string, string>>({});
   const [formError, setFormError] = React.useState<string | null>(null);
   const [submitting, setSubmitting] = React.useState(false);
+  const [uploading, setUploading] = React.useState(false);
+
+  const uploadLogo = async (file?: File) => {
+    if (!file) return;
+    setUploading(true);
+    setFormError(null);
+    try {
+      const url = await marketplaceApi.uploadImage(file);
+      setValues((v) => ({ ...v, logoUrl: url }));
+    } catch (err) {
+      setFormError(getApiErrorMessage(err, 'Could not upload the logo.'));
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const uploadImages = async (files: FileList | null) => {
+    if (!files?.length) return;
+    const room = MARKETPLACE_MAX_IMAGES - values.images.length;
+    const picked = Array.from(files).slice(0, Math.max(0, room));
+    if (picked.length === 0) return;
+    setUploading(true);
+    setFormError(null);
+    try {
+      const urls = await Promise.all(picked.map((f) => marketplaceApi.uploadImage(f)));
+      setValues((v) => ({ ...v, images: [...v.images, ...urls.filter(Boolean)] }));
+    } catch (err) {
+      setFormError(getApiErrorMessage(err, 'Could not upload one or more images.'));
+    } finally {
+      setUploading(false);
+    }
+  };
 
   React.useEffect(() => {
     if (open) {
@@ -227,11 +261,62 @@ export function ListingFormDialog({ open, onOpenChange, listing, categories = []
             {fieldError('contactInfo')}
           </div>
 
+          <div className="space-y-2">
+            <Label>Logo / headshot (optional)</Label>
+            <div className="flex items-center gap-3">
+              <div className="h-16 w-16 shrink-0 overflow-hidden rounded-md border bg-muted">
+                {values.logoUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element -- uploaded asset
+                  <img src={mediaSrc(values.logoUrl)} alt="Logo preview" className="h-full w-full object-cover" />
+                ) : (
+                  <div className="flex h-full items-center justify-center text-muted-foreground"><ImagePlus className="h-5 w-5" aria-hidden /></div>
+                )}
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <Button type="button" variant="outline" size="sm" asChild disabled={uploading}>
+                  <label className="cursor-pointer">
+                    <Upload className="mr-2 h-4 w-4" aria-hidden /> {values.logoUrl ? 'Replace' : 'Upload logo'}
+                    <input type="file" accept="image/jpeg,image/png,image/gif,image/webp" className="sr-only" disabled={uploading} onChange={(e) => { void uploadLogo(e.target.files?.[0]); e.target.value = ''; }} />
+                  </label>
+                </Button>
+                {values.logoUrl && (
+                  <Button type="button" variant="ghost" size="sm" onClick={() => setValues((v) => ({ ...v, logoUrl: null }))}>Remove</Button>
+                )}
+              </div>
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label>Showcase images (optional, up to {MARKETPLACE_MAX_IMAGES})</Label>
+            {values.images.length > 0 && (
+              <ul className="grid grid-cols-3 gap-2 sm:grid-cols-4">
+                {values.images.map((url, i) => (
+                  <li key={url} className="relative aspect-square overflow-hidden rounded-md border bg-muted">
+                    {/* eslint-disable-next-line @next/next/no-img-element -- uploaded asset */}
+                    <img src={mediaSrc(url)} alt={`Showcase ${i + 1}`} className="h-full w-full object-cover" />
+                    <button type="button" aria-label={`Remove image ${i + 1}`} onClick={() => setValues((v) => ({ ...v, images: v.images.filter((u) => u !== url) }))} className="absolute right-1 top-1 rounded-full bg-black/60 p-0.5 text-white hover:bg-black/80">
+                      <X className="h-3.5 w-3.5" aria-hidden />
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+            {values.images.length < MARKETPLACE_MAX_IMAGES && (
+              <Button type="button" variant="outline" size="sm" asChild disabled={uploading}>
+                <label className="cursor-pointer">
+                  {uploading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden /> : <ImagePlus className="mr-2 h-4 w-4" aria-hidden />}
+                  Add images
+                  <input type="file" accept="image/jpeg,image/png,image/gif,image/webp" multiple className="sr-only" disabled={uploading} onChange={(e) => { void uploadImages(e.target.files); e.target.value = ''; }} />
+                </label>
+              </Button>
+            )}
+          </div>
+
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={submitting}>
               Cancel
             </Button>
-            <Button type="submit" disabled={submitting}>
+            <Button type="submit" disabled={submitting || uploading}>
               {submitting && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
               {isEdit ? 'Save changes' : 'Publish listing'}
             </Button>

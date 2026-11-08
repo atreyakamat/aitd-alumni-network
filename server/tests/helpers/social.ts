@@ -30,7 +30,6 @@ export const postRow = (overrides: Record<string, unknown> = {}): any => {
     mediaUrls: [],
     videoUrl: null,
     thumbnailUrl: null,
-    isReel: false,
     linkUrl: null,
     visibility: 'PUBLIC',
     isPinned: false,

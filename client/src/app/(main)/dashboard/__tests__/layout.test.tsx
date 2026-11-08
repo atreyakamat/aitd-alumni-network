@@ -43,7 +43,7 @@ describe('Dashboard layout: no shortcuts that duplicate the header', () => {
     render(<DashboardPage />);
     await screen.findByText('Hello alumni');
     expect(screen.queryByText('Shortcuts')).not.toBeInTheDocument();
-    for (const name of ['Reels', 'Saved posts', 'My connections', 'Job board', 'Events']) {
+    for (const name of ['Videos', 'Saved posts', 'My connections', 'Job board', 'Events']) {
       expect(screen.queryByRole('link', { name }), name).not.toBeInTheDocument();
     }
   });

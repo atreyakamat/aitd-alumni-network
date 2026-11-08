@@ -281,6 +281,8 @@ describe('Marketplace page — my listings', () => {
         website: null,
         contactInfo: null,
         priceRange: null,
+        images: [],
+        logoUrl: null,
       })
     );
     expect(toast).toHaveBeenCalledWith(expect.objectContaining({ title: 'Listing updated' }));

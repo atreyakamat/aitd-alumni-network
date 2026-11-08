@@ -140,11 +140,11 @@ const nextConfig = {
       { source: '/login', headers: [{ key: 'Referrer-Policy', value: 'no-referrer' }] },
     ];
   },
-  // Bundle optimization
   experimental: {
-    optimizeCss: true,
     // npm workspaces hoist node_modules to the monorepo root
     outputFileTracingRoot: path.join(__dirname, '..'),
+    // NB: optimizeCss (critters) was removed — it is an optional, build-breaking dependency
+    // that isn't declared here, so a clean `npm ci` build (Docker) would fail with it on.
   },
   // Enable compression
   compress: true,

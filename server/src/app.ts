@@ -150,7 +150,10 @@ export const createApp = (options: AppOptions = {}) => {
     app.use(['/api/invites/send', '/api/invites/bulk'], budget('invites', 30, 'Too many invitations sent, please try again later.'));
     // Uploads are the heaviest requests the API serves (image decoding, up to 100 MB of video)
     app.use(
-      ['/api/posts/video', '/api/posts/media', '/api/users/profile-photo', '/api/users/cover-photo'],
+      [
+        '/api/posts/video', '/api/posts/media', '/api/users/profile-photo', '/api/users/cover-photo',
+        '/api/videos/upload', '/api/videos/upload-thumbnail', '/api/magazine/upload-file', '/api/magazine/upload-cover', '/api/marketplace/upload-image',
+      ],
       budget('uploads', 30, 'Too many uploads, please try again later.')
     );
 

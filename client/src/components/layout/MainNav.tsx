@@ -39,6 +39,11 @@ import {
   Clapperboard,
   Bookmark,
   Flag,
+  BookOpen,
+  HandHeart,
+  Handshake,
+  Mail,
+  LayoutTemplate,
 } from 'lucide-react';
 import { getInitials } from '@/lib/utils';
 import { isAdmin as hasAdminRole } from '@/lib/roles';
@@ -48,7 +53,7 @@ import { useState } from 'react';
 
 export const navItems = [
   { href: '/dashboard', label: 'Home', icon: Home },
-  { href: '/reels', label: 'Reels', icon: Clapperboard },
+  { href: '/videos', label: 'Videos', icon: Clapperboard },
   { href: '/network', label: 'Network', icon: Users },
   { href: '/jobs', label: 'Jobs', icon: Briefcase },
   { href: '/events', label: 'Events', icon: CalendarDays },
@@ -60,6 +65,9 @@ export const moreItems = [
   { href: '/directory', label: 'Directory', icon: Users },
   { href: '/yearbook', label: 'Yearbook', icon: GraduationCap },
   { href: '/gallery', label: 'Gallery', icon: Image },
+  { href: '/magazine', label: 'Magazine', icon: BookOpen },
+  { href: '/referrals', label: 'Referrals', icon: Handshake },
+  { href: '/requirements', label: 'Help the college', icon: HandHeart },
   { href: '/news', label: 'News', icon: Newspaper },
   { href: '/donations', label: 'Donate', icon: Heart },
   { href: '/chapters', label: 'Chapters', icon: MapPin },
@@ -71,6 +79,11 @@ export const adminItems = [
   { href: '/admin', label: 'Admin', icon: Shield },
   { href: '/admin/users', label: 'Manage Users', icon: UserCog },
   { href: '/admin/moderation', label: 'Moderation', icon: ClipboardCheck },
+  { href: '/admin/videos', label: 'College Videos', icon: Clapperboard },
+  { href: '/admin/magazine', label: 'Magazine', icon: BookOpen },
+  { href: '/admin/requirements', label: 'Requirements', icon: HandHeart },
+  { href: '/admin/communications', label: 'Communications', icon: Mail },
+  { href: '/admin/landing', label: 'Landing page', icon: LayoutTemplate },
   { href: '/admin/reports', label: 'Reported content', icon: Flag },
   { href: '/admin/audit', label: 'Audit log', icon: ScrollText },
 ];
@@ -91,7 +104,7 @@ export function MainNav() {
           <div className="bg-primary rounded-lg p-1.5">
             <GraduationCap className="h-5 w-5 text-white" />
           </div>
-          <span className="text-xl font-bold text-primary hidden sm:inline">AITD Connection</span>
+          <span className="text-xl font-bold text-primary hidden sm:inline">AIEM Connection</span>
         </Link>
 
         {/* The one search box (wide screens); narrow screens get the icon on the right */}
@@ -187,7 +200,7 @@ export function MainNav() {
                 </div>
               </DropdownMenuLabel>
               <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={() => router.push(`/profile/${user?.id}`)}>
+              <DropdownMenuItem onClick={() => router.push(user?.id ? `/profile/${encodeURIComponent(user.id)}` : '/profile')}>
                 <User className="mr-2 h-4 w-4" />
                 My Profile
               </DropdownMenuItem>

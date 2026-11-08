@@ -77,7 +77,7 @@ PostgreSQL via Prisma. The main groups:
 
 - **Identity:** `User` (profile, privacy flags, `tokenVersion`, approximate location), `RefreshToken` (families),
   `VerificationToken`, `WorkExperience`, `Education`, `Skill`/`UserSkill`.
-- **Social:** `Post` (types, visibility `PUBLIC`/`CONNECTIONS`, reels, repost and quote-post links), `PostLike` (reactions, six
+- **Social:** `Post` (types, visibility `PUBLIC`/`CONNECTIONS`, optional video, repost and quote-post links), `PostLike` (reactions, six
   types), `PostComment` (one level of replies) and `CommentReaction`, `SavedPost`, `Follow`, `Hashtag`/`PostHashtag`,
   `PostMention`/`CommentMention`, `PostImpression` (views), `ContentReport` (moderation), plus `Connection`, `Message`,
   `Notification`. Contract: [SOCIAL_API.md](SOCIAL_API.md).
@@ -90,6 +90,24 @@ PostgreSQL via Prisma. The main groups:
 
 PostgreSQL compares text case-sensitively, so user-facing searches use the `ilike()` helper (`src/utils/helpers.ts`,
 `{ contains, mode: 'insensitive' }`). Skills are matched case-insensitively, so "react" reuses the existing "React".
+
+## College content and engagement
+
+Added alongside the social layer; the routes are in `src/routes/index.ts` (sections "COLLEGE VIDEO", "COLLEGE MAGAZINE",
+"COLLEGE REQUIREMENTS", "JOB REFERRALS", "WEEKLY DIGEST", "LANDING PAGE BUILDER").
+
+| Feature | Who | Notes |
+|---|---|---|
+| Videos | members submit, admins approve | Two-step: upload the file, then submit its URL. Only the approved list is public |
+| Magazine | admins publish PDFs | PDF and cover are uploaded first, then referenced |
+| Requirements | admins post what the college needs, members offer help | One offer per member per requirement |
+| Referrals | members ask alumni for a job referral | At most 10 pending asks; no repeat ask for the same member and role |
+| Weekly digest | admins configure and send | Settings are validated; the hourly tick needs Redis |
+| Landing page | admins edit blocks (hero, text, image, stats, call to action, sandboxed HTML) | Link and image URLs are validated when stored and again when rendered |
+
+A URL that points at a stored file (video, thumbnail, magazine, cover) must be a file the matching upload endpoint wrote, in exactly that
+folder (`utils/uploadRefs.ts`). Otherwise a member could submit somebody else's photo as their video and then delete the record, which
+deletes the file.
 
 ## Search
 
@@ -146,6 +164,9 @@ admins. Receipts are emailed.
   `FEED_CACHE_TTL_SECONDS`) and holds the rate-limit counters so the limits are shared by every API process
   (`utils/redisRateLimitStore.ts`; if Redis is unreachable each process counts for itself, so limits never switch off).
   Without Redis the cache is off and limits are per process.
+- **Background jobs** (BullMQ, `config/queue.ts`, `workers/`) also need Redis: large notification broadcasts, and an hourly tick
+  that sends the weekly digest when the admin-configured day and hour match. Without Redis the work is done inline and the digest
+  can still be sent from the admin panel.
 - Uploads go to S3/R2 when `AWS_*` is configured; otherwise to `server/uploads` (a Docker volume). Images are
   decoded and re-encoded with sharp (real format from the bytes, EXIF stripped, pixel and size caps; `IMAGE_*` settings);
   videos are sniffed by magic bytes (100 MB). Photos on managed storage can only be set

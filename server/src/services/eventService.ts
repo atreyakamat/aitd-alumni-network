@@ -381,51 +381,58 @@ export class EventService {
       throw new AppError('This event has already started', 400, 'EVENT_PAST');
     }
 
-    const existingRsvp = await prisma.eventRSVP.findUnique({
-      where: { eventId_userId: { eventId, userId } },
-    });
+    // The whole toggle runs in one transaction. The capacity guard in particular must be
+    // inside it: with a pre-check outside the write, two members grabbing the last seat would
+    // both read rsvpCount < capacity and both commit, overbooking the event past capacity.
+    let alreadyAttending = false;
+    const toggle = await prisma.$transaction(async (tx) => {
+      const existingRsvp = await tx.eventRSVP.findUnique({
+        where: { eventId_userId: { eventId, userId } },
+      });
 
-    if (existingRsvp) {
-      // Cancel RSVP. deleteMany reports whether THIS request removed the row, so two racing cancellations
-      // decrement once; the guarded decrement keeps rsvpCount >= 0
-      const { count: removed } = await prisma.$transaction(async (tx) => {
-        const result = await tx.eventRSVP.deleteMany({ where: { id: existingRsvp.id } });
-        if (result.count > 0) {
+      if (existingRsvp) {
+        // Cancel RSVP. deleteMany reports whether THIS request removed the row, so two racing cancellations
+        // decrement once; the guarded decrement keeps rsvpCount >= 0
+        const removed = await tx.eventRSVP.deleteMany({ where: { id: existingRsvp.id } });
+        if (removed.count > 0) {
           await tx.event.updateMany({
             where: { id: eventId, rsvpCount: { gt: 0 } },
             data: { rsvpCount: { decrement: 1 } },
           });
         }
-        return result;
-      });
+        return { rsvped: false, rsvpCount: Math.max(0, event.rsvpCount - (removed.count > 0 ? 1 : 0)) };
+      }
 
-      return { rsvped: false, rsvpCount: Math.max(0, event.rsvpCount - (removed > 0 ? 1 : 0)) };
-    }
+      // The unique (eventId, userId) index rejects a duplicate from a concurrent double-submit (P2002, handled below)
+      await tx.eventRSVP.create({ data: { eventId, userId } });
 
-    // Fast path for the common case; the guarded UPDATE below is the real (race-free) capacity check
-    if (event.capacity !== null && event.capacity !== undefined && event.rsvpCount >= event.capacity) {
-      throw new AppError('Event is at full capacity', 409, 'EVENT_FULL');
-    }
-
-    try {
-      await prisma.$transaction(async (tx) => {
-        // The unique (eventId, userId) index rejects a duplicate from a concurrent double-submit
-        await tx.eventRSVP.create({ data: { eventId, userId } });
-        // One conditional UPDATE both counts the seat and enforces capacity: Postgres row-locks the event,
-        // so concurrent requests are serialised and each re-evaluates "rsvpCount < capacity" on fresh data.
-        const seats = await tx.$executeRaw`
-          UPDATE "Event" SET "rsvpCount" = "rsvpCount" + 1
-          WHERE id = ${eventId} AND ("capacity" IS NULL OR "rsvpCount" < "capacity")`;
-        if (seats === 0) {
-          // Throwing rolls the RSVP row back with the transaction
-          throw new AppError('Event is at full capacity', 409, 'EVENT_FULL');
-        }
-      });
-    } catch (err) {
+      // Atomic, capacity-guarded increment that also returns the new count. The UPDATE locks
+      // the event row, so a concurrent RSVP re-evaluates rsvpCount < capacity against the
+      // committed value and cannot overbook. (A column-vs-column comparison isn't expressible
+      // in Prisma's typed `where`, hence raw SQL; 0 rows back means the event is full.)
+      const rows = (await tx.$queryRaw<Array<{ rsvpCount: number | bigint }>>`
+        UPDATE "Event"
+        SET "rsvpCount" = "rsvpCount" + 1, "updatedAt" = NOW()
+        WHERE "id" = ${eventId} AND ("capacity" IS NULL OR "rsvpCount" < "capacity")
+        RETURNING "rsvpCount"
+      `) ?? [];
+      if (rows.length === 0) {
+        // Throwing rolls the RSVP row back with the transaction
+        throw new AppError('Event is at full capacity', 409, 'EVENT_FULL');
+      }
+      return { rsvped: true, rsvpCount: Number(rows[0].rsvpCount) };
+    }).catch((err: unknown) => {
+      // A concurrent double-submit by the same member: they are attending already
       if ((err as { code?: string })?.code === 'P2002') {
+        alreadyAttending = true;
         return { rsvped: true, rsvpCount: event.rsvpCount };
       }
       throw err;
+    });
+
+    // Only a new RSVP notifies the organiser (not a cancellation, not a duplicate submit)
+    if (!toggle.rsvped || alreadyAttending) {
+      return toggle;
     }
 
     if (event.createdById !== userId) {
@@ -449,7 +456,7 @@ export class EventService {
       }
     }
 
-    return { rsvped: true, rsvpCount: event.rsvpCount + 1 };
+    return toggle;
   }
 
   async getUpcomingEvents(limit: number = 5) {

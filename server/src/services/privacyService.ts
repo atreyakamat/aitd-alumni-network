@@ -22,6 +22,11 @@ const PROFILE_SELECT = {
   hometown: true,
   locationLat: true,
   locationLng: true,
+  homeLat: true,
+  homeLng: true,
+  workLat: true,
+  workLng: true,
+  workCity: true,
   isLocationPublic: true,
   phoneNumber: true,
   phoneVisibility: true,
@@ -33,6 +38,7 @@ const PROFILE_SELECT = {
   userRole: true,
   isVerified: true,
   twoFactorEnabled: true,
+  digestOptOut: true,
   createdAt: true,
   lastLoginAt: true,
   workExperiences: true,
@@ -76,6 +82,9 @@ export class PrivacyService {
       reportsFiled,
       galleryPhotos,
       eventsCreated,
+      collegeVideos,
+      requirementResponses,
+      referrals,
       activityLog,
     ] = await Promise.all([
       prisma.post.findMany({ where: { userId } }),
@@ -107,6 +116,10 @@ export class PrivacyService {
       }),
       prisma.galleryPhoto.findMany({ where: { uploadedById: userId } }),
       prisma.event.findMany({ where: { createdById: userId } }),
+      // College features: videos submitted, offers to help the college, job referral asks sent or received
+      prisma.collegeVideo.findMany({ where: { submittedById: userId } }),
+      prisma.requirementResponse.findMany({ where: { userId }, include: { requirement: { select: { id: true, title: true } } } }),
+      prisma.referralRequest.findMany({ where: { OR: [{ requesterId: userId }, { targetId: userId }] } }),
       prisma.auditLog.findMany({ where: { userId }, orderBy: { createdAt: 'asc' } }),
     ]);
 
@@ -143,6 +156,9 @@ export class PrivacyService {
       reportsFiled,
       galleryPhotos,
       eventsCreated,
+      collegeVideos,
+      requirementResponses,
+      referrals,
       activityLog,
     };
   }
@@ -189,6 +205,12 @@ export class PrivacyService {
       // Invites sent by the user carry third parties' e-mail addresses; invites addressed to
       // them carry their own address (the account row is anonymised below)
       await tx.invite.deleteMany({ where: { OR: [{ inviterId: userId }, { email: user.email }] } });
+      // College features. Referral asks and offers to help carry the member's own words about a third party or an
+      // employer; submitted videos that never went public are theirs alone. A video the college PUBLISHED stays, like a
+      // post, attributed to "Deleted User". Requirements and magazine issues are posted by admins for the college.
+      await tx.referralRequest.deleteMany({ where: { OR: [{ requesterId: userId }, { targetId: userId }] } });
+      await tx.requirementResponse.deleteMany({ where: { userId } });
+      await tx.collegeVideo.deleteMany({ where: { submittedById: userId, status: { not: 'APPROVED' } } });
       // Deactivate (not delete) so mentees keep their request/session history
       await tx.mentorProfile.updateMany({ where: { userId }, data: { isActive: false, bio: null, availability: null } });
 
@@ -210,6 +232,12 @@ export class PrivacyService {
           hometown: null,
           locationLat: null,
           locationLng: null,
+          // precise residence / work location: the most sensitive location data the account holds
+          homeLat: null,
+          homeLng: null,
+          workLat: null,
+          workLng: null,
+          workCity: null,
           isLocationPublic: false,
           phoneNumber: null,
           phoneVisibility: 'PRIVATE',

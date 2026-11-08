@@ -37,6 +37,8 @@ const KEPT_ON_PURPOSE: Record<string, string> = {
   jobOpportunity: 'job listings stay; the poster is anonymised',
   mentorshipRequest: 'the counterpart keeps the history',
   chapter: 'chapter keeps existing; admin is anonymised',
+  collegeMagazine: 'issues are uploaded by admins on behalf of the college; the uploader is anonymised',
+  collegeRequirement: 'requests are posted by admins on behalf of the college; the poster is anonymised',
   user: 'self-reference',
   mentorProfile: 'deactivated and emptied (updateMany), not deleted',
 };

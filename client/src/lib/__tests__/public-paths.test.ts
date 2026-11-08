@@ -7,7 +7,7 @@ describe('isPublicPath', () => {
     (p) => expect(isPublicPath(p)).toBe(true)
   );
 
-  it.each(['/directory', '/dashboard', '/eventsx', '/newsletter', '/', '', null, undefined, '/admin/events', '/postsx', '/reels', '/saved'])(
+  it.each(['/directory', '/dashboard', '/eventsx', '/newsletter', '/', '', null, undefined, '/admin/events', '/postsx', '/videos', '/saved'])(
     'rejects %s',
     (p) => expect(isPublicPath(p as any)).toBe(false)
   );

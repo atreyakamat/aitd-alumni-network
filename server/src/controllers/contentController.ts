@@ -406,6 +406,19 @@ export class MarketplaceController {
       next(error);
     }
   }
+
+  // Upload a logo/showcase image; returns a URL to store on the listing via create/update.
+  async uploadImage(req: Request, res: Response, next: NextFunction) {
+    try {
+      if (!req.file) {
+        return res.status(400).json({ success: false, error: { message: 'No image uploaded (field "image")', code: 'NO_FILE' } });
+      }
+      const url = await uploadToStorage(req.file, 'marketplace');
+      res.status(201).json({ success: true, data: { url } });
+    } catch (error) {
+      next(error);
+    }
+  }
 }
 
 export const galleryController = new GalleryController();

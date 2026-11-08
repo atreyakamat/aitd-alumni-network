@@ -11,7 +11,6 @@ export function rawPost(overrides: Record<string, unknown> = {}) {
     mediaUrls: [],
     videoUrl: null,
     thumbnailUrl: null,
-    isReel: false,
     isRepost: false,
     visibility: 'PUBLIC',
     isPinned: false,

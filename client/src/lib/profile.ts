@@ -57,6 +57,11 @@ export interface EditableProfile {
   hometown?: string | null;
   locationLat?: number | null;
   locationLng?: number | null;
+  homeLat?: number | null;
+  homeLng?: number | null;
+  workCity?: string | null;
+  workLat?: number | null;
+  workLng?: number | null;
   isLocationPublic?: boolean;
   phoneNumber?: string | null;
   phoneVisibility?: PhoneVisibility;
@@ -80,6 +85,11 @@ export interface ProfileUpdatePayload {
   hometown?: string | null;
   locationLat?: number | null;
   locationLng?: number | null;
+  homeLat?: number | null;
+  homeLng?: number | null;
+  workCity?: string | null;
+  workLat?: number | null;
+  workLng?: number | null;
   isLocationPublic?: boolean;
   phoneNumber?: string | null;
   phoneVisibility?: PhoneVisibility;
@@ -129,16 +139,16 @@ export const SKILL_NAME_MAX = 50;
 export const MIN_PROFILE_YEAR = 1900;
 export const maxProfileYear = () => new Date().getFullYear() + 10;
 
-/** multer: 5 MB, jpeg/jpg/png/gif only (extension and MIME type are both checked). */
+/** multer: 5 MB, jpeg/jpg/png/gif/webp only (extension and MIME type are both checked). */
 export const PHOTO_MAX_BYTES = 5 * 1024 * 1024;
-export const PHOTO_ACCEPT = 'image/jpeg,image/png,image/gif';
-const PHOTO_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif'];
-const PHOTO_EXTENSION = /\.(jpe?g|png|gif)$/i;
+export const PHOTO_ACCEPT = 'image/jpeg,image/png,image/gif,image/webp';
+const PHOTO_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
+const PHOTO_EXTENSION = /\.(jpe?g|png|gif|webp)$/i;
 
 /** Returns an error message, or null when the file can be uploaded. */
 export function validatePhotoFile(file: Pick<File, 'name' | 'size' | 'type'>): string | null {
   if (!PHOTO_TYPES.includes(file.type.toLowerCase()) || !PHOTO_EXTENSION.test(file.name)) {
-    return 'Choose a JPG, PNG or GIF image.';
+    return 'Choose a JPG, PNG, GIF or WebP image.';
   }
   if (file.size > PHOTO_MAX_BYTES) {
     return 'Images must be 5 MB or smaller.';

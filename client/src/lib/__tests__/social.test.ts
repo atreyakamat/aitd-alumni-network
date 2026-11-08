@@ -34,7 +34,6 @@ const v2Post = (overrides: Record<string, unknown> = {}) => ({
   mediaUrls: ['/uploads/posts/a.jpg'],
   videoUrl: null,
   thumbnailUrl: null,
-  isReel: false,
   isRepost: false,
   linkUrl: null,
   visibility: 'PUBLIC',

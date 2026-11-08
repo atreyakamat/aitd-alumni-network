@@ -186,6 +186,7 @@ export default function JobsPage() {
                   <div className="flex-1 min-w-0">
                     <div className="flex flex-wrap items-start gap-2 mb-2">
                       <h3 className="text-lg font-semibold">{job.title}</h3>
+                      {job.isOfficial && <Badge className="bg-gold text-gold-foreground">Placement Cell</Badge>}
                       <Badge className={jobTypeColors[job.jobType ?? job.type]}>
                         {jobTypeLabels[job.jobType ?? job.type] ?? job.jobType}
                       </Badge>
@@ -235,18 +236,20 @@ export default function JobsPage() {
                           </AvatarFallback>
                         </Avatar>
                         <div>
-                          <p className="text-sm font-medium">{job.postedBy?.fullName}</p>
-                          <p className="text-xs text-muted-foreground">
-                            Batch {job.postedBy?.batchYear}
-                          </p>
+                          <p className="text-sm font-medium">{job.postedBy?.fullName || 'Alumnus'}</p>
+                          {(job.postedBy?.batchYear || job.postedBy?.department) && (
+                            <p className="text-xs text-muted-foreground">
+                              {[job.postedBy?.department, job.postedBy?.batchYear ? `Batch ${job.postedBy.batchYear}` : null].filter(Boolean).join(' • ')}
+                            </p>
+                          )}
                         </div>
                       </div>
                       <div className="flex gap-2 w-full sm:w-auto">
-                        <Link href={`/jobs/${job.id}`} className="flex-1 sm:flex-initial">
-                          <Button variant="outline" size="sm" className="w-full">
+                        <Button variant="outline" size="sm" className="flex-1 sm:flex-initial" asChild>
+                          <Link href={`/jobs/${encodeURIComponent(job.id)}`}>
                             View Details
-                          </Button>
-                        </Link>
+                          </Link>
+                        </Button>
                         {safeHref(job.applicationLink || job.applicationUrl) ? (
                           <Button size="sm" className="flex-1 sm:flex-initial" asChild>
                             <a href={safeHref(job.applicationLink || job.applicationUrl)} {...externalLinkProps}>

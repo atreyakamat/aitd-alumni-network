@@ -13,8 +13,12 @@
     --popover: 0 0% 100%;
     --popover-foreground: 0 0% 12%;
 
-    --primary: 210 100% 40%;
+    --primary: 217 79% 20%;
     --primary-foreground: 0 0% 100%;
+
+    /* AIEM gold accent */
+    --gold: 45 68% 47%;
+    --gold-foreground: 220 17% 14%;
 
     --secondary: 220 14% 96%;
     --secondary-foreground: 0 0% 12%;
@@ -30,7 +34,7 @@
 
     --border: 0 0% 88%;
     --input: 0 0% 88%;
-    --ring: 210 100% 40%;
+    --ring: 217 79% 20%;
 
     --radius: 0.5rem;
   }
@@ -45,8 +49,12 @@
     --popover: 0 0% 12%;
     --popover-foreground: 0 0% 95%;
 
-    --primary: 210 100% 50%;
+    --primary: 217 71% 62%;
     --primary-foreground: 0 0% 100%;
+
+    /* AIEM gold accent (lifted for dark surfaces) */
+    --gold: 45 72% 58%;
+    --gold-foreground: 220 17% 14%;
 
     --secondary: 0 0% 17%;
     --secondary-foreground: 0 0% 95%;
@@ -62,7 +70,7 @@
 
     --border: 0 0% 22%;
     --input: 0 0% 22%;
-    --ring: 210 100% 50%;
+    --ring: 217 71% 62%;
   }
 }
 

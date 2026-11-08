@@ -7,7 +7,7 @@ import { OPEN_PATH_PREFIXES, PUBLIC_PATH_PREFIXES, isMemberOnlyPath, isPublicPat
 const gate = (pathname: string, search = '', hasSessionHint = false) => decideAccess({ pathname, search, hasSessionHint });
 
 describe('decideAccess (middleware decision)', () => {
-  it.each(['/dashboard', '/directory', '/jobs', '/jobs/42', '/yearbook', '/admin', '/admin/users', '/messages', '/profile/abc', '/reels', '/saved'])(
+  it.each(['/dashboard', '/directory', '/jobs', '/jobs/42', '/yearbook', '/admin', '/admin/users', '/messages', '/profile/abc', '/videos', '/saved'])(
     'redirects anonymous visitors from %s to login with next',
     (p) => {
       expect(gate(p)).toEqual({ action: 'redirect', location: `/login?next=${encodeURIComponent(p)}` });

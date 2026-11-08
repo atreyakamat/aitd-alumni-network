@@ -1,8 +1,8 @@
 import { Metadata } from 'next';
 
 export const metadata: Metadata = {
-  title: 'Terms of Service | AITD Connection',
-  description: 'Terms of Service for the AITD AITD Connection platform',
+  title: 'Terms of Service | AIEM Connection',
+  description: 'Terms of Service for the AIEM AIEM Connection platform',
 };
 
 export default function TermsOfServicePage() {
@@ -23,12 +23,12 @@ export default function TermsOfServicePage() {
             <section className="mb-8">
               <h2>1. Agreement to Terms</h2>
               <p>
-                By accessing or using the AITD Connection platform ("Platform"), you agree to be bound 
+                By accessing or using the AIEM Connection platform ("Platform"), you agree to be bound 
                 by these Terms of Service ("Terms"). If you do not agree to these Terms, please do not 
                 use the Platform.
               </p>
               <p>
-                These Terms constitute a legally binding agreement between you and the AITD Alumni 
+                These Terms constitute a legally binding agreement between you and the AIEM Alumni 
                 Association ("we," "our," or "us") governing your use of the Platform.
               </p>
             </section>
@@ -38,7 +38,7 @@ export default function TermsOfServicePage() {
               <p>To use our Platform, you must:</p>
               <ul>
                 <li>Be at least 18 years old</li>
-                <li>Be a graduate, former student, or faculty member of AITD, or have an affiliation approved by the administration</li>
+                <li>Be a graduate, former student, or faculty member of AIEM, or have an affiliation approved by the administration</li>
                 <li>Provide accurate and complete registration information</li>
                 <li>Not have been previously suspended or removed from the Platform</li>
               </ul>
@@ -151,7 +151,7 @@ export default function TermsOfServicePage() {
             <section className="mb-8">
               <h2>7. Donations</h2>
               <p>
-                Donations made through the Platform are voluntary contributions to support the AITD 
+                Donations made through the Platform are voluntary contributions to support the AIEM 
                 Alumni Association and its initiatives. Donations may be tax-deductible under Section 
                 80G of the Income Tax Act, subject to applicable regulations.
               </p>
@@ -166,13 +166,13 @@ export default function TermsOfServicePage() {
               <h3>8.1 Platform Content</h3>
               <p>
                 The Platform and its original content, features, and functionality are owned by the 
-                AITD Alumni Association and are protected by copyright, trademark, and other 
+                AIEM Alumni Association and are protected by copyright, trademark, and other 
                 intellectual property laws.
               </p>
 
               <h3>8.2 Trademarks</h3>
               <p>
-                "AITD Connection," "AITD," and related logos are trademarks of the AITD Alumni 
+                "AIEM Connection," "AIEM," and related logos are trademarks of the AIEM Alumni 
                 Association. You may not use these trademarks without our prior written consent.
               </p>
             </section>
@@ -211,7 +211,7 @@ export default function TermsOfServicePage() {
             <section className="mb-8">
               <h2>11. Limitation of Liability</h2>
               <p>
-                To the maximum extent permitted by law, the AITD Alumni Association and its officers, 
+                To the maximum extent permitted by law, the AIEM Alumni Association and its officers, 
                 directors, employees, and agents shall not be liable for any indirect, incidental, 
                 special, consequential, or punitive damages arising from your use of the Platform.
               </p>
@@ -225,7 +225,7 @@ export default function TermsOfServicePage() {
             <section className="mb-8">
               <h2>12. Indemnification</h2>
               <p>
-                You agree to indemnify and hold harmless the AITD Alumni Association and its officers, 
+                You agree to indemnify and hold harmless the AIEM Alumni Association and its officers, 
                 directors, employees, and agents from any claims, damages, losses, or expenses 
                 (including legal fees) arising from:
               </p>
@@ -296,9 +296,9 @@ export default function TermsOfServicePage() {
                 If you have questions about these Terms, please contact us:
               </p>
               <ul>
-                <li><strong>Email:</strong> legal@aitdconnection.aitd.edu</li>
-                <li><strong>Address:</strong> AITD Alumni Association, [College Address]</li>
-                <li><strong>Phone:</strong> +91-XXXX-XXXXXX</li>
+                <li><strong>Email:</strong> legal@aiemgoa.ac.in</li>
+                <li><strong>Address:</strong> AIEM Alumni Association, Assagao, Bardez, Goa 403507</li>
+                <li><strong>Phone:</strong> +91 99757 97916</li>
               </ul>
             </section>
           </div>

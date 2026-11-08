@@ -44,7 +44,10 @@ describe('limits on abuse-prone endpoints that used to share only the global bud
     expect(await hammer('post', '/api/auth/2fa/disable', 15)).toBe(11);
   });
 
-  it.each(['/api/posts/video', '/api/posts/media', '/api/users/profile-photo', '/api/users/cover-photo'])(
+  it.each([
+    '/api/posts/video', '/api/posts/media', '/api/users/profile-photo', '/api/users/cover-photo',
+    '/api/videos/upload', '/api/videos/upload-thumbnail', '/api/magazine/upload-file', '/api/magazine/upload-cover', '/api/marketplace/upload-image',
+  ])(
     'uploads to %s are limited to 30 per window',
     async (path) => {
       expect(await hammer(path.includes('photo') ? 'post' : 'post', path, 35)).toBe(31);

@@ -167,7 +167,6 @@ describe('postService', () => {
         mediaUrls: [],
         videoUrl: null,
         thumbnailUrl: null,
-        isReel: false,
         visibility: 'PUBLIC',
         linkUrl: null,
       });
@@ -225,7 +224,7 @@ describe('postService', () => {
       ).rejects.toMatchObject({ statusCode: 400 });
     });
 
-    it('allows a media-only post and a reel with an uploaded video', async () => {
+    it('allows a media-only post and a video post with an uploaded video', async () => {
       await postService.createPost(OWNER, { mediaUrls: ['/uploads/posts/a.jpg'] });
       expect(prismaMock.post.create.mock.calls[0][0].data.content).toBe('');
 
@@ -233,17 +232,15 @@ describe('postService', () => {
         content: 'campus tour',
         videoUrl: '/uploads/videos/v.mp4',
         thumbnailUrl: '/uploads/posts/t.jpg',
-        isReel: true,
       });
       expect(prismaMock.post.create.mock.calls[1][0].data).toMatchObject({
         videoUrl: '/uploads/videos/v.mp4',
         thumbnailUrl: '/uploads/posts/t.jpg',
-        isReel: true,
       });
+      expect(prismaMock.post.create.mock.calls[1][0].data).not.toHaveProperty('isReel');
     });
 
-    it('rejects a reel without a video and videos hosted elsewhere', async () => {
-      await expect(postService.createPost(OWNER, { content: 'x', isReel: true })).rejects.toMatchObject({ statusCode: 400 });
+    it('rejects videos hosted elsewhere', async () => {
       await expect(
         postService.createPost(OWNER, { content: 'x', videoUrl: 'https://evil.example/v.mp4' })
       ).rejects.toMatchObject({ statusCode: 400, code: 'INVALID_MEDIA_URL' });

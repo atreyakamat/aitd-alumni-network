@@ -8,6 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { BRAND } from '@/lib/brand';
 
 type Stage = 'confirm' | 'verified' | 'newLink';
 
@@ -118,7 +119,7 @@ function VerifyEmailContent() {
                 </Button>
               </form>
               <p className="mt-4 text-sm text-slate-600">
-                If you did not create an account on AITD Connection, you can ignore the e-mail and close this page.
+                If you did not create an account on {BRAND.appName}, you can ignore the e-mail and close this page.
                 Nothing is changed until the right password is entered.
               </p>
             </CardContent>

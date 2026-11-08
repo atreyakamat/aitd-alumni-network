@@ -1,5 +1,5 @@
 /**
- * Feeds of PostViews: the ranked "for you" feed, following/latest, reels, hashtag, profile
+ * Feeds of PostViews: the ranked "for you" feed, following/latest, hashtag, profile
  * and saved lists (docs/SOCIAL_API.md, "Ranking").
  */
 import { Prisma } from '@prisma/client';
@@ -75,13 +75,6 @@ export class FeedService {
     return this.chronological(ctx, page, authorFilter);
   }
 
-  async getReels(viewer: ViewerInput | null | undefined, query: PageQuery) {
-    const page = parsePage(query.cursor, query.limit);
-    const ctx = await loadViewerContext(viewer);
-    const reelsOnly = { isReel: true };
-    return ctx ? this.ranked(ctx, page, reelsOnly) : this.chronological(null, page, reelsOnly);
-  }
-
   async getHashtagPosts(rawTag: unknown, viewer: ViewerInput | null | undefined, query: PageQuery) {
     const tag = normalizeTag(rawTag);
     if (!tag) throw badRequest('Invalid hashtag', 'INVALID_HASHTAG');
@@ -90,15 +83,14 @@ export class FeedService {
     return this.chronological(ctx, page, { hashtags: { some: { hashtag: { tag } } } });
   }
 
-  async getUserPosts(userId: string, viewer: ViewerInput | null | undefined, query: PageQuery & { reels?: unknown }) {
+  async getUserPosts(userId: string, viewer: ViewerInput | null | undefined, query: PageQuery) {
     const author = await prisma.user.findUnique({ where: { id: userId }, select: { id: true, isActive: true } });
     const ctx = await loadViewerContext(viewer);
     if (!author || (!author.isActive && ctx?.id !== userId && !ctx?.isAdmin)) {
       throw new AppError('User not found', 404, 'USER_NOT_FOUND');
     }
     const page = parsePage(query.cursor, query.limit);
-    const reels = query.reels === 'true' || query.reels === true;
-    return this.chronological(ctx, page, { userId, ...(reels ? { isReel: true } : {}) });
+    return this.chronological(ctx, page, { userId });
   }
 
   async getSaved(viewer: ViewerInput, query: PageQuery) {

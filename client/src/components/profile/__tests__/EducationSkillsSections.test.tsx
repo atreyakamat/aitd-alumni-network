@@ -41,7 +41,7 @@ describe('<EducationSection>', () => {
     await userEvent.type(within(dialog()).getByLabelText('Start year'), '2011');
     await userEvent.type(within(dialog()).getByLabelText('End year'), '2015');
     await userEvent.type(within(dialog()).getByLabelText('Grade'), '8.4 CGPA');
-    await userEvent.click(within(dialog()).getByLabelText('This is my AITD degree'));
+    await userEvent.click(within(dialog()).getByLabelText('This is my AIEM degree'));
     await userEvent.click(within(dialog()).getByRole('button', { name: 'Add education' }));
 
     await waitFor(() =>

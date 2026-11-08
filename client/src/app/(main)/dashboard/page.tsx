@@ -60,7 +60,7 @@ export default function DashboardPage() {
       {/* Right sidebar: profile summary + discovery */}
       <aside className="space-y-6" aria-label="Discover">
         {/* Profile card: not reachable from the header as a summary, so it stays (desktop only). The
-            former "Shortcuts" card duplicated the header nav (Reels, Saved, Network, Jobs, Events) and is gone. */}
+            former "Shortcuts" card duplicated the header nav (Videos, Saved, Network, Jobs, Events) and is gone. */}
         <section className="hidden lg:block" aria-label="Your profile">
           <Card>
             <div className="h-16 rounded-t-lg bg-gradient-to-r from-primary to-primary/80" />

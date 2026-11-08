@@ -112,6 +112,48 @@ export const newWork = (userId: string) =>
 export const newEducation = (userId: string) =>
   prisma.education.create({ data: { userId, institution: 'AITD', degree: 'B.E.', startYear: 2014 } });
 
+/** A college video; the file names are unique because two videos cannot share one stored file. */
+export const newVideo = (submittedById: string, status: 'PENDING' | 'APPROVED' | 'REJECTED' = 'APPROVED') =>
+  prisma.collegeVideo.create({
+    data: {
+      title: `Contract video ${uniq()}`,
+      description: 'A contract-test video',
+      category: 'Campus',
+      videoUrl: `/uploads/college-videos/${uniq('v')}.mp4`,
+      thumbnailUrl: `/uploads/video-thumbnails/${uniq('t')}.png`,
+      status,
+      submittedById,
+    },
+  });
+
+export const newMagazine = (uploadedById: string, isPublished = true) =>
+  prisma.collegeMagazine.create({
+    data: {
+      title: `Contract magazine ${uniq()}`,
+      edition: 'Vol 1',
+      description: 'A contract-test magazine edition',
+      fileUrl: `/uploads/magazines/${uniq('m')}.pdf`,
+      coverImageUrl: `/uploads/magazine-covers/${uniq('c')}.png`,
+      isPublished,
+      uploadedById,
+    },
+  });
+
+export const newRequirement = (postedById: string, status: 'OPEN' | 'FULFILLED' | 'CLOSED' = 'OPEN') =>
+  prisma.collegeRequirement.create({
+    data: { title: `Contract requirement ${uniq()}`, description: 'A contract-test requirement', category: 'SOFTWARE', status, postedById },
+  });
+
+/** An alum's offer to help with a requirement (one per alum per requirement). */
+export const newRequirementResponse = (requirementId: string, userId: string) =>
+  prisma.requirementResponse.create({ data: { requirementId, userId, message: 'Happy to help' } });
+
+export const newReferral = (requesterId: string, targetId: string) =>
+  prisma.referralRequest.create({ data: { requesterId, targetId, company: 'Contract Co', message: 'Could you refer me?' } });
+
+export const newLandingBlock = (overrides: Record<string, unknown> = {}) =>
+  prisma.landingBlock.create({ data: { type: 'TEXT', config: { title: `Contract block ${uniq()}`, body: 'Hello' }, isPublished: true, ...overrides } as any });
+
 /** A 1x1 PNG, enough for multer's image checks. */
 export const PNG_1X1 = Buffer.from(
   'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==',

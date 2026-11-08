@@ -347,7 +347,7 @@ export interface Donation {
 export type DonationStatus = 'PENDING' | 'COMPLETED' | 'FAILED' | 'REFUNDED';
 
 /** Server MarketplaceListingType enum. */
-export type MarketplaceListingType = 'BUSINESS' | 'SERVICE' | 'REQUIREMENT';
+export type MarketplaceListingType = 'BUSINESS' | 'SERVICE' | 'REQUIREMENT' | 'FOUNDER';
 
 /** Owner summary included with listings (GET /marketplace, GET /marketplace/:id). */
 export interface MarketplaceListingOwner {
@@ -373,6 +373,8 @@ export interface MarketplaceListing {
   contactInfo?: string | null;
   /** Free text, e.g. "INR 500-2,000 / hour". */
   priceRange?: string | null;
+  logoUrl?: string | null;
+  images?: string[] | null;
   isActive: boolean;
   isFeatured: boolean;
   viewCount: number;

@@ -296,9 +296,30 @@ describe('userService', () => {
       expect(updateData().locationLng).toEqual(new Prisma.Decimal('-73.86'));
     });
 
+    it('derives the map pin from the work location when one is set (work beats residence)', async () => {
+      arrange();
+      await userService.updateProfile(OWNER, { workLat: 15.49, workLng: 73.82, homeLat: 19.07, homeLng: 72.87 });
+      const data = updateData();
+      expect(Number(data.workLat)).toBeCloseTo(15.49);
+      expect(Number(data.homeLat)).toBeCloseTo(19.07);
+      // locationLat/Lng is the derived map pin and follows the work location
+      expect(Number(data.locationLat)).toBeCloseTo(15.49);
+      expect(Number(data.locationLng)).toBeCloseTo(73.82);
+    });
+
+    it('falls back to the residence for the map pin when work coordinates are cleared', async () => {
+      arrange({ homeLat: new Prisma.Decimal('19.07'), homeLng: new Prisma.Decimal('72.87'), workLat: new Prisma.Decimal('15.49'), workLng: new Prisma.Decimal('73.82') });
+      await userService.updateProfile(OWNER, { workLat: null, workLng: null });
+      const data = updateData();
+      expect(data.workLat).toBeNull();
+      expect(Number(data.locationLat)).toBeCloseTo(19.07);
+      expect(Number(data.locationLng)).toBeCloseTo(72.87);
+    });
+
     it.each([
       [{ locationLat: 91 }],
       [{ locationLat: -90.5 }],
+      [{ workLat: 200 }],
       [{ locationLng: 181 }],
       [{ locationLng: 'abc' }],
       [{ locationLat: Number.NaN }],

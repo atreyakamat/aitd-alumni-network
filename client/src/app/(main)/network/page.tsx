@@ -1,8 +1,8 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { networkApi } from '@/lib/api';
-import { batchLine, readConnections, readRequests, type ConnectionEntry, type RequestEntry } from '@/lib/people';
+import { networkApi, getApiErrorMessage } from '@/lib/api';
+import { readConnections, readRequests, type ConnectionEntry, type RequestEntry } from '@/lib/people';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
@@ -51,7 +51,7 @@ export default function NetworkPage() {
       toast({
         variant: 'destructive',
         title: 'Error',
-        description: 'Failed to load network information.',
+        description: getApiErrorMessage(error, 'Failed to load network information.'),
       });
     } finally {
       setLoading(false);
@@ -64,7 +64,7 @@ export default function NetworkPage() {
       toast({ title: 'Success', description: 'Connection request accepted.' });
       fetchNetworkData();
     } catch (error) {
-      toast({ variant: 'destructive', title: 'Error', description: 'Failed to accept request.' });
+      toast({ variant: 'destructive', title: 'Error', description: getApiErrorMessage(error, 'Failed to accept request.') });
     }
   };
 
@@ -74,7 +74,7 @@ export default function NetworkPage() {
       toast({ title: 'Success', description: 'Connection request declined.' });
       fetchNetworkData();
     } catch (error) {
-      toast({ variant: 'destructive', title: 'Error', description: 'Failed to decline request.' });
+      toast({ variant: 'destructive', title: 'Error', description: getApiErrorMessage(error, 'Failed to decline request.') });
     }
   };
 
@@ -84,7 +84,7 @@ export default function NetworkPage() {
       toast({ title: 'Request Sent', description: 'Connection request has been sent.' });
       setSuggestions(prev => prev.filter(s => s.id !== userId));
     } catch (error) {
-      toast({ variant: 'destructive', title: 'Error', description: 'Failed to send request.' });
+      toast({ variant: 'destructive', title: 'Error', description: getApiErrorMessage(error, 'Failed to send request.') });
     }
   };
 
@@ -137,16 +137,16 @@ export default function NetworkPage() {
                 return (
                   <Card key={conn.id} className="hover:shadow-md transition-shadow">
                     <CardContent className="pt-6 text-center">
-                      <Avatar className="h-20 w-20 mx-auto mb-4 cursor-pointer" onClick={() => router.push(`/profile/${partner.id}`)}>
+                      <Avatar className="h-20 w-20 mx-auto mb-4 cursor-pointer" onClick={() => router.push(`/profile/${encodeURIComponent(partner.id)}`)}>
                         <AvatarImage src={partner.avatarUrl ?? undefined} />
                         <AvatarFallback className="text-xl">{getInitials(partner.fullName)}</AvatarFallback>
                       </Avatar>
                       <h3 className="font-bold text-lg truncate">{partner.fullName}</h3>
                       <p className="text-sm text-primary font-medium truncate">{partner.headline || 'Alumnus'}</p>
-                      <p className="text-xs text-muted-foreground mt-1">{batchLine(partner) || partner.locationCity}</p>
+                      <p className="text-xs text-muted-foreground mt-1">{[partner.department, partner.batchYear ? `Class of ${partner.batchYear}` : null].filter(Boolean).join(' • ') || partner.locationCity}</p>
                       
                       <div className="flex gap-2 mt-4">
-                        <Button variant="outline" size="sm" className="flex-1" onClick={() => router.push(`/messages?u=${partner.id}`)}>
+                        <Button variant="outline" size="sm" className="flex-1" onClick={() => router.push(`/messages?u=${encodeURIComponent(partner.id)}`)}>
                           <MessageSquare className="h-4 w-4 mr-2" />
                           Message
                         </Button>
@@ -172,7 +172,7 @@ export default function NetworkPage() {
               {requests.map((req) => (
                 <Card key={req.id}>
                   <CardContent className="p-4 flex items-center justify-between">
-                    <div className="flex items-center gap-4 cursor-pointer" onClick={() => router.push(`/profile/${req.person.id}`)}>
+                    <div className="flex items-center gap-4 cursor-pointer" onClick={() => router.push(`/profile/${encodeURIComponent(req.person.id)}`)}>
                       <Avatar className="h-12 w-12">
                         <AvatarImage src={req.person.avatarUrl ?? undefined} />
                         <AvatarFallback>{getInitials(req.person.fullName)}</AvatarFallback>

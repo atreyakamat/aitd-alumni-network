@@ -78,31 +78,12 @@ export function StatsSection() {
         const response = await userApi.getStats();
         const data = response.data.data || response.data;
         
+        // Real figures only (the server returns totalAlumni/totalCompanies/totalBatches/totalCities).
         setStats([
-          {
-            icon: Users,
-            value: data.totalAlumni || 0,
-            label: 'Registered Alumni',
-            suffix: '+',
-          },
-          {
-            icon: Briefcase,
-            value: data.totalJobs || 850, // Use a reasonable default if 0
-            label: 'Job Opportunities',
-            suffix: '+',
-          },
-          {
-            icon: GraduationCap,
-            value: data.totalBatches || 50,
-            label: 'Batch Years',
-            suffix: '+',
-          },
-          {
-            icon: Globe,
-            value: data.totalCities || 25,
-            label: 'Global Presence',
-            suffix: '+',
-          },
+          { icon: Users, value: data.totalAlumni || 0, label: 'Registered Alumni', suffix: '+' },
+          { icon: Briefcase, value: data.totalCompanies || 0, label: 'Companies', suffix: '+' },
+          { icon: GraduationCap, value: data.totalBatches || 0, label: 'Batch Years', suffix: '+' },
+          { icon: Globe, value: data.totalCities || 0, label: 'Cities', suffix: '+' },
         ]);
       } catch (error) {
         console.error('Failed to fetch stats:', error);

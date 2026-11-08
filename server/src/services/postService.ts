@@ -34,7 +34,6 @@ interface CreatePostInput {
   mediaUrls?: string[];
   videoUrl?: string | null;
   thumbnailUrl?: string | null;
-  isReel?: boolean;
   visibility?: string;
   linkUrl?: string;
   mentionIds?: string[];
@@ -150,18 +149,16 @@ export class PostService {
     const videoUrl = validateUploadedUrl(input.videoUrl, 'videoUrl');
     const thumbnailUrl = validateUploadedUrl(input.thumbnailUrl, 'thumbnailUrl');
     const content = optionalContent(input.content);
-    const isReel = input.isReel === true;
     if (!content && mediaUrls.length === 0 && !videoUrl) {
       throw badRequest('A post needs text, an image or a video');
     }
-    if (isReel && !videoUrl) throw badRequest('A reel needs a video (videoUrl)');
     const type = input.type === undefined ? 'GENERAL' : validateType(input.type);
     const visibility = parseVisibility(input.visibility);
     const mentionIds = await resolveMentionIds(input.mentionIds, userId);
 
     const post = await prisma.$transaction(async (tx) => {
       const created = await tx.post.create({
-        data: { userId, type, content, mediaUrls, videoUrl, thumbnailUrl, isReel, visibility, linkUrl: optionalSafeHttpUrl(input.linkUrl, 'linkUrl') },
+        data: { userId, type, content, mediaUrls, videoUrl, thumbnailUrl, visibility, linkUrl: optionalSafeHttpUrl(input.linkUrl, 'linkUrl') },
         include: postInclude,
       });
       await hashtagService.syncPostHashtags(tx, created.id, content, created.createdAt);
@@ -296,10 +293,17 @@ export class PostService {
     if (!post || !canViewPost(post, ctx)) throw notFound();
     if (!ctx || ctx.id === post.userId) return { views: post.viewCount ?? 0 };
 
-    const created = await prisma.postImpression.createMany({ data: [{ postId, userId: ctx.id }], skipDuplicates: true });
-    if (!created?.count) return { views: post.viewCount ?? 0 };
-    const updated = await prisma.post.update({ where: { id: postId }, data: { viewCount: { increment: 1 } }, select: { viewCount: true } });
-    return { views: updated?.viewCount ?? (post.viewCount ?? 0) + 1 };
+    // Insert the impression and bump the counter in one transaction: otherwise a crash
+    // between them leaves the impression written (blocking any future increment) while
+    // viewCount stays behind, so the post permanently under-counts that view.
+    const result = await prisma.$transaction(async (tx) => {
+      const created = await tx.postImpression.createMany({ data: [{ postId, userId: ctx.id }], skipDuplicates: true });
+      if (!created?.count) return { counted: false as const, viewCount: undefined as number | undefined };
+      const updated = await tx.post.update({ where: { id: postId }, data: { viewCount: { increment: 1 } }, select: { viewCount: true } });
+      return { counted: true as const, viewCount: updated?.viewCount };
+    });
+    if (!result.counted) return { views: post.viewCount ?? 0 }; // this viewer was already counted
+    return { views: result.viewCount ?? (post.viewCount ?? 0) + 1 };
   }
 
   // -------------------------------------------------------------------------

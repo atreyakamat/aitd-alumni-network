@@ -30,7 +30,6 @@ export interface PostView {
   mediaUrls: string[];
   videoUrl: string | null;
   thumbnailUrl: string | null;
-  isReel: boolean;
   isRepost: boolean;
   linkUrl: string | null;
   visibility: string;
@@ -134,7 +133,6 @@ export async function presentPosts(rows: PostRow[], ctx: ViewerContext | null): 
       mediaUrls: toUrlList(row.mediaUrls),
       videoUrl: row.videoUrl ?? null,
       thumbnailUrl: row.thumbnailUrl ?? null,
-      isReel: !!row.isReel,
       isRepost: !!row.isRepost,
       linkUrl: row.linkUrl ?? null,
       visibility: row.visibility,

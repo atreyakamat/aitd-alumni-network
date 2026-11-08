@@ -13,6 +13,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Label } from '@/components/ui/label';
 import { useAuth } from '@/context/auth-context';
 import { useToast } from '@/hooks/use-toast';
+import { getInitials } from '@/lib/utils';
 import api, { getApiErrorMessage } from '@/lib/api';
 import { 
   Users, 
@@ -311,7 +312,7 @@ export default function MentorshipPage() {
           {/* Search Bar */}
           <Card>
             <CardContent className="pt-6">
-              <div className="flex gap-4">
+              <form onSubmit={(e) => { e.preventDefault(); handleSearch(); }} className="flex gap-4">
                 <Input
                   placeholder="Search mentors by name or expertise..."
                   value={searchQuery}
@@ -324,11 +325,11 @@ export default function MentorshipPage() {
                   onChange={(e) => setFocusAreaFilter(e.target.value)}
                   className="w-64"
                 />
-                <Button onClick={handleSearch}>
+                <Button type="submit">
                   <Search className="h-4 w-4 mr-2" />
                   Search
                 </Button>
-              </div>
+              </form>
             </CardContent>
           </Card>
 
@@ -351,7 +352,7 @@ export default function MentorshipPage() {
                     <div className="flex items-start gap-4">
                       <Avatar className="h-16 w-16">
                         <AvatarImage src={mentor.user.profilePhotoUrl || undefined} />
-                        <AvatarFallback>{mentor.user.fullName.split(' ').map(n => n[0]).join('')}</AvatarFallback>
+                        <AvatarFallback>{getInitials(mentor.user?.fullName || 'User')}</AvatarFallback>
                       </Avatar>
                       <div className="flex-1">
                         <CardTitle className="text-lg">{mentor.user.fullName}</CardTitle>
@@ -424,7 +425,7 @@ export default function MentorshipPage() {
                       <div className="flex items-center gap-4">
                         <Avatar>
                           <AvatarImage src={request.mentor.profilePhotoUrl || undefined} />
-                          <AvatarFallback>{request.mentor.fullName.split(' ').map(n => n[0]).join('')}</AvatarFallback>
+                          <AvatarFallback>{getInitials(request.mentor?.fullName || 'User')}</AvatarFallback>
                         </Avatar>
                         <div>
                           <h3 className="font-semibold">{request.mentor.fullName}</h3>
@@ -484,7 +485,7 @@ export default function MentorshipPage() {
                         <div className="flex items-center gap-4">
                           <Avatar>
                             <AvatarImage src={request.mentee.profilePhotoUrl || undefined} />
-                            <AvatarFallback>{request.mentee.fullName.split(' ').map(n => n[0]).join('')}</AvatarFallback>
+                            <AvatarFallback>{getInitials(request.mentee?.fullName || 'User')}</AvatarFallback>
                           </Avatar>
                           <div>
                             <h3 className="font-semibold">{request.mentee.fullName}</h3>

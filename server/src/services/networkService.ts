@@ -25,6 +25,8 @@ export class NetworkService {
             fullName: true,
             profilePhotoUrl: true,
             currentDesignation: true,
+            batchYear: true,
+            department: true,
             city: true,
             membershipTier: {
               select: { name: true, badgeColor: true },
@@ -37,6 +39,8 @@ export class NetworkService {
             fullName: true,
             profilePhotoUrl: true,
             currentDesignation: true,
+            batchYear: true,
+            department: true,
             city: true,
             membershipTier: {
               select: { name: true, badgeColor: true },

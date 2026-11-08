@@ -1,6 +1,6 @@
 /**
  * Alumni Social: API calls, response normalisers and pure helpers for the social layer
- * (reactions, comments, reposts, mentions, hashtags, follows, saved posts, reels, reports).
+ * (reactions, comments, reposts, mentions, hashtags, follows, saved posts, reports).
  * Contract: docs/SOCIAL_API.md. Normalisers are defensive so older (v1) payloads still render.
  */
 import type { AxiosProgressEvent } from 'axios';
@@ -127,7 +127,6 @@ export interface SocialPost {
   mediaUrls: string[];
   videoUrl: string | null;
   thumbnailUrl: string | null;
-  isReel: boolean;
   isRepost: boolean;
   linkUrl: string | null;
   visibility: PostVisibility;
@@ -302,7 +301,6 @@ export function normalizePost(raw: unknown, depth = 0): SocialPost {
     mediaUrls: stringArray(r.mediaUrls),
     videoUrl: optStr(r.videoUrl),
     thumbnailUrl: optStr(r.thumbnailUrl),
-    isReel: r.isReel === true,
     isRepost: r.isRepost === true || repostOf !== null,
     linkUrl: optStr(r.linkUrl),
     visibility,
@@ -663,7 +661,6 @@ export interface CreatePostInput {
   mediaUrls?: string[];
   videoUrl?: string | null;
   thumbnailUrl?: string | null;
-  isReel?: boolean;
   visibility?: PostVisibility;
   linkUrl?: string | null;
   mentionIds?: string[];
@@ -714,9 +711,9 @@ export const socialApi = {
     normalizePage(data(await api.get(`/users/${seg(userId)}/followers`, { params: page(cursor), signal: opts.signal })), normalizeFollowPerson),
   following: async (userId: string, cursor?: string | null, opts: Opts = {}) =>
     normalizePage(data(await api.get(`/users/${seg(userId)}/following`, { params: page(cursor), signal: opts.signal })), normalizeFollowPerson),
-  userPosts: async (userId: string, params: { cursor?: string | null; reels?: boolean } = {}, opts: Opts = {}) =>
+  userPosts: async (userId: string, params: { cursor?: string | null } = {}, opts: Opts = {}) =>
     normalizePage(
-      data(await api.get(`/users/${seg(userId)}/posts`, { params: { ...page(params.cursor), ...(params.reels ? { reels: true } : {}) }, signal: opts.signal })),
+      data(await api.get(`/users/${seg(userId)}/posts`, { params: page(params.cursor), signal: opts.signal })),
       normalizePost
     ),
   mentionSearch: async (q: string, opts: Opts = {}) => {
@@ -727,8 +724,6 @@ export const socialApi = {
     normalizeTrending(data(await api.get('/hashtags/trending', { params: { days: opts.days ?? 7, limit: opts.limit ?? 10 }, signal: opts.signal }))),
   hashtagPosts: async (tag: string, cursor?: string | null, opts: Opts = {}) =>
     normalizePage(data(await api.get(`/hashtags/${seg(tag)}/posts`, { params: page(cursor), signal: opts.signal })), normalizePost),
-  reels: async (cursor?: string | null, opts: Opts & { limit?: number } = {}) =>
-    normalizePage(data(await api.get('/reels', { params: page(cursor, opts.limit ?? 10), signal: opts.signal })), normalizePost),
   reportPost: async (id: string, input: { reason: ReportReason; details?: string }) => data(await api.post(`/posts/${seg(id)}/report`, input)),
   reportComment: async (id: string, input: { reason: ReportReason; details?: string }) =>
     data(await api.post(`/comments/${seg(id)}/report`, input)),

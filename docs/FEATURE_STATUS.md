@@ -9,7 +9,7 @@ Release gate (PRD §10.3): **releasable, no P0/P1 blockers in Must Have domains.
 | Authentication & security (JWT + rotating refresh families with reuse detection, token-version revocation, verified e-mail before a session in production with a password-confirmed link, reset, change password, 2FA OTP for password **and** OAuth sign-ins, Google/LinkedIn) | IMPLEMENTED | auth unit suites, `authService.verification.test.ts`, `tests/security/auth/`, `tests/integration/auth-lifecycle.int.test.ts`; see [AUTHENTICATION.md](AUTHENTICATION.md) |
 | Discovery (directory, yearbook, alumni map: viewport + "Near me" radius search, filters, place search, ~1 km location privacy) | IMPLEMENTED | userService + geocodingService suites, `tests/integration/geo-search.int.test.ts`, alumni-nearby page and `lib/geo` tests |
 | Profile & identity (profile editor: basics, photos, links, privacy/location, work, education, skills, completeness) | IMPLEMENTED | profile validator + route suites, `/profile/edit` component tests |
-| Social (ranked feed, six reactions, threaded comments, reposts and quote posts, posts with images, video and reels, visibility public/connections, hashtags and mentions, follows, saved posts, reports with admin moderation, connections, messaging, notification bell + page) | IMPLEMENTED | post/reaction/repost/network/message suites, `tests/integration/social*.int.test.ts`, `clientLinks` contract test; contract in [SOCIAL_API.md](SOCIAL_API.md) |
+| Social (ranked feed, six reactions, threaded comments, reposts and quote posts, posts with images or video, visibility public/connections, hashtags and mentions, follows, saved posts, reports with admin moderation, connections, messaging, notification bell + page) | IMPLEMENTED | post/reaction/repost/network/message suites, `tests/integration/social*.int.test.ts`, `clientLinks` contract test; contract in [SOCIAL_API.md](SOCIAL_API.md) |
 | Search (one header search box; visitors get public events, news and chapters with a "sign in for more" note; members also get people, jobs and posts) | IMPLEMENTED | `searchController` suite, `tests/security/authz/search.sec.test.ts`, search page and header tests |
 | Members-only access at the edge (visitors are redirected from `/dashboard`, `/admin/*`, `/directory`, ... to sign-in; the API stays the authority) | IMPLEMENTED | `route-access` tests, `src/__security__/`, `npm run verify:deploy` |
 | Careers (jobs + admin review queue) | IMPLEMENTED | jobService suite, `/admin/moderation` |
@@ -56,10 +56,19 @@ Release gate (PRD §10.3): **releasable, no P0/P1 blockers in Must Have domains.
     could not build).
   - `docker-compose.yml` is validated.
 
+## Merged from `main` (2026-10-22 to 2026-10-28)
+
+The college and engagement features built on `main` while this branch was in review: college **videos** (member submissions with
+admin approval), a **magazine** of PDFs, **requirements** (what the college needs, alumni offer help), job **referrals**, a **weekly
+digest** with admin settings, a **landing page builder**, separate **home and work locations** on the map, logo and images on marketplace
+listings, background jobs (BullMQ, needs Redis) and the **AIEM Connection** rebrand. The Reels page and viewer were replaced by Videos;
+the leftover Reels flag was removed in this merge. What was found and fixed while reviewing that code is in
+[SECURITY_AUDIT.md](SECURITY_AUDIT.md) ("Review of the code merged from main").
+
 ## 2026-11-08: social layer, one search, security audit, production tooling
 
 - **Alumni social layer** (details: [SOCIAL_API.md](SOCIAL_API.md)): reactions, threaded comments, reposts and quote posts,
-  posts with images or video and reels, visibility, hashtags and mentions, follows, saved posts, reporting and admin
+  posts with images or video, visibility, hashtags and mentions, follows, saved posts, reporting and admin
   moderation, a ranked feed with cursor pagination.
 - **One search:** the duplicate search entry points are gone. There is one box in the header (on mobile, one icon, hidden on
   the results page), visitors see public results plus a note to sign in for more, and the results page shows people, jobs,

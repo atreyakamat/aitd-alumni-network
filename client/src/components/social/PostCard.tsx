@@ -5,7 +5,6 @@ import { useState } from 'react';
 import {
   Bookmark,
   BookmarkCheck,
-  Clapperboard,
   Flag,
   Link2,
   Loader2,
@@ -97,8 +96,7 @@ function PostBody({ post, compact = false }: { post: SocialPost; compact?: boole
         <AutoplayVideo
           src={post.videoUrl}
           poster={post.thumbnailUrl}
-          label={post.isReel ? `Reel by ${post.user.fullName}` : `Video by ${post.user.fullName}`}
-          className={cn(post.isReel && 'mx-auto max-w-sm')}
+          label={`Video by ${post.user.fullName}`}
           onVisible={() => recordViewOnce(post.id)}
         />
       ) : (
@@ -267,7 +265,7 @@ export function PostCard({
       }
     });
 
-  const share = () => shareLinkWithToast({ title: `${shown.user.fullName} on AITD Connection`, url: postUrl(shown.id) }, toast);
+  const share = () => shareLinkWithToast({ title: `${shown.user.fullName} on AIEM Connection`, url: postUrl(shown.id) }, toast);
 
   const copyLink = async () => {
     try {
@@ -333,11 +331,6 @@ export function PostCard({
               {shown.editedAt && <span>· Edited</span>}
               {shown.visibility === 'CONNECTIONS' && (
                 <span className="flex items-center gap-0.5" title="Visible to connections"><Lock className="h-3 w-3" aria-hidden="true" /><span className="sr-only">Visible to connections</span></span>
-              )}
-              {shown.isReel && (
-                <Link href={`/reels?start=${encodeURIComponent(shown.id)}`} className="ml-1 flex items-center gap-0.5 rounded bg-primary/10 px-1 text-[10px] font-semibold text-primary">
-                  <Clapperboard className="h-3 w-3" aria-hidden="true" />Reel
-                </Link>
               )}
             </p>
           </div>

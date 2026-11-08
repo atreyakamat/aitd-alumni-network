@@ -1,7 +1,7 @@
 # Alumni Social — API contract (v2, 2026-10-19)
 
 The contract the server implements and the client builds against for the social layer: reactions,
-threaded comments, reposts and quote posts, mentions, hashtags, follows, saved posts, reels, views,
+threaded comments, reposts and quote posts, mentions, hashtags, follows, saved posts, views,
 reporting and the ranked feed. AI features are out of scope.
 
 Conventions (unchanged from v1): everything under `/api`; responses are `{ success: true, data }` or
@@ -28,7 +28,7 @@ reports → `/admin/reports`.
 
 `AuthorLite` = `{ id, fullName, profilePhotoUrl, currentDesignation, batchYear }`
 
-`PostView` (feed items, post detail, reels, saved, hashtag pages, create/update/repost responses):
+`PostView` (feed items, post detail, saved, hashtag pages, create/update/repost responses):
 
 ```jsonc
 {
@@ -38,7 +38,6 @@ reports → `/admin/reports`.
   "mediaUrls": ["/uploads/posts/a.jpg"],      // images, max 10
   "videoUrl": "/uploads/videos/x.mp4" ,        // or null
   "thumbnailUrl": "/uploads/posts/x.jpg",      // or null (poster image for the video)
-  "isReel": false,
   "isRepost": false,                            // true for plain reposts AND quote posts
   "linkUrl": null,
   "visibility": "PUBLIC",
@@ -94,10 +93,10 @@ Replies are one level deep: replying to a reply attaches to that reply's top-lev
 
 | Method | Path | Auth | Notes |
 |---|---|---|---|
-| GET | `/feed?tab=&cursor=&limit=` | member | `for-you` (default): ranked, last 14 days, connections/followed boosted. `following`: people the viewer follows or is connected with, plus own posts, newest first. `latest`: everything visible, newest first. Includes reels. Plain reposts of the same original collapse to one item. |
+| GET | `/feed?tab=&cursor=&limit=` | member | `for-you` (default): ranked, last 14 days, connections/followed boosted. `following`: people the viewer follows or is connected with, plus own posts, newest first. `latest`: everything visible, newest first. Plain reposts of the same original collapse to one item. |
 | GET | `/posts` | optional | v1 endpoint, unchanged shape (paginated). |
 | GET | `/posts/:id` | optional | `PostView`. 404 when deleted, unpublished, or CONNECTIONS-only and the viewer is not connected/author/admin. |
-| POST | `/posts` | member | Body `{ content?, type?, mediaUrls?, videoUrl?, thumbnailUrl?, isReel?, visibility?, linkUrl?, mentionIds? }`. Needs content, an image or a video. `isReel` requires `videoUrl`. `videoUrl`/`thumbnailUrl` must be files uploaded through this API. Hashtags are parsed from content (`#[A-Za-z0-9_]{1,50}`, max 30). `mentionIds` (max 20, existing active users) are notified (`MENTION`). → 201 `PostView`. |
+| POST | `/posts` | member | Body `{ content?, type?, mediaUrls?, videoUrl?, thumbnailUrl?, visibility?, linkUrl?, mentionIds? }`. Needs content, an image or a video. `videoUrl`/`thumbnailUrl` must be files uploaded through this API. Hashtags are parsed from content (`#[A-Za-z0-9_]{1,50}`, max 30). `mentionIds` (max 20, existing active users) are notified (`MENTION`). → 201 `PostView`. |
 | PATCH | `/posts/:id` | author (content) / admin (`isPinned` only) | As v1, plus `visibility`, `mentionIds`; sets `editedAt`, re-parses hashtags, notifies only newly mentioned people. |
 | DELETE | `/posts/:id` | author or admin | As v1. Plain reposts of it disappear from feeds; quote posts keep their text and show `repostOf: { id, unavailable: true }`. |
 | POST | `/posts/media` | member | v1 image upload (field `media`, up to 5) → `{ urls: string[] }`. |
@@ -145,16 +144,15 @@ Replies are one level deep: replying to a reply attaches to that reply's top-lev
 | DELETE | `/users/:id/follow` | member | → `{ following: false, followerCount }`. |
 | GET | `/users/:id/followers?cursor=` / `/users/:id/following?cursor=` | member | `items: [AuthorLite & { viewerFollows: boolean }]`. |
 | GET | `/users/:id` | optional | v1 profile, plus `followerCount`, `followingCount`, `isFollowing`, `postCount`. |
-| GET | `/users/:id/posts?cursor=&reels=` | optional | That member's `PostView`s (visibility rules apply). |
+| GET | `/users/:id/posts?cursor=` | optional | That member's `PostView`s (visibility rules apply). |
 | GET | `/users/mention-search?q=&limit=` | member | ≥ 1 character; active, verified members by name, connections and followed people first. → `AuthorLite[]` (max 10). |
 
-### Hashtags and reels
+### Hashtags
 
 | Method | Path | Auth | Notes |
 |---|---|---|---|
 | GET | `/hashtags/trending?days=7&limit=10` | optional | `[{ tag, postCount }]` over posts in the window (days 1–30). |
 | GET | `/hashtags/:tag/posts?cursor=` | optional | Visible `PostView`s with that tag, newest first. |
-| GET | `/reels?cursor=&limit=` | optional | Visible reels, ranked like `for-you` for members, newest first for anonymous visitors. |
 
 ### Reporting and moderation
 
@@ -164,7 +162,7 @@ Replies are one level deep: replying to a reply attaches to that reply's top-lev
 | GET | `/admin/reports?status=OPEN&cursor=` | admin | `items: [{ id, reason, details, status, createdAt, reporter: AuthorLite, post?: PostView, comment?: CommentView, resolvedBy?, resolvedAt?, resolution? }]`; open reports on the same item are grouped server-side into one item with `reportCount`. |
 | PATCH | `/admin/reports/:id` | admin | Body `{ action: DISMISS \| REMOVE_CONTENT, note? }`. `REMOVE_CONTENT` deletes the post/comment and resolves every open report on it; both write an audit entry (`CONTENT_REMOVED` / `REPORT_DISMISSED`). |
 
-## Ranking (`for-you`, reels for members)
+## Ranking (`for-you`)
 
 Candidates: visible posts from the last 14 days (cap 500). Score:
 

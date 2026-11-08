@@ -50,7 +50,7 @@ describe('jobService', () => {
       const deadlineClause = args.where.AND[0].OR;
       expect(deadlineClause[0]).toEqual({ deadline: null });
       expect(deadlineClause[1].deadline.gte).toBeInstanceOf(Date);
-      expect(args.orderBy).toEqual([{ isFeatured: 'desc' }, { createdAt: 'desc' }]);
+      expect(args.orderBy).toEqual([{ isOfficial: 'desc' }, { isFeatured: 'desc' }, { createdAt: 'desc' }]);
       expect(args.skip).toBe(10);
       expect(args.take).toBe(10);
       expect(prismaMock.jobOpportunity.count).toHaveBeenCalledWith({ where: args.where });
@@ -178,9 +178,16 @@ describe('jobService', () => {
       });
     });
 
-    it('lets admins publish directly', async () => {
+    it('lets admins publish directly, marked official', async () => {
       await jobService.createJob('adm', baseInput as any, true);
-      expect(prismaMock.jobOpportunity.create.mock.calls[0][0].data.status).toBe('PUBLISHED');
+      const { data } = prismaMock.jobOpportunity.create.mock.calls[0][0];
+      expect(data.status).toBe('PUBLISHED');
+      expect(data.isOfficial).toBe(true);
+    });
+
+    it("marks a member's job non-official", async () => {
+      await jobService.createJob('u1', baseInput as any);
+      expect(prismaMock.jobOpportunity.create.mock.calls[0][0].data.isOfficial).toBe(false);
     });
 
     it('stores salaries as Decimals (including 0) and the deadline as a Date', async () => {

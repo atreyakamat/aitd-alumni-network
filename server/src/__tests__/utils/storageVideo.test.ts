@@ -109,11 +109,11 @@ describe('storeVideo (S3)', () => {
     const { mod, send } = load({ s3: true });
     const temp = tempUpload(MP4);
 
-    const result = await mod.storeVideo(temp, 'reels');
+    const result = await mod.storeVideo(temp, 'post-videos');
 
     const command = send.mock.calls[0][0];
     expect(command.input).toMatchObject({ Bucket: BUCKET, ContentType: 'video/mp4', ContentLength: MP4.length, ACL: 'public-read' });
-    expect(command.input.Key).toMatch(/^reels\/\d+-[0-9a-f-]{36}\.mp4$/);
+    expect(command.input.Key).toMatch(/^post-videos\/\d+-[0-9a-f-]{36}\.mp4$/);
     expect(typeof command.input.Body.pipe).toBe('function');
     command.input.Body.destroy();
     expect(result.url).toBe(`https://${BUCKET}.s3.${REGION}.amazonaws.com/${command.input.Key}`);

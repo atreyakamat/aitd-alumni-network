@@ -238,15 +238,38 @@ were confirmed to **fail without their fix**. The single-invite burst test passe
 * `/api//...` now routes as `/api/...`.
 * The payments webhook accepts at most 256 KB.
 
+## Review of the code merged from `main` (2026-11-08)
+
+`main` gained about 8,000 lines (college videos, magazine, requirements, referrals, digest, landing page builder, home/work
+locations, background jobs) while this branch was in review. After the merge conflicts were resolved, the new code was reviewed
+against the bug classes found in rounds 1 and 2, and the contract suite was extended to drive all 39 new routes with valid, invalid and
+fuzzed input.
+
+| ID | Sev | Where | Finding | Fix |
+|---|---|---|---|---|
+| M-01 | **High** | `collegeVideoService` | A member could submit **any** file under `/uploads` (another member's profile photo, a public post image) as their video or thumbnail, then delete their own record: the delete also deleted the file from storage. One member could remove another's uploads | A stored-file reference must be a file the matching upload endpoint wrote, in exactly that folder (`utils/uploadRefs.ts`); two videos cannot share a file (409); delete skips files another record still uses. Same rule for magazines |
+| M-02 | Medium | `privacyService` | Account deletion cleared the map pin but left the new **precise home and work coordinates** and work city on the "deleted" account | Cleared on deletion; included in the data export |
+| M-03 | Medium | `privacyService` | Deletion and export ignored the new user-linked tables (referral asks, offers to help, video submissions); the schema scan flagged all five models | Referral asks (both directions), offers and unpublished video submissions are removed; a video the college published stays, like a post; requirements and magazine issues are admin content and stay; all are exported |
+| M-04 | Medium | new upload routes | The five new upload endpoints had no multipart text-field limits (the PDF uploader), no sanitising after multer, and no share of the upload rate budget | Limits, sanitising and budget added to all of them |
+| M-05 | Medium | videos, magazine, referrals | A number, boolean, array or object where text was expected reached Prisma and answered **HTTP 500** (`PATCH /videos/:id`, `PATCH /magazine/:id`, `POST /referrals`) | Typed, bounded validation (`optionalBoundedText`, `optionalBoolean`, `idText`); found by the contract suite's wrong-type fuzz |
+| M-06 | Low | `referralService` | The unique index cannot stop repeat asks when there is no job (NULLs never collide), and the pending-ask cap was check-then-act | Repeat check by company when no job; both done under a per-member advisory lock |
+| M-07 | Low | `digestService` | Digest settings stored `sections` unvalidated (a string was spread into one key per character; the fuzz stored a 12,000-key object) | Only the known sections, each a real boolean |
+| M-08 | Low | `landingService`, `LandingBlockView` | Landing block links and image URLs were free-form and rendered for every visitor | Validated when stored (site path or http(s) link; uploaded or http(s) image) and again when rendered |
+| M-09 | High (functional) | `client/src/lib/videos.ts`, `engagement.ts` | The server answers lists as `{ data: [...], pagination }`; the client read `.items`, so the **Videos, Magazine, Requirements and Referrals pages (and their admin versions) always showed empty lists** | The six list calls go through `readPaginated`; a test uses the exact server shape |
+| M-10 | Info | merge | Main fixed the same event-capacity and mentorship races independently; the merged version keeps main's single transaction and adds the double-submit and double-cancel handling. The sanitised e-mail templates keep main's AIEM branding with the escaping | Covered by the existing race tests plus `concurrency.int.test.ts` from main |
+
+Also removed in this merge, at the product owner's request: **Reels** (the page, viewer and `/reels` feed were already gone on `main`;
+the `isReel` flag, its database column and the `?reels=` filter went now). Posts that were reels remain as ordinary video posts.
+
 ## Test results (after round 2 and the production decisions)
 
 | Suite | Command | Result |
 |---|---|---|
-| Server unit | `npm test -w server` | 90 suites, 3,334 tests |
-| Server security (real PostgreSQL) | `npm run test:security -w server` | 31 suites, 394 tests (89 from round 1, 297 in `tests/security/round2/`, 8 for e-mail verification and OAuth 2FA) |
-| Server integration (real PostgreSQL) | `npm run test:integration -w server` | 5 suites, 36 tests |
-| Client/server contract | `npm run test:contract -w server` | 5 suites, 782 tests |
-| Client (vitest) | `npm test -w client` | 85 files, 968 tests (151 in `src/__security__/`) |
+| Server unit | `npm test -w server` | 99 suites, 3,728 tests |
+| Server security (real PostgreSQL) | `npm run test:security -w server` | 32 suites, 400 tests (89 from round 1, 297 in `tests/security/round2/` plus the college privacy tests, 8 for e-mail verification and OAuth 2FA) |
+| Server integration (real PostgreSQL) | `npm run test:integration -w server` | 6 suites, 38 tests |
+| Client/server contract | `npm run test:contract -w server` | 5 suites, 926 tests |
+| Client (vitest) | `npm test -w client` | 89 files, 993 tests (151 in `src/__security__/`) |
 | Type checks | server `tsc -p tsconfig.test.json`, client `tsc --noEmit` | clean |
 | Lint | server eslint, client `next lint` | 0 errors |
 

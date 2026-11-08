@@ -397,29 +397,29 @@ export class MentorshipService {
       throw new AppError('Request has already been processed', 400, 'ALREADY_PROCESSED');
     }
 
-    if (accept && request.profile && request.profile.currentMentees >= request.profile.maxMentees) {
-      throw new AppError('You have reached your maximum mentee capacity', 400, 'MENTOR_FULL');
-    }
-
     const status = accept ? 'ACCEPTED' : 'DECLINED';
 
+    // Claim the PENDING -> status transition atomically. A double-click or two concurrent
+    // responses would otherwise both pass the status check above and each increment
+    // currentMentees; here only the call that actually wins the claim runs the side effects.
     const updatedRequest = await prisma.$transaction(async (tx) => {
-      // Claim the request: only one of several concurrent responses can still see it PENDING
-      const claimed = await tx.mentorshipRequest.updateMany({
+      const claim = await tx.mentorshipRequest.updateMany({
         where: { id: requestId, status: 'PENDING' },
         data: { status },
       });
-      if (claimed.count === 0) {
+      if (claim.count === 0) {
         throw new AppError('Request has already been processed', 400, 'ALREADY_PROCESSED');
       }
 
       if (accept) {
-        // Take the seat with one guarded UPDATE (row-locked by Postgres), so concurrent accepts can never
-        // push currentMentees past maxMentees; throwing rolls the claim above back.
-        const seats = await tx.$executeRaw`
-          UPDATE "MentorProfile" SET "currentMentees" = "currentMentees" + 1
-          WHERE id = ${request.profileId} AND "currentMentees" < "maxMentees"`;
-        if (seats === 0) {
+        // Capacity-guarded increment against the committed counter (same column-vs-column
+        // pattern as rsvpEvent). 0 rows => mentor is already full; rolls back the claim.
+        const claimedSeat = await tx.$executeRaw`
+          UPDATE "MentorProfile"
+          SET "currentMentees" = "currentMentees" + 1, "updatedAt" = NOW()
+          WHERE "id" = ${request.profileId} AND "currentMentees" < "maxMentees"
+        `;
+        if (claimedSeat === 0) {
           throw new AppError('You have reached your maximum mentee capacity', 400, 'MENTOR_FULL');
         }
       }
@@ -606,17 +606,23 @@ export class MentorshipService {
       throw new AppError('Mentorship is not active', 400, 'INVALID_STATUS');
     }
 
-    await prisma.$transaction([
-      prisma.mentorshipRequest.update({
-        where: { id: requestId },
+    // Claim the ACCEPTED -> COMPLETED transition so only the winning call decrements. Both
+    // participants (mentor and mentee are allowed) ending concurrently would otherwise each
+    // pass the check above and double-decrement currentMentees below the true count.
+    await prisma.$transaction(async (tx) => {
+      const claim = await tx.mentorshipRequest.updateMany({
+        where: { id: requestId, status: 'ACCEPTED' },
         data: { status: 'COMPLETED' },
-      }),
+      });
+      if (claim.count === 0) {
+        throw new AppError('Mentorship is not active', 400, 'INVALID_STATUS');
+      }
       // Guarded decrement: currentMentees never drops below zero
-      prisma.mentorProfile.updateMany({
+      await tx.mentorProfile.updateMany({
         where: { id: request.profileId, currentMentees: { gt: 0 } },
         data: { currentMentees: { decrement: 1 } },
-      }),
-    ]);
+      });
+    });
 
     return { message: 'Mentorship ended successfully' };
   }

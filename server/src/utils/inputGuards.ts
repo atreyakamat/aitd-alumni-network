@@ -17,6 +17,18 @@ export const optionalText = (value: unknown, field: string): string | null | und
   return value;
 };
 
+/**
+ * Optional free text with a length limit: `undefined` = leave alone, `null` or blank = clear, otherwise a trimmed
+ * string of at most `max` characters. Any other type is rejected instead of reaching Prisma (HTTP 500).
+ */
+export const optionalBoundedText = (value: unknown, field: string, max: number): string | null | undefined => {
+  const text = optionalText(value, field);
+  if (text === undefined || text === null) return text;
+  const trimmed = text.trim();
+  if (trimmed.length > max) throw invalid(`${field} must be at most ${max} characters`);
+  return trimmed === '' ? null : trimmed;
+};
+
 /** A required, non-blank string (trimmed). */
 export const requiredText = (value: unknown, field: string): string => {
   if (typeof value !== 'string' || !value.trim()) throw invalid(`${field} is required`);

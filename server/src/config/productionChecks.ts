@@ -155,7 +155,7 @@ export const findProductionProblems = (env: NodeJS.ProcessEnv): ConfigFinding[] 
     warning('SEED_ADMIN_PASSWORD_WEAK', 'SEED_ADMIN_PASSWORD is shorter than 12 characters.', 'Use a long random password, then change it after the first sign-in.');
   }
   if (!present(env.REDIS_URL)) {
-    warning('REDIS_MISSING', 'Redis is not configured: rate limits are per process and the response cache is off.',
+    warning('REDIS_MISSING', 'Redis is not configured: rate limits are per process, the response cache is off and background jobs (notification broadcasts, the weekly digest) do not run.',
       'Set REDIS_URL (docker-compose does this). Required before running more than one API instance.');
   }
   if (!present(env.AWS_S3_BUCKET)) {

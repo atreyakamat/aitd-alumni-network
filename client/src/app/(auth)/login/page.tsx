@@ -48,8 +48,8 @@ function LoginContent() {
   const code = searchParams?.get('code');
   const oauthProvider = searchParams?.get('oauth');
   const isNewUser = searchParams?.get('newUser');
-  // Where to go after signing in; only same-origin relative paths are honoured.
-  const afterLoginPath = getSafeNextPath(searchParams?.get('next')) ?? '/dashboard';
+  // Where to go after signing in; only same-origin relative paths are honoured (handles both ?next= and ?redirect=).
+  const afterLoginPath = getSafeNextPath(searchParams?.get('next') ?? searchParams?.get('redirect')) ?? '/dashboard';
 
   useEffect(() => {
     let isMounted = true;
@@ -311,7 +311,7 @@ function LoginContent() {
           <div className="absolute inset-0 bg-gradient-to-br from-[#002045]/90 via-[#1a365d]/80 to-transparent" />
           <div className="relative z-10 flex h-full flex-col justify-between p-12">
             <Link href="/" className="font-headline text-3xl italic text-white">
-              AITD Connection
+              AIEM Connection
             </Link>
             <div className="max-w-md space-y-6">
               <h1 className="font-headline text-5xl leading-tight text-white">
@@ -321,7 +321,7 @@ function LoginContent() {
                 Enter the verification code sent to your email to complete sign-in.
               </p>
             </div>
-            <p className="text-sm text-white/60 font-label">© {new Date().getFullYear()} AITD Connection</p>
+            <p className="text-sm text-white/60 font-label">© {new Date().getFullYear()} AIEM Connection</p>
           </div>
         </div>
 
@@ -415,7 +415,7 @@ function LoginContent() {
         <div className="absolute inset-0 bg-gradient-to-br from-[#002045]/90 via-[#1a365d]/80 to-transparent" />
         <div className="relative z-10 flex h-full flex-col justify-between p-12">
           <Link href="/" className="font-headline text-3xl italic text-white">
-            AITD Connection
+            AIEM Connection
           </Link>
           <div className="max-w-md space-y-6">
             <h1 className="font-headline text-5xl leading-tight text-white">
@@ -425,7 +425,7 @@ function LoginContent() {
               Sign in to reconnect with fellow scholars, explore opportunities, and shape the future of our community.
             </p>
           </div>
-          <p className="text-sm text-white/60 font-label">© {new Date().getFullYear()} AITD Connection</p>
+          <p className="text-sm text-white/60 font-label">© {new Date().getFullYear()} AIEM Connection</p>
         </div>
       </div>
 
@@ -434,7 +434,7 @@ function LoginContent() {
         <div className="w-full max-w-md">
           <div className="mb-8 text-center lg:hidden">
             <Link href="/" className="font-headline text-2xl italic text-primary">
-              AITD Connection
+              AIEM Connection
             </Link>
           </div>
 

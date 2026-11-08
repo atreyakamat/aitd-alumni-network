@@ -234,8 +234,11 @@ describe('video upload', () => {
 
     const ok = await http().post('/api/posts/video').set('Authorization', u.auth).attach('video', mp4, { filename: 'a.mp4', contentType: 'video/mp4' });
     expect(ok.status).toBe(201);
-    const reel = await post(u, { content: 'campus', videoUrl: ok.body.data.url, isReel: true });
-    expect((await http().get('/api/reels?limit=50')).body.data.items.map((i: any) => i.id)).toContain(reel.id);
+    const videoPost = await post(u, { content: 'campus', videoUrl: ok.body.data.url });
+    expect(videoPost.videoUrl).toBe(ok.body.data.url);
+    // there is no reels feed any more
+    expect((await http().get('/api/reels')).status).toBe(404);
+    expect(videoPost).not.toHaveProperty('isReel');
 
     const fake = await http()
       .post('/api/posts/video')

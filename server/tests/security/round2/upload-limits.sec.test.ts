@@ -47,6 +47,23 @@ describe('R2-17 multipart text fields are limited in count and size', () => {
     }
   });
 
+  it('refuses the same on the college upload routes (videos, magazine, marketplace images)', async () => {
+    const member = await createUser('MEMBER');
+    const admin = await createUser('ADMIN');
+    const pdf = Buffer.from('%PDF-1.4 minimal test document');
+    for (const [url, field, file, filename, contentType, who] of [
+      ['/api/videos/upload-thumbnail', 'image', png, 'a.png', 'image/png', member],
+      ['/api/marketplace/upload-image', 'image', png, 'a.png', 'image/png', member],
+      ['/api/magazine/upload-cover', 'image', png, 'a.png', 'image/png', admin],
+      ['/api/magazine/upload-file', 'file', pdf, 'm.pdf', 'application/pdf', admin],
+    ] as const) {
+      let req = http().post(url).set('Authorization', who.auth);
+      for (let i = 0; i < 300; i++) req = req.field(`f${i}`, 'x');
+      const res = await req.attach(field, file, { filename, contentType });
+      expect({ url, status: res.status }).toEqual({ url, status: 400 });
+    }
+  });
+
   it('still accepts an ordinary upload with a caption', async () => {
     const member = await createUser('MEMBER');
     const album = await prisma.galleryAlbum.create({ data: { title: 'r2 ok', albumType: 'BATCH', batchYear: member.user.batchYear } });

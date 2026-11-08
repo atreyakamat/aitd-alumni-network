@@ -174,7 +174,7 @@ function EducationDialog({
           </div>
           <CheckboxField
             id="edu-isPrimary"
-            label="This is my AITD degree"
+            label="This is my AIEM degree"
             description="Your primary education is highlighted on your profile."
             checked={values.isPrimary}
             onChange={(checked) => set('isPrimary', checked)}
@@ -226,7 +226,7 @@ export function EducationSection({ educations, onSaved }: SectionProps & { educa
             <GraduationCap className="h-5 w-5 text-primary" aria-hidden />
             Education
           </CardTitle>
-          <CardDescription>Your degrees, including the one from AITD.</CardDescription>
+          <CardDescription>Your degrees, including the one from AIEM.</CardDescription>
         </div>
         <Button
           type="button"

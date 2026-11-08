@@ -150,6 +150,7 @@ const IMAGE_TYPES: Record<string, string> = {
   '.jpeg': 'image/jpeg',
   '.png': 'image/png',
   '.gif': 'image/gif',
+  '.webp': 'image/webp',
 };
 
 const fileFilter = (req: any, file: any, cb: any) => {
@@ -157,7 +158,7 @@ const fileFilter = (req: any, file: any, cb: any) => {
   if (expected && file.mimetype === expected) {
     return cb(null, true);
   }
-  cb(new AppError('Invalid file type. Only JPG, PNG and GIF images are allowed.', 400, 'INVALID_FILE_TYPE'));
+  cb(new AppError('Invalid file type. Only JPG, PNG, GIF and WebP images are allowed.', 400, 'INVALID_FILE_TYPE'));
 };
 
 /**
@@ -171,6 +172,19 @@ export const upload = multer({
   storage: multer.memoryStorage(),
   fileFilter,
   limits: { fileSize: 5 * 1024 * 1024, ...MULTIPART_TEXT_LIMITS }, // 5MB per file
+});
+
+// PDF uploads (e.g. the college magazine). Extension and declared MIME type must agree.
+const documentFilter = (_req: any, file: any, cb: any) => {
+  const ext = path.extname(file.originalname || '').toLowerCase();
+  if (ext === '.pdf' && file.mimetype === 'application/pdf') return cb(null, true);
+  cb(new AppError('Invalid file type. Only PDF files are allowed.', 400, 'INVALID_FILE_TYPE'));
+};
+
+export const documentUpload = multer({
+  storage: multer.memoryStorage(),
+  fileFilter: documentFilter,
+  limits: { fileSize: 25 * 1024 * 1024, ...MULTIPART_TEXT_LIMITS }, // 25MB per file; text fields bounded like every uploader
 });
 
 /**
@@ -307,7 +321,7 @@ export const deleteFromStorage = async (fileUrl: string): Promise<void> => {
 };
 
 // ---------------------------------------------------------------------------
-// Video uploads (posts and reels): streamed to disk, never buffered in memory
+// Video uploads (post videos): streamed to disk, never buffered in memory
 // ---------------------------------------------------------------------------
 
 export const VIDEO_MAX_BYTES = 100 * 1024 * 1024;
