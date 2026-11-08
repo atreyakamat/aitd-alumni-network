@@ -138,15 +138,17 @@ cd server
 npx prisma db seed
 ```
 
-Seeded credentials:
-- Admin: `admin@aitdconnection.edu` / `Admin@123`
-- Alumni/Open users: `user1@example.com` to `user10@example.com` / `User@123`
+Seeded credentials (**development only**: these passwords are published in the repository, and `npm run preflight` fails
+when a production database still contains them):
+- Admin: `admin@aitdconnection.edu` / `Admin@123` (in production the seed needs `SEED_ADMIN_PASSWORD`, 12+ characters)
+- Sample alumni: `user1@example.com` to `user6@example.com` / `User@123` (created outside production; in production only with `SEED_SAMPLE_DATA=true`, which the preflight rejects)
 
-## Production note for `aitd.stixnvibes.com`
+## Going to production
 
-Frontend API calls should route to backend via:
-- Netlify redirect: `/api/* -> https://api.aitd.stixnvibes.com/api/:splat`
-- or `NEXT_PUBLIC_API_URL=https://api.aitd.stixnvibes.com/api`
+Read [PRODUCTION_CHECKLIST.md](PRODUCTION_CHECKLIST.md) first: it lists every setting that must change from its development value
+and the checks (`npm run preflight -w server`) that the API also enforces at start-up. For a deployment on a separate API
+origin, the frontend reaches the backend with `NEXT_PUBLIC_API_URL=https://<api-host>/api` (baked in at build time), or, behind
+the bundled nginx on one origin, with `https://<domain>/api`.
 
 ## Testing the API
 
@@ -244,7 +246,9 @@ aitd-alumni-network/
 | POST | `/api/auth/logout` | Logout user |
 | POST | `/api/auth/refresh-token` | Refresh access token |
 | GET | `/api/auth/me` | Get current user |
-| POST | `/api/auth/verify-email` | Verify email |
+| POST | `/api/auth/verify-email` | Verify email (`{ token, password }`: the password chosen at registration) |
+| POST | `/api/auth/resend-verification` | Send a new verification link |
+| POST | `/api/auth/verify-2fa`, `/api/auth/resend-2fa` | Finish / repeat the second factor |
 | POST | `/api/auth/forgot-password` | Request password reset |
 | POST | `/api/auth/reset-password` | Reset password |
 
@@ -421,7 +425,10 @@ Server logs are printed to console in development. Look for:
 After successful setup:
 
 1. **Register an account** at http://localhost:3000/register
-2. **Verify your email** (or manually set `isVerified=true` in database)
+2. **Verify your email.** In development this is optional: `REQUIRE_EMAIL_VERIFICATION` is off, so you can sign in straight
+   away. To try the real flow set `REQUIRE_EMAIL_VERIFICATION=true` in `server/.env`; without a mail server the API prints the
+   e-mail (with the link to `/verify-email`) in its console, and the page asks for the password you registered with. In
+   production verification is always required (see [AUTHENTICATION.md](AUTHENTICATION.md)).
 3. **Complete your profile** with education and work experience
 4. **Explore features** like posts, jobs, events, and directory
 

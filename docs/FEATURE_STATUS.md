@@ -1,22 +1,26 @@
 # AITD Connection Feature Status (PRD v1.1 aligned)
 
-Updated 2026-10-18. Live status is served by `GET /api/platform/readiness` (admin control view at `/admin/control`).
+Updated 2026-11-08. Live status is served by `GET /api/platform/readiness` (admin control view at `/admin/control`).
 Release gate (PRD §10.3): **releasable, no P0/P1 blockers in Must Have domains.**
 
 | Domain | Status | Evidence |
 |---|---|---|
 | Platform foundations (auth guards, role normalisation, error shape) | IMPLEMENTED | `config/permissions.ts`, route RBAC matrix test, client `lib/roles.ts` |
-| Authentication & security (JWT + rotating refresh families with reuse detection, token-version revocation, email verify, reset, change password, 2FA OTP, OAuth) | IMPLEMENTED | auth unit suites, socket auth suite, `tests/integration/auth-lifecycle.int.test.ts` |
+| Authentication & security (JWT + rotating refresh families with reuse detection, token-version revocation, verified e-mail before a session in production with a password-confirmed link, reset, change password, 2FA OTP for password **and** OAuth sign-ins, Google/LinkedIn) | IMPLEMENTED | auth unit suites, `authService.verification.test.ts`, `tests/security/auth/`, `tests/integration/auth-lifecycle.int.test.ts`; see [AUTHENTICATION.md](AUTHENTICATION.md) |
 | Discovery (directory, yearbook, alumni map: viewport + "Near me" radius search, filters, place search, ~1 km location privacy) | IMPLEMENTED | userService + geocodingService suites, `tests/integration/geo-search.int.test.ts`, alumni-nearby page and `lib/geo` tests |
 | Profile & identity (profile editor: basics, photos, links, privacy/location, work, education, skills, completeness) | IMPLEMENTED | profile validator + route suites, `/profile/edit` component tests |
-| Social (feed, likes, comments with author-only editing, connections, messaging, notification bell + page) | IMPLEMENTED | post/network/message suites, `clientLinks` contract test, NotificationBell/notifications page tests |
+| Social (ranked feed, six reactions, threaded comments, reposts and quote posts, posts with images, video and reels, visibility public/connections, hashtags and mentions, follows, saved posts, reports with admin moderation, connections, messaging, notification bell + page) | IMPLEMENTED | post/reaction/repost/network/message suites, `tests/integration/social*.int.test.ts`, `clientLinks` contract test; contract in [SOCIAL_API.md](SOCIAL_API.md) |
+| Search (one header search box; visitors get public events, news and chapters with a "sign in for more" note; members also get people, jobs and posts) | IMPLEMENTED | `searchController` suite, `tests/security/authz/search.sec.test.ts`, search page and header tests |
+| Members-only access at the edge (visitors are redirected from `/dashboard`, `/admin/*`, `/directory`, ... to sign-in; the API stays the authority) | IMPLEMENTED | `route-access` tests, `src/__security__/`, `npm run verify:deploy` |
 | Careers (jobs + admin review queue) | IMPLEMENTED | jobService suite, `/admin/moderation` |
 | Mentorship (profiles, requests, sessions, admin overview) | IMPLEMENTED | mentorshipService suite, `/api/admin/mentorship/overview` |
 | Events, gallery, news (public browsing without login, article pages) | IMPLEMENTED | event/gallery/news suites, `(main)` layout public-path tests, news page tests |
 | Revenue (memberships, member + guest donations, verified payments, Razorpay webhook, mismatch alerts, receipts, history) | IMPLEMENTED | membership/donation/webhook suites, `tests/integration/payments.int.test.ts` |
 | Community (chapters pages with chapter-admin scope and server-side search, marketplace listing lifecycle with admin moderation, invites) | IMPLEMENTED | chapter scope tests, chapters/marketplace page tests, marketplace/invite suites |
 | Admin & governance (real-data analytics, audit log page with security/payment alerts, user management, CSV exports, readiness) | IMPLEMENTED | adminController/adminService/audit suites, analytics + audit page tests, audit filter contract test, `tests/integration/admin-rbac.int.test.ts` |
-| Privacy (data export, account deletion) | IMPLEMENTED | privacyService suite, integration test |
+| Privacy (data export covering reactions, reports, uploads and audit entries; account deletion that also clears request metadata from earlier audit entries) | IMPLEMENTED | privacyService suite, `tests/security/auth/account-deletion.sec.test.ts`, integration test |
+| Security hardening (two white-box audit rounds, 27 further defects fixed in round 2, every finding a regression test) | IMPLEMENTED | [SECURITY_AUDIT.md](SECURITY_AUDIT.md), `server/tests/security/`, `server/tests/contract/` |
+| Production readiness (start-up guard, `preflight`, `secrets`, `verify:deploy`, shared rate limits through Redis, PostgreSQL backups, nginx limits, go-live checklist) | IMPLEMENTED, with launch gates | [PRODUCTION_CHECKLIST.md](PRODUCTION_CHECKLIST.md) |
 
 ## 2026-10-18: PostgreSQL, maps, Docker
 
@@ -52,6 +56,24 @@ Release gate (PRD §10.3): **releasable, no P0/P1 blockers in Must Have domains.
     could not build).
   - `docker-compose.yml` is validated.
 
+## 2026-11-08: social layer, one search, security audit, production tooling
+
+- **Alumni social layer** (details: [SOCIAL_API.md](SOCIAL_API.md)): reactions, threaded comments, reposts and quote posts,
+  posts with images or video and reels, visibility, hashtags and mentions, follows, saved posts, reporting and admin
+  moderation, a ranked feed with cursor pagination.
+- **One search:** the duplicate search entry points are gone. There is one box in the header (on mobile, one icon, hidden on
+  the results page), visitors see public results plus a note to sign in for more, and the results page shows people, jobs,
+  events, posts, news and chapters with filter chips.
+- **Members-only gate:** the dashboard and every other member page were reachable by visitors as an app shell. `src/middleware.ts`
+  now redirects them to sign-in, and the dashboard's left-hand shortcut card that repeated the header was removed.
+- **Security audit, two rounds** ([SECURITY_AUDIT.md](SECURITY_AUDIT.md)): authorization and integrity, input handling (URL
+  allowlists, a linear-time sanitizer, image re-encoding), races made atomic, auth and payments hardened, a client/server
+  contract sweep that fixed broken endpoints, and Next.js 14.2.35 (closes a middleware bypass).
+- **Verified e-mail before a session** in production, with the verification page that was missing, resend, and the OAuth 2FA fix.
+- **Production tooling:** the API refuses to start on an unsafe production configuration; `npm run preflight`, `npm run secrets`
+  and `npm run verify:deploy`; rate limits shared through Redis; 15-minute access tokens; a PostgreSQL `backup-db.sh` (the old
+  one was for MySQL); nginx request limits.
+
 ## Planned (Phase D, out of scope for this release)
 
 1. AI mentorship matching
@@ -71,7 +93,9 @@ with its access level; `tests/docs/api-reference.test.ts` fails when it is stale
 - **Existing MySQL deployments:** the data has to be copied into PostgreSQL (pgloader, data only). See
   "Migrating existing MySQL data" in [DOCKER.md](DOCKER.md). Every user must sign in again afterwards.
 - **Rotate the production database password.** It was committed in `DEPLOYMENT_CHECKLIST.md` and
-  `DEPLOYMENT_VERIFICATION.md`; it is redacted now but remains in git history.
+  `DEPLOYMENT_VERIFICATION.md`; it is redacted now but remains in git history. The API refuses to start with it. Steps:
+  [PRODUCTION_CHECKLIST.md](PRODUCTION_CHECKLIST.md) section 4.
+- **Before going live, work through [PRODUCTION_CHECKLIST.md](PRODUCTION_CHECKLIST.md)** and run `npm run preflight -w server`.
 - The root `DEPLOYMENT*.md` and `EXTENSIVE_DEPLOYMENT_GUIDE.md` files describe the old MySQL shared-host setup and are
   superseded by [DOCKER.md](DOCKER.md).
 - Configure `RAZORPAY_WEBHOOK_SECRET` and point the Razorpay dashboard webhook at `https://<api-host>/api/payments/webhook/razorpay`
@@ -82,6 +106,10 @@ with its access level; `tests/docs/api-reference.test.ts` fails when it is stale
 - `docker compose` sets `API_INTERNAL_URL` for the web container; set it yourself only outside Compose.
 
 ## Known follow-ups
+
+- **Launch gates** (engineering, not configuration): upgrade Next.js 14 to 15.5.x/16, move tokens from `localStorage` to httpOnly
+  cookies, CAPTCHA/WAF in front of sign-up and sign-in, central logging and alerts, an independent penetration test. Details and
+  the smaller open items: [PRODUCTION_CHECKLIST.md](PRODUCTION_CHECKLIST.md) sections 7 and 8.
 
 - Guest orders created before the 2026-10-14 payment changes and paid only through the webhook (no client verify) cannot be matched; they need manual reconciliation.
 - Guest donor name/email is kept in transaction metadata with no retention scrub yet.

@@ -6,7 +6,7 @@ A comprehensive alumni network platform built with Next.js and Express.js, desig
 
 ### Core Features
 - **Alumni Directory** - Search and connect with alumni across batches and departments
-- **Social Feed** - Share updates, achievements, and announcements
+- **Social Feed** - Posts, images, video and reels; six reactions, threaded comments, reposts and quote posts; follows, hashtags and mentions
 - **Job Board** - Post and discover career opportunities
 - **Events** - Organize and RSVP to reunions, workshops, and meetups
 - **Messaging** - Real-time direct messaging with Socket.io
@@ -25,9 +25,26 @@ A comprehensive alumni network platform built with Next.js and Express.js, desig
 - **Admin Analytics** - Dashboard with user growth, revenue, and engagement charts
 
 ### Security Features
-- **Two-Factor Authentication (2FA)** - Email-based OTP verification
-- **OAuth Login** - Google and LinkedIn authentication
-- **JWT Authentication** - Access and refresh token management
+- **Verified e-mail before a session** (production) - confirmed with the registration password, which closes account pre-hijacking
+- **Two-Factor Authentication (2FA)** - Email-based OTP verification, also for Google/LinkedIn sign-ins
+- **JWT Authentication** - 15-minute access tokens, rotating refresh tokens with reuse detection
+- **Members-only pages** redirect visitors to sign-in at the edge; the API stays the authority
+- **Hardened inputs and uploads** - allowlisted URLs, linear-time sanitizer, re-encoded images, bounded request bodies
+- **Production guard** - the API refuses to start on an unsafe configuration; `npm run preflight` checks it before go-live
+- Two white-box audit rounds, every finding a regression test: see [docs/SECURITY_AUDIT.md](docs/SECURITY_AUDIT.md)
+
+## 📚 Documentation
+
+Start at **[docs/README.md](docs/README.md)** (index of current and historical documents).
+
+| I want to... | Read |
+|---|---|
+| run it locally | [docs/GETTING_STARTED.md](docs/GETTING_STARTED.md) |
+| understand how it works | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md), [docs/AUTHENTICATION.md](docs/AUTHENTICATION.md) |
+| call the API | [docs/API_REFERENCE.md](docs/API_REFERENCE.md), [docs/SOCIAL_API.md](docs/SOCIAL_API.md) |
+| write tests | [docs/TESTING.md](docs/TESTING.md) |
+| **go to production** | **[docs/PRODUCTION_CHECKLIST.md](docs/PRODUCTION_CHECKLIST.md)**, then [docs/DOCKER.md](docs/DOCKER.md) |
+| see what changed | [CHANGELOG.md](CHANGELOG.md), [docs/SECURITY_AUDIT.md](docs/SECURITY_AUDIT.md) |
 
 ## 🛠️ Tech Stack
 

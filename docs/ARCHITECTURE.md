@@ -10,7 +10,7 @@ How AITD Connection is put together, for people who need to change it.
     │ REST /api/*        ▼
     │ socket.io  ──► api (Express + Prisma + socket.io) ──► PostgreSQL 17
     └──────────────►     │        │        │
-                         │        │        └──► Redis (optional response cache)
+                         │        │        └──► Redis (optional: response cache, shared rate-limit counters)
                          │        └──► S3/R2 or local uploads volume
                          └──► Razorpay · SMTP/SendGrid · OAuth · Nominatim (place search)
 ```
@@ -19,47 +19,57 @@ npm workspaces monorepo:
 
 | Path | What |
 |---|---|
-| `client/` | Next.js 14 App Router UI. `src/app/(auth)` (login, register, reset), `src/app/(main)` (member and admin pages), `src/app/(legal)`. API client in `src/lib/api.ts` (axios, token refresh, optional fallback URL); map helpers in `src/lib/geo.ts`; auth and socket context in `src/context/`. |
+| `client/` | Next.js 14 App Router UI. `src/app/(auth)` (login, register, verify-email, reset), `src/app/(main)` (member and admin pages), `src/app/(legal)`. API client in `src/lib/api.ts` (axios, token refresh, optional fallback URL); map helpers in `src/lib/geo.ts`; auth and socket context in `src/context/`. `src/middleware.ts` is the members-only gate at the edge (see below); `src/lib/safe-url.ts` is the one place links and media URLs are validated. |
 | `server/` | Express API. `src/routes/index.ts` is the single router. Controllers parse HTTP, services hold business rules, Prisma is the data layer (`src/config/database.ts`). |
-| `server/prisma/` | `schema.prisma` (31 models), migrations (PostgreSQL baseline `20261018000000_postgres_baseline`), idempotent `seed.ts`. `mysql-legacy/` is an archive and is never read. |
-| `docker-compose.yml`, `*/Dockerfile`, `nginx/` | Container deployment (see [DOCKER.md](DOCKER.md)). |
+| `server/prisma/` | `schema.prisma` (40 models), migrations (PostgreSQL baseline `20261018000000_postgres_baseline`), idempotent `seed.ts`. `mysql-legacy/` is an archive and is never read. |
+| `docker-compose.yml`, `*/Dockerfile`, `nginx/` | Container deployment (see [DOCKER.md](DOCKER.md)); go-live steps in [PRODUCTION_CHECKLIST.md](PRODUCTION_CHECKLIST.md). |
+| `server/scripts/` | `preflight.ts` (go-live check), `secrets.ts` (random secrets), `verify-deployment.mjs` (read-only post-deploy checks), `generate-api-docs.ts`, `extract-client-contract.ts`. |
 
 ## Request pipeline (API)
 
 `src/app.ts`, in order:
 
-1. helmet security headers, CORS (`CORS_ORIGINS`), passport (OAuth).
-2. Rate limits: 300 requests / 15 min per client on `/api`. Stricter per-endpoint limits apply on login, register,
-   reset, 2FA and OAuth exchange (10 / 15 min), refresh (60 / 15 min), and `/api/geo` (30 / min). The signed
-   Razorpay webhook is exempt.
-3. JSON body (10 MB; webhook requests keep their raw bytes for HMAC checks), then `sanitizeInput`. It strips
-   HTML/script from strings, keeps line breaks, and leaves password/token/signature fields untouched.
-4. `/uploads` static files, `/health` (runs `SELECT 1`; reports `database: "postgresql"`), then `/api` routes.
-5. `notFoundHandler`, then `errorHandler`. Errors are `AppError(message, status, code)` and render as
-   `{ success: false, error: { message, code } }`.
+1. **Path normalisation:** repeated slashes are collapsed (also behind an absolute-form request target), so no spelling of a
+   path can dodge a per-endpoint limiter that is mounted on the exact path.
+2. helmet security headers; CORS against `CORS_ORIGINS` (a foreign origin gets `403 FORBIDDEN_ORIGIN`); passport (OAuth).
+3. **Rate limits** (counters are shared through Redis when `REDIS_URL` is set, per process otherwise): 300 requests / 15 min per
+   client on `/api`; 10 / 15 min on sign-in, register, verification, reset, 2FA and OAuth exchange; refresh 60; budgets for
+   search (100), uploads (30), invites (30), donation orders (20), `/api/geo` (30 / min); the signed Razorpay webhook has its own
+   budget and a 256 KB body limit.
+4. A guard that answers `400 INVALID_PATH` for NUL bytes in a path, then **body parsing**: JSON and urlencoded bodies are
+   capped at **1 MB** (uploads are multipart with their own limits, and the multipart text fields are bounded). Webhook
+   requests keep their raw bytes for the HMAC check.
+5. `sanitizeInput` walks every string of the body and query in linear time: it strips tags and dangerous schemes, keeps
+   line breaks, and leaves password, token and signature fields untouched. It runs again after multer on the upload routes.
+6. `/uploads` static files (donation receipts under `/uploads/receipts` are never served; they come from an authenticated
+   endpoint), `/health` (runs `SELECT 1`), then the `/api` routes.
+7. `notFoundHandler`, then `errorHandler`. Errors are `AppError(message, status, code)` and render as
+   `{ success: false, error: { message, code } }`; Prisma errors (`P2002`, `P2003`, `P2000`) map to 4xx, never a bare 500.
 
-Validation uses Zod schemas (`src/utils/validators.ts`) via the `validate` middleware. Services re-check invariants
-they depend on.
+Validation uses Zod schemas (`src/utils/validators.ts`) via the `validate` middleware. Zod strips unknown keys, so a schema
+must list every field a service reads (a past bug class; the contract suite checks it). Services re-check the invariants they
+depend on, and use row locks or conditional updates for anything that is "check, then act" (event capacity, mentorship slots,
+counters, quotas), so concurrent requests cannot overshoot.
 
 ## Authentication and authorisation
 
-- **Access tokens:** short-lived JWTs (`JWT_EXPIRES_IN`, 15 min in Docker). They carry `tv` (the user's
-  `tokenVersion`). Bumping `tokenVersion` revokes every outstanding access token. This happens on password
-  change or reset, "sign out everywhere", deactivation and account deletion. `disconnectUser()` also drops live
-  sockets.
-- **Refresh tokens:** stored hashed and rotated on every use, grouped into a *family* per sign-in. Replaying an
-  already-rotated token revokes the whole family (`REFRESH_TOKEN_REUSED`) and writes a `SECURITY_ALERT` audit entry.
-  A 15-second grace window absorbs multi-tab races.
-- **Other auth:** email verification, password reset, optional 2FA by email OTP, and Google/LinkedIn OAuth when
-  configured.
-- **RBAC:** the hierarchy is `MEMBER < CHAPTER_ADMIN < ADMIN < SUPER_ADMIN`, defined once in
-  `src/config/permissions.ts` (`hasMinRole`, `isOwnerOrAdmin`, `canManageUser`, `canAssignRole`). Route guards
-  `authenticate` / `optionalAuth` / `isChapterAdmin` / `isAdmin` / `isSuperAdmin` live in `src/middleware/auth.ts`.
-  The role is re-read from the database on every request, so promotions and demotions apply immediately.
-  Ownership rules (author-only edits, chapter-admin scope) live in services.
-- **Guard rail:** `tests/routes/rbac-matrix.test.ts` lists every route with its access level. It fails when a route
-  is unclassified, and it checks that every protected route rejects anonymous, malformed-token, deactivated and
-  under-privileged callers.
+The flows, token lifetimes, error codes and settings are in [AUTHENTICATION.md](AUTHENTICATION.md). In short:
+
+- **Access tokens** are short-lived JWTs (15 minutes in production) carrying `tv`, the user's `tokenVersion`; bumping it
+  revokes every outstanding access token (password change or reset, "sign out everywhere", deactivation, deletion), and
+  `disconnectUser()` drops live sockets.
+- **Refresh tokens** are stored hashed and rotated on every use, in a *family* per sign-in; replaying a rotated token revokes the
+  family and writes a `SECURITY_ALERT` audit entry.
+- **Verified e-mail before a session** in production, confirmed with the registration password (account pre-hijacking defence);
+  optional 2FA by e-mailed code, which Google/LinkedIn sign-ins also go through.
+- **RBAC:** `MEMBER < CHAPTER_ADMIN < ADMIN < SUPER_ADMIN`, defined once in `src/config/permissions.ts`. Route guards
+  `authenticate` / `authenticateIfPresent` / `isChapterAdmin` / `isAdmin` / `isSuperAdmin` live in `src/middleware/auth.ts`;
+  `authenticateIfPresent` treats "no header" as an anonymous visitor but a presented token must be valid (a bad token is a 401,
+  never a quiet downgrade). The role is re-read from the database on every request.
+- **Guard rail:** `tests/routes/rbac-matrix.test.ts` lists every route with its access level; it fails when a route is
+  unclassified and checks that protected routes reject anonymous, malformed-token, deactivated and under-privileged callers.
+- **Client gate:** `src/middleware.ts` redirects visitors without the `aitd_session` hint cookie from member pages to
+  `/login?next=…`. It is a UX and hardening layer; the API stays the authority.
 
 ## Data model highlights
 
@@ -67,7 +77,10 @@ PostgreSQL via Prisma. The main groups:
 
 - **Identity:** `User` (profile, privacy flags, `tokenVersion`, approximate location), `RefreshToken` (families),
   `VerificationToken`, `WorkExperience`, `Education`, `Skill`/`UserSkill`.
-- **Social:** `Post`, `PostLike`, `PostComment`, `Connection`, `Message`, `Notification`.
+- **Social:** `Post` (types, visibility `PUBLIC`/`CONNECTIONS`, reels, repost and quote-post links), `PostLike` (reactions, six
+  types), `PostComment` (one level of replies) and `CommentReaction`, `SavedPost`, `Follow`, `Hashtag`/`PostHashtag`,
+  `PostMention`/`CommentMention`, `PostImpression` (views), `ContentReport` (moderation), plus `Connection`, `Message`,
+  `Notification`. Contract: [SOCIAL_API.md](SOCIAL_API.md).
 - **Careers and mentorship:** `JobOpportunity`, `MentorProfile`, `MentorshipRequest`, `MentorshipSession`.
 - **Content:** `Event`/`EventRSVP`, `GalleryAlbum`/`GalleryPhoto`, `NewsArticle`, `Chapter`/`ChapterMembership`,
   `MarketplaceListing`.
@@ -77,6 +90,14 @@ PostgreSQL via Prisma. The main groups:
 
 PostgreSQL compares text case-sensitively, so user-facing searches use the `ilike()` helper (`src/utils/helpers.ts`,
 `{ contains, mode: 'insensitive' }`). Skills are matched case-insensitively, so "react" reuses the existing "React".
+
+## Search
+
+`GET /api/search` is open to visitors and to members, with different scopes (`scope: "public" | "member"` in the response).
+Visitors get only public events, published news and active chapters; members also get people, jobs and posts, filtered by the
+same visibility rules as the feed (no unverified or deactivated people, no hidden or connections-only posts they may not see).
+The client has one search box in the header (`HeaderSearch`) and one results page (`/search`); visitors see what is public with a
+"sign in for more" note instead of a sign-in wall. All `contains` filters go through `ilike()`, which escapes LIKE wildcards.
 
 ## Real-time
 
@@ -122,16 +143,21 @@ admins. Receipts are emailed.
 ## Caching and storage
 
 - Redis is optional (`REDIS_URL`). It caches anonymous GET responses (`cacheMiddleware`, e.g. the public feed for
-  `FEED_CACHE_TTL_SECONDS`). Without Redis the cache is simply off.
+  `FEED_CACHE_TTL_SECONDS`) and holds the rate-limit counters so the limits are shared by every API process
+  (`utils/redisRateLimitStore.ts`; if Redis is unreachable each process counts for itself, so limits never switch off).
+  Without Redis the cache is off and limits are per process.
 - Uploads go to S3/R2 when `AWS_*` is configured; otherwise to `server/uploads` (a Docker volume). Images are
-  type-checked and compressed/resized with sharp (`IMAGE_*` settings). Photos on managed storage can only be set
+  decoded and re-encoded with sharp (real format from the bytes, EXIF stripped, pixel and size caps; `IMAGE_*` settings);
+  videos are sniffed by magic bytes (100 MB). Photos on managed storage can only be set
   through the upload endpoints.
 
 ## Lifecycle
 
 - **Startup (`src/index.ts`):**
   - Requires a `postgresql://` `DATABASE_URL`.
-  - Refuses weak JWT secrets in production.
+  - With `NODE_ENV=production`, `assertProductionConfig` (`src/config/productionChecks.ts`) refuses to start on an unsafe
+    configuration (weak or leaked secrets, rate limiting off, plain-http origins, no mail server while verification is required, ...)
+    and says what to change. `npm run preflight -w server` runs the same rules plus checks of the database.
   - Starts HTTP and socket.io.
 - **Shutdown:** SIGTERM/SIGINT run `createShutdown` (`src/utils/shutdown.ts`): close socket.io and HTTP, disconnect
   Prisma and Redis, and force-exit after `SHUTDOWN_TIMEOUT_MS`.
@@ -141,18 +167,21 @@ admins. Receipts are emailed.
 
 | Layer | Where | Runs against |
 |---|---|---|
-| Unit (services, controllers, middleware, utils) | `server/src/__tests__/` | Deep-mocked Prisma |
+| Unit (services, controllers, middleware, utils, config) | `server/src/__tests__/` | Deep-mocked Prisma |
 | Route RBAC matrix | `server/tests/routes/` | Real Express app, mocked Prisma |
 | Contracts | `server/tests/docs/`, `clientLinks` / audit-action tests | `docs/API_REFERENCE.md` freshness, notification links resolve to client pages, audit actions match the client |
+| Client/server contract | `server/tests/contract/` | Every client call checked against the router and Zod schemas; every route driven with valid, invalid and fuzzed input (embedded PostgreSQL) |
 | Integration | `server/tests/integration/` | Embedded PostgreSQL 17 (`embedded-postgres`), or `TEST_DATABASE_URL` |
-| Frontend | `client/src/**/__tests__` | Vitest + Testing Library |
+| Security regressions | `server/tests/security/` | Every audit finding as a test that fails without its fix (embedded PostgreSQL) |
+| Frontend | `client/src/**/__tests__`, `client/src/__security__/` | Vitest + Testing Library |
 
-`docs/API_REFERENCE.md` is generated from the router (`npm run docs:api`). CI (`.github/workflows/ci.yml`) runs
-typecheck, lint, unit tests with coverage, and integration tests on a `postgres:17-alpine` service, plus the client
-typecheck, tests and build. It also validates `docker-compose.yml` and builds both images. Details: [TESTING.md](TESTING.md).
+`docs/API_REFERENCE.md` is generated from the router (`npm run docs:api`). CI (`.github/workflows/ci.yml`) runs typecheck, lint,
+unit tests with coverage, integration, security and contract tests on a `postgres:17-alpine` service, plus the client typecheck,
+tests and build, validates `docker-compose.yml` and builds both images. Details: [TESTING.md](TESTING.md).
 
 ## Deployment
 
-- **Production:** Docker Compose (PostgreSQL, Redis, API, web, optional nginx). See [DOCKER.md](DOCKER.md). The API
-  container applies migrations and optionally seeds on start.
+- **Production:** Docker Compose (PostgreSQL, Redis, API, web, optional nginx). See [DOCKER.md](DOCKER.md); what must change from
+  the development defaults, the security decisions taken and what is still open are in [PRODUCTION_CHECKLIST.md](PRODUCTION_CHECKLIST.md).
+  The API container applies migrations and optionally seeds on start.
 - **Local development without Docker:** `npm run db:local -w server` (embedded PostgreSQL on :5433), then `npm run dev`.

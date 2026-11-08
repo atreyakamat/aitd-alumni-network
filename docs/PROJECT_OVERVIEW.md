@@ -191,12 +191,17 @@ ChapterType: REGIONAL | INDUSTRY | INTEREST
 
 ## 🔒 Security Features
 
-- **JWT Authentication**: Access tokens (15 min) + Refresh tokens (7 days)
-- **Password Hashing**: bcrypt with salt rounds
-- **Rate Limiting**: 10 auth requests / 15 min, 100 API requests / 15 min
-- **Input Validation**: Zod schema validation on all routes
-- **CORS**: Configurable origin whitelist
-- **Helmet**: Security headers middleware
+- **JWT Authentication**: Access tokens (15 min in production) + rotating Refresh tokens (7 days) with reuse detection
+- **Verified e-mail before a session** in production, confirmed with the registration password; optional 2FA (also for Google/LinkedIn)
+- **Password Hashing**: bcrypt (cost 12), common-password list, 72-byte limit enforced
+- **Rate Limiting**: 10 auth requests / 15 min, 300 API requests / 15 min per client, shared through Redis when configured
+- **Input Validation**: Zod schema validation on all routes, a linear-time sanitizer, allowlisted link and media URLs
+- **Uploads**: images decoded and re-encoded, videos sniffed by magic bytes, receipts never served as static files
+- **CORS**: Exact origin whitelist; **Helmet** security headers; strict CSP on the web app
+- **Members-only pages** redirect visitors to sign-in at the edge; the API stays the authority
+- **Production guard**: the API refuses to start on an unsafe configuration
+
+Details: [AUTHENTICATION.md](AUTHENTICATION.md), [SECURITY_AUDIT.md](SECURITY_AUDIT.md), [PRODUCTION_CHECKLIST.md](PRODUCTION_CHECKLIST.md).
 
 ---
 
