@@ -128,6 +128,17 @@ export const optionalAuth = async (
   }
 };
 
+/**
+ * For endpoints that work anonymously but return more to members. No Authorization header means an
+ * anonymous visitor; a header that IS sent must be valid (401 otherwise). Unlike optionalAuth this never
+ * silently downgrades an expired token to "anonymous", so the client refreshes its session instead of
+ * showing a signed-in member the logged-out view.
+ */
+export const authenticateIfPresent = (req: Request, res: Response, next: NextFunction) => {
+  if (!req.headers.authorization) return next();
+  return authenticate(req, res, next);
+};
+
 export const authorize = (...roles: UserRole[]) => {
   return (req: Request, res: Response, next: NextFunction) => {
     if (!req.user) {

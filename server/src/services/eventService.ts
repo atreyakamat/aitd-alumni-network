@@ -5,6 +5,8 @@ import { EventType, EventStatus, Prisma, UserRole } from '@prisma/client';
 import { isAdminRole, isOwnerOrAdmin, Actor } from '../config/permissions';
 import { notificationService } from './notificationService';
 import { clientLinks } from '../utils/clientLinks';
+import { normalizeUrlFields } from '../utils/safeUrl';
+import { optionalText } from '../utils/inputGuards';
 
 export interface CreateEventInput {
   title: string;
@@ -232,16 +234,19 @@ export class EventService {
     const capacity = parseCapacity(data.capacity);
     assertEnum(data.eventType, EVENT_TYPES, 'event type');
 
+    const links: Record<string, unknown> = { bannerUrl: data.bannerUrl, joinLink: data.joinLink };
+    normalizeUrlFields(links, { http: ['joinLink'], media: ['bannerUrl'] });
+
     const event = await prisma.event.create({
       data: {
         title: data.title,
         description: data.description,
-        bannerUrl: data.bannerUrl,
+        bannerUrl: links.bannerUrl as string | null | undefined,
         eventType: data.eventType || 'OFFLINE',
         venue: data.venue,
         address: data.address,
         city: data.city,
-        joinLink: data.joinLink,
+        joinLink: links.joinLink as string | null | undefined,
         startDate,
         endDate,
         capacity,
@@ -277,6 +282,7 @@ export class EventService {
         (update as Record<string, unknown>)[field] = input[field];
       }
     }
+    normalizeUrlFields(update as Record<string, unknown>, { http: ['joinLink'], media: ['bannerUrl'] });
 
     if (Object.keys(update).length === 0) {
       throw badRequest('No valid fields to update');
@@ -293,6 +299,15 @@ export class EventService {
 
     if ('isPublic' in update && typeof update.isPublic !== 'boolean') {
       throw badRequest('isPublic must be a boolean');
+    }
+
+    // Free-text columns: reject numbers/arrays/objects instead of letting Prisma fail with a 500
+    for (const field of ['venue', 'address', 'city'] as const) {
+      if (field in update) (update as Record<string, unknown>)[field] = optionalText(update[field], field);
+    }
+    if ('tags' in update && update.tags !== null) {
+      const tags = update.tags as unknown;
+      if (!Array.isArray(tags) || tags.some((tag) => typeof tag !== 'string')) throw badRequest('tags must be a list of text');
     }
 
     const startDate = 'startDate' in update ? parseDate(input.startDate, 'startDate') : new Date(event.startDate);
@@ -371,29 +386,47 @@ export class EventService {
     });
 
     if (existingRsvp) {
-      // Cancel RSVP; the guarded decrement keeps rsvpCount >= 0
-      await prisma.$transaction([
-        prisma.eventRSVP.delete({ where: { id: existingRsvp.id } }),
-        prisma.event.updateMany({
-          where: { id: eventId, rsvpCount: { gt: 0 } },
-          data: { rsvpCount: { decrement: 1 } },
-        }),
-      ]);
+      // Cancel RSVP. deleteMany reports whether THIS request removed the row, so two racing cancellations
+      // decrement once; the guarded decrement keeps rsvpCount >= 0
+      const { count: removed } = await prisma.$transaction(async (tx) => {
+        const result = await tx.eventRSVP.deleteMany({ where: { id: existingRsvp.id } });
+        if (result.count > 0) {
+          await tx.event.updateMany({
+            where: { id: eventId, rsvpCount: { gt: 0 } },
+            data: { rsvpCount: { decrement: 1 } },
+          });
+        }
+        return result;
+      });
 
-      return { rsvped: false, rsvpCount: Math.max(0, event.rsvpCount - 1) };
+      return { rsvped: false, rsvpCount: Math.max(0, event.rsvpCount - (removed > 0 ? 1 : 0)) };
     }
 
+    // Fast path for the common case; the guarded UPDATE below is the real (race-free) capacity check
     if (event.capacity !== null && event.capacity !== undefined && event.rsvpCount >= event.capacity) {
       throw new AppError('Event is at full capacity', 409, 'EVENT_FULL');
     }
 
-    await prisma.$transaction([
-      prisma.eventRSVP.create({ data: { eventId, userId } }),
-      prisma.event.update({
-        where: { id: eventId },
-        data: { rsvpCount: { increment: 1 } },
-      }),
-    ]);
+    try {
+      await prisma.$transaction(async (tx) => {
+        // The unique (eventId, userId) index rejects a duplicate from a concurrent double-submit
+        await tx.eventRSVP.create({ data: { eventId, userId } });
+        // One conditional UPDATE both counts the seat and enforces capacity: Postgres row-locks the event,
+        // so concurrent requests are serialised and each re-evaluates "rsvpCount < capacity" on fresh data.
+        const seats = await tx.$executeRaw`
+          UPDATE "Event" SET "rsvpCount" = "rsvpCount" + 1
+          WHERE id = ${eventId} AND ("capacity" IS NULL OR "rsvpCount" < "capacity")`;
+        if (seats === 0) {
+          // Throwing rolls the RSVP row back with the transaction
+          throw new AppError('Event is at full capacity', 409, 'EVENT_FULL');
+        }
+      });
+    } catch (err) {
+      if ((err as { code?: string })?.code === 'P2002') {
+        return { rsvped: true, rsvpCount: event.rsvpCount };
+      }
+      throw err;
+    }
 
     if (event.createdById !== userId) {
       try {

@@ -5,7 +5,8 @@ module.exports = {
   testEnvironment: 'node',
   roots: ['<rootDir>/src', '<rootDir>/tests'],
   testMatch: ['**/*.test.ts'],
-  testPathIgnorePatterns: ['/node_modules/', '<rootDir>/tests/integration/'],
+  // tests/security and tests/contract need the embedded PostgreSQL bootstrap: they run via jest.security.config.js / jest.contract.config.js
+  testPathIgnorePatterns: ['/node_modules/', '<rootDir>/tests/integration/', '<rootDir>/tests/security/', '<rootDir>/tests/contract/'],
   moduleFileExtensions: ['ts', 'js', 'json'],
   transform: {
     '^.+\.ts$': ['ts-jest', { tsconfig: 'tsconfig.test.json' }],

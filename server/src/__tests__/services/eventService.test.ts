@@ -302,9 +302,10 @@ describe('eventService', () => {
       expect(prismaMock.eventRSVP.findUnique).not.toHaveBeenCalled();
     });
 
-    it('creates an RSVP, increments the count and notifies the creator', async () => {
+    it('creates an RSVP, increments the count atomically and notifies the creator', async () => {
       prismaMock.event.findUnique.mockResolvedValue(event());
       prismaMock.eventRSVP.findUnique.mockResolvedValue(null);
+      prismaMock.$executeRaw.mockResolvedValue(1);
       prismaMock.user.findUnique.mockResolvedValue({ fullName: 'Ann' });
 
       const result = await eventService.rsvpEvent('u1', 'e1');
@@ -312,15 +313,36 @@ describe('eventService', () => {
       expect(result).toEqual({ rsvped: true, rsvpCount: 4 });
       expect(prismaMock.$transaction).toHaveBeenCalled();
       expect(prismaMock.eventRSVP.create).toHaveBeenCalledWith({ data: { eventId: 'e1', userId: 'u1' } });
-      expect(prismaMock.event.update).toHaveBeenCalledWith({ where: { id: 'e1' }, data: { rsvpCount: { increment: 1 } } });
+      // One conditional UPDATE: only counts the seat while rsvpCount < capacity (no check-then-act gap)
+      const sql = (prismaMock.$executeRaw.mock.calls[0][0] as string[]).join('?');
+      expect(sql).toContain('UPDATE "Event" SET "rsvpCount" = "rsvpCount" + 1');
+      expect(sql).toContain('"capacity" IS NULL OR "rsvpCount" < "capacity"');
+      expect(prismaMock.event.update).not.toHaveBeenCalled();
       expect(notify).toHaveBeenCalledWith(
         expect.objectContaining({ userId: 'owner', type: 'EVENT_RSVP', message: 'Ann is attending "Alumni Meetup"' })
       );
     });
 
+    it('rolls the RSVP back and answers 409 when a concurrent request took the last seat', async () => {
+      prismaMock.event.findUnique.mockResolvedValue(event({ capacity: 4, rsvpCount: 3 }));
+      prismaMock.eventRSVP.findUnique.mockResolvedValue(null);
+      prismaMock.$executeRaw.mockResolvedValue(0); // the guarded UPDATE matched no row: event filled up meanwhile
+      await expect(eventService.rsvpEvent('u1', 'e1')).rejects.toMatchObject({ statusCode: 409, code: 'EVENT_FULL' });
+      expect(notify).not.toHaveBeenCalled();
+    });
+
+    it('treats a concurrent duplicate RSVP from the same member as already attending', async () => {
+      prismaMock.event.findUnique.mockResolvedValue(event());
+      prismaMock.eventRSVP.findUnique.mockResolvedValue(null);
+      prismaMock.eventRSVP.create.mockRejectedValue(Object.assign(new Error('unique'), { code: 'P2002' }));
+      await expect(eventService.rsvpEvent('u1', 'e1')).resolves.toEqual({ rsvped: true, rsvpCount: 3 });
+      expect(notify).not.toHaveBeenCalled();
+    });
+
     it("doesn't notify creators about their own RSVP", async () => {
       prismaMock.event.findUnique.mockResolvedValue(event());
       prismaMock.eventRSVP.findUnique.mockResolvedValue(null);
+      prismaMock.$executeRaw.mockResolvedValue(1);
       await eventService.rsvpEvent('owner', 'e1');
       expect(notify).not.toHaveBeenCalled();
     });
@@ -328,6 +350,7 @@ describe('eventService', () => {
     it('keeps the RSVP when the notification fails', async () => {
       prismaMock.event.findUnique.mockResolvedValue(event());
       prismaMock.eventRSVP.findUnique.mockResolvedValue(null);
+      prismaMock.$executeRaw.mockResolvedValue(1);
       prismaMock.user.findUnique.mockResolvedValue(null);
       notify.mockRejectedValue(new Error('down'));
       await expect(eventService.rsvpEvent('u1', 'e1')).resolves.toEqual({ rsvped: true, rsvpCount: 4 });
@@ -336,11 +359,12 @@ describe('eventService', () => {
     it('toggles an existing RSVP off with a guarded decrement', async () => {
       prismaMock.event.findUnique.mockResolvedValue(event());
       prismaMock.eventRSVP.findUnique.mockResolvedValue({ id: 'r1' });
+      prismaMock.eventRSVP.deleteMany.mockResolvedValue({ count: 1 });
 
       const result = await eventService.rsvpEvent('u1', 'e1');
 
       expect(result).toEqual({ rsvped: false, rsvpCount: 2 });
-      expect(prismaMock.eventRSVP.delete).toHaveBeenCalledWith({ where: { id: 'r1' } });
+      expect(prismaMock.eventRSVP.deleteMany).toHaveBeenCalledWith({ where: { id: 'r1' } });
       expect(prismaMock.event.updateMany).toHaveBeenCalledWith({
         where: { id: 'e1', rsvpCount: { gt: 0 } },
         data: { rsvpCount: { decrement: 1 } },
@@ -348,8 +372,17 @@ describe('eventService', () => {
       expect(prismaMock.eventRSVP.create).not.toHaveBeenCalled();
     });
 
+    it('only decrements once when two cancellations race', async () => {
+      prismaMock.event.findUnique.mockResolvedValue(event());
+      prismaMock.eventRSVP.findUnique.mockResolvedValue({ id: 'r1' });
+      prismaMock.eventRSVP.deleteMany.mockResolvedValue({ count: 0 }); // the other request already removed it
+      await expect(eventService.rsvpEvent('u1', 'e1')).resolves.toEqual({ rsvped: false, rsvpCount: 3 });
+      expect(prismaMock.event.updateMany).not.toHaveBeenCalled();
+    });
+
     it('never reports a negative rsvpCount', async () => {
       prismaMock.event.findUnique.mockResolvedValue(event({ rsvpCount: 0 }));
+      prismaMock.eventRSVP.deleteMany.mockResolvedValue({ count: 1 });
       prismaMock.eventRSVP.findUnique.mockResolvedValue({ id: 'r1' });
       await expect(eventService.rsvpEvent('u1', 'e1')).resolves.toEqual({ rsvped: false, rsvpCount: 0 });
     });
@@ -364,12 +397,14 @@ describe('eventService', () => {
     it('still lets an attendee withdraw from a full event', async () => {
       prismaMock.event.findUnique.mockResolvedValue(event({ capacity: 3, rsvpCount: 3 }));
       prismaMock.eventRSVP.findUnique.mockResolvedValue({ id: 'r1' });
+      prismaMock.eventRSVP.deleteMany.mockResolvedValue({ count: 1 });
       await expect(eventService.rsvpEvent('u1', 'e1')).resolves.toEqual({ rsvped: false, rsvpCount: 2 });
     });
 
     it('accepts the last seat', async () => {
       prismaMock.event.findUnique.mockResolvedValue(event({ capacity: 4, rsvpCount: 3 }));
       prismaMock.eventRSVP.findUnique.mockResolvedValue(null);
+      prismaMock.$executeRaw.mockResolvedValue(1);
       await expect(eventService.rsvpEvent('u1', 'e1')).resolves.toEqual({ rsvped: true, rsvpCount: 4 });
     });
   });

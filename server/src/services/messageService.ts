@@ -5,8 +5,11 @@ import { networkService } from './networkService';
 import { notificationService } from './notificationService';
 import { emitToUser } from '../utils/socket';
 import { clientLinks } from '../utils/clientLinks';
+import { optionalSafeMediaRef } from '../utils/safeUrl';
 
 export const MESSAGE_MAX_LENGTH = 5000;
+/** New message requests (messages to non-connections) one user may open per rolling 24 hours. */
+export const MAX_MESSAGE_REQUESTS_PER_DAY = 20;
 
 interface SendMessageInput {
   content: string;
@@ -130,6 +133,7 @@ export class MessageService {
     if (data.mediaUrl !== undefined && data.mediaUrl !== null && typeof data.mediaUrl !== 'string') {
       throw new AppError('mediaUrl must be a string', 400, 'VALIDATION_ERROR');
     }
+    const mediaUrl = optionalSafeMediaRef(data.mediaUrl, 'mediaUrl');
 
     const receiver = await prisma.user.findUnique({
       where: { id: receiverId },
@@ -139,40 +143,70 @@ export class MessageService {
       throw new AppError('Recipient not found', 404, 'NOT_FOUND');
     }
 
-    const isRequest = !(await this.canMessageDirectly(senderId, receiverId));
-
-    if (isRequest) {
-      // Non-connections get exactly one outstanding request until the receiver accepts it
-      const existingRequest = await prisma.message.findFirst({
-        where: {
-          senderId,
-          receiverId,
-          isRequest: true,
-          requestStatus: { in: ['PENDING', 'DECLINED'] },
-        },
-        orderBy: { createdAt: 'desc' },
-      });
-
-      if (existingRequest?.requestStatus === 'PENDING') {
-        throw new AppError('You already have a pending message request', 409, 'REQUEST_PENDING');
-      }
-      if (existingRequest?.requestStatus === 'DECLINED') {
-        throw new AppError('This user declined your message request', 403, 'REQUEST_DECLINED');
-      }
+    // A block (set by either side) ends messaging, whatever was accepted before it
+    const block = await prisma.connection.findFirst({
+      where: {
+        status: 'BLOCKED',
+        OR: [
+          { requesterId: senderId, addresseeId: receiverId },
+          { requesterId: receiverId, addresseeId: senderId },
+        ],
+      },
+      select: { id: true },
+    });
+    if (block) {
+      throw new AppError('You cannot message this user', 403, 'BLOCKED');
     }
 
-    const message = await prisma.message.create({
-      data: {
-        senderId,
-        receiverId,
-        content,
-        mediaUrl: data.mediaUrl || null,
-        isRequest,
-        requestStatus: isRequest ? 'PENDING' : null,
-      },
-      include: {
-        sender: { select: participantSelect },
-      },
+    const isRequest = !(await this.canMessageDirectly(senderId, receiverId));
+
+    const message = await prisma.$transaction(async (tx) => {
+      if (isRequest) {
+        // The daily cap and the one-outstanding-request rule are "count, then insert": serialise one sender's requests,
+        // otherwise a parallel burst reads the same low count and every request of it passes (30 of 30 got through).
+        await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`message-request:${senderId}`}))`;
+
+        // Cap fan-out: one account must not be able to open requests to everybody
+        const recentRequests =
+          (await tx.message.count({
+            where: { senderId, isRequest: true, createdAt: { gte: new Date(Date.now() - 24 * 60 * 60 * 1000) } },
+          })) ?? 0;
+        if (recentRequests >= MAX_MESSAGE_REQUESTS_PER_DAY) {
+          throw new AppError('You have sent too many message requests today. Try again later.', 429, 'MESSAGE_REQUEST_LIMIT');
+        }
+
+        // Non-connections get exactly one outstanding request until the receiver accepts it
+        const existingRequest = await tx.message.findFirst({
+          where: {
+            senderId,
+            receiverId,
+            isRequest: true,
+            requestStatus: { in: ['PENDING', 'DECLINED'] },
+          },
+          orderBy: { createdAt: 'desc' },
+        });
+
+        if (existingRequest?.requestStatus === 'PENDING') {
+          throw new AppError('You already have a pending message request', 409, 'REQUEST_PENDING');
+        }
+        if (existingRequest?.requestStatus === 'DECLINED') {
+          throw new AppError('This user declined your message request', 403, 'REQUEST_DECLINED');
+        }
+      }
+
+      return tx.message.create({
+        data: {
+          senderId,
+          receiverId,
+          content,
+          mediaUrl,
+          isRequest,
+          requestStatus: isRequest ? 'PENDING' : null,
+        },
+        include: {
+          sender: { select: participantSelect },
+        },
+      });
     });
 
     // Emit real-time message

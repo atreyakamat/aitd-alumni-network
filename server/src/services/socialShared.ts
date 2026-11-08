@@ -193,6 +193,21 @@ export function parseVisibility(raw: unknown, fallback: PostVisibility = 'PUBLIC
   return raw.toUpperCase() as PostVisibility;
 }
 
+/**
+ * Takes the row lock of a post (or comment) inside the caller's transaction. Counters that are re-derived from child rows
+ * (reactions, comments, reposts) must be recounted by one transaction at a time: under READ COMMITTED a concurrent
+ * writer's uncommitted child row is invisible to the recount, so the later UPDATE would overwrite the counter with a
+ * stale total (8 simultaneous reactions ended with likeCount = 1). Call it as the FIRST statement of the transaction,
+ * before the child row is inserted: the insert takes a KEY SHARE lock on the parent that conflicts with FOR UPDATE, so
+ * locking afterwards deadlocks two writers. The wait for the lock ends only after the other transaction committed, and
+ * the statements that follow see its rows.
+ */
+export const lockPostRow = (tx: Prisma.TransactionClient, postId: string) =>
+  tx.$queryRaw`SELECT id FROM "Post" WHERE id = ${postId} FOR UPDATE`;
+
+export const lockCommentRow = (tx: Prisma.TransactionClient, commentId: string) =>
+  tx.$queryRaw`SELECT id FROM "PostComment" WHERE id = ${commentId} FOR UPDATE`;
+
 export const isUniqueViolation = (err: unknown) =>
   !!err && typeof err === 'object' && (err as { code?: string }).code === 'P2002';
 

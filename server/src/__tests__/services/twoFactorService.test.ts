@@ -1,4 +1,5 @@
 import crypto from 'crypto';
+import bcrypt from 'bcryptjs';
 import { twoFactorService, OTP_MAX_ATTEMPTS } from '../../services/twoFactorService';
 import { prismaMock } from '../../../tests/helpers';
 import { sendEmail } from '../../utils/email';
@@ -14,7 +15,12 @@ const sendAndCapture = async (userId = 'u1') => {
   return html.match(/letter-spacing[^>]*>\s*(\d{6})\s*</)![1];
 };
 
-beforeEach(() => jest.clearAllMocks());
+beforeEach(() => {
+  jest.clearAllMocks();
+  // attempt reservations are real rows
+  prismaMock.verificationToken.create.mockResolvedValue({ id: 'reservation' });
+  prismaMock.verificationToken.delete.mockResolvedValue({});
+});
 
 describe('twoFactorService', () => {
   describe('sendOTP', () => {
@@ -109,8 +115,9 @@ describe('twoFactorService', () => {
       await expect(twoFactorService.verifyOTP('u1', '123456')).resolves.toBe(false);
     });
 
-    it(`locks out with 429 after ${OTP_MAX_ATTEMPTS} failures, even for the right code`, async () => {
-      prismaMock.verificationToken.count.mockResolvedValue(OTP_MAX_ATTEMPTS);
+    it(`locks out with 429 once ${OTP_MAX_ATTEMPTS} attempts are spent, even for the right code`, async () => {
+      // the in-flight reservation is the (MAX+1)th row
+      prismaMock.verificationToken.count.mockResolvedValue(OTP_MAX_ATTEMPTS + 1);
       arrangeActive('123456');
       await expect(twoFactorService.verifyOTP('u1', '123456')).rejects.toMatchObject({
         statusCode: 429,
@@ -118,6 +125,22 @@ describe('twoFactorService', () => {
       });
       expect(prismaMock.verificationToken.findFirst).not.toHaveBeenCalled();
       expect(prismaMock.verificationToken.updateMany).not.toHaveBeenCalled();
+      // a refused attempt does not extend the lockout
+      expect(prismaMock.verificationToken.delete).toHaveBeenCalledWith({ where: { id: 'reservation' } });
+    });
+
+    it('reserves the attempt BEFORE checking the code (race-safe budget)', async () => {
+      const order: string[] = [];
+      prismaMock.verificationToken.create.mockImplementation(async () => {
+        order.push('reserve');
+        return { id: 'reservation' };
+      });
+      prismaMock.verificationToken.findFirst.mockImplementation(async () => {
+        order.push('lookup');
+        return null;
+      });
+      await twoFactorService.verifyOTP('u1', '123456');
+      expect(order).toEqual(['reserve', 'lookup']);
     });
 
     it('burns the outstanding code when the final allowed attempt fails', async () => {
@@ -174,8 +197,23 @@ describe('twoFactorService', () => {
     it('enables and disables 2FA for the given user', async () => {
       await expect(twoFactorService.enable2FA('u1')).resolves.toEqual({ message: 'Two-factor authentication enabled' });
       expect(prismaMock.user.update).toHaveBeenCalledWith({ where: { id: 'u1' }, data: { twoFactorEnabled: true } });
-      await expect(twoFactorService.disable2FA('u1')).resolves.toEqual({ message: 'Two-factor authentication disabled' });
+      prismaMock.user.findUnique.mockResolvedValue({ passwordHash: await bcrypt.hash('Right#Pass123', 4) });
+      prismaMock.verificationToken.count.mockResolvedValue(1);
+      await expect(twoFactorService.disable2FA('u1', 'Right#Pass123')).resolves.toEqual({ message: 'Two-factor authentication disabled' });
       expect(prismaMock.user.update).toHaveBeenLastCalledWith({ where: { id: 'u1' }, data: { twoFactorEnabled: false } });
+    });
+
+    it('AU-04: refuses to disable 2FA without (or with a wrong) password', async () => {
+      prismaMock.user.findUnique.mockResolvedValue({ passwordHash: await bcrypt.hash('Right#Pass123', 4) });
+      prismaMock.verificationToken.count.mockResolvedValue(1);
+      await expect(twoFactorService.disable2FA('u1')).rejects.toMatchObject({ statusCode: 400, code: 'PASSWORD_REQUIRED' });
+      await expect(twoFactorService.disable2FA('u1', 'nope')).rejects.toMatchObject({ statusCode: 401, code: 'INVALID_PASSWORD' });
+      expect(prismaMock.user.update).not.toHaveBeenCalled();
+    });
+
+    it('lets a password-less (OAuth) account disable 2FA without a password', async () => {
+      prismaMock.user.findUnique.mockResolvedValue({ passwordHash: '' });
+      await expect(twoFactorService.disable2FA('u1')).resolves.toEqual({ message: 'Two-factor authentication disabled' });
     });
 
     it('reports status, defaulting to false for unknown users', async () => {

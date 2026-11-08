@@ -186,8 +186,14 @@ describe('authController', () => {
     it.each(['enable2FA', 'disable2FA'] as const)('%s acts on the authenticated user only', async (handler) => {
       const spy = jest.spyOn(twoFactorService, handler).mockResolvedValue({ message: 'ok' });
       const { res } = await run(handler, { user: { id: 'u1' }, body: { userId: 'someone-else' } });
-      expect(spy).toHaveBeenCalledWith('u1');
+      expect(spy).toHaveBeenCalledWith(...(handler === 'disable2FA' ? ['u1', undefined] : ['u1']));
       expect(res.json).toHaveBeenCalledWith({ success: true, data: { message: 'ok' } });
+    });
+
+    it('disable2FA forwards the re-entered password to the service', async () => {
+      const spy = jest.spyOn(twoFactorService, 'disable2FA').mockResolvedValue({ message: 'ok' });
+      await run('disable2FA', { user: { id: 'u1' }, body: { password: 'Secret#123' } });
+      expect(spy).toHaveBeenCalledWith('u1', 'Secret#123');
     });
 
     it.each(['enable2FA', 'disable2FA'] as const)('%s forwards errors', async (handler) => {

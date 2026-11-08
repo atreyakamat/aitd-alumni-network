@@ -311,9 +311,16 @@ describe('mentorshipService', () => {
   });
 
   describe('respondToRequest', () => {
+    let claimedStatus = '';
     beforeEach(() => {
-      prismaMock.mentorshipRequest.update.mockImplementation(async (args: any) => ({ id: 'r1', ...args.data }));
-      prismaMock.mentorProfile.update.mockResolvedValue(profile());
+      claimedStatus = '';
+      // The request is claimed with one conditional UPDATE (only a PENDING row matches), the seat with another
+      prismaMock.mentorshipRequest.updateMany.mockImplementation(async (args: any) => {
+        claimedStatus = args.data.status;
+        return { count: 1 };
+      });
+      prismaMock.mentorshipRequest.findUniqueOrThrow.mockImplementation(async () => ({ id: 'r1', status: claimedStatus }));
+      prismaMock.$executeRaw.mockResolvedValue(1);
     });
 
     it('accepting marks ACCEPTED, increments currentMentees and notifies the mentee', async () => {
@@ -322,10 +329,14 @@ describe('mentorshipService', () => {
       const result = await mentorshipService.respondToRequest('mentor', 'r1', true);
 
       expect(result).toEqual({ id: 'r1', status: 'ACCEPTED' });
-      expect(prismaMock.mentorProfile.update).toHaveBeenCalledWith({
-        where: { id: 'p1' },
-        data: { currentMentees: { increment: 1 } },
+      expect(prismaMock.mentorshipRequest.updateMany).toHaveBeenCalledWith({
+        where: { id: 'r1', status: 'PENDING' },
+        data: { status: 'ACCEPTED' },
       });
+      // The seat is taken by one guarded UPDATE: it matches only while currentMentees < maxMentees
+      const sql = (prismaMock.$executeRaw.mock.calls[0][0] as string[]).join('?');
+      expect(sql).toContain('UPDATE "MentorProfile" SET "currentMentees" = "currentMentees" + 1');
+      expect(sql).toContain('"currentMentees" < "maxMentees"');
       expect(notify).toHaveBeenCalledWith(
         expect.objectContaining({ userId: 'mentee', type: 'MENTORSHIP_ACCEPTED', link: '/mentorship' })
       );
@@ -335,7 +346,7 @@ describe('mentorshipService', () => {
       prismaMock.mentorshipRequest.findUnique.mockResolvedValue(request());
       const result = await mentorshipService.respondToRequest('mentor', 'r1', false);
       expect(result.status).toBe('DECLINED');
-      expect(prismaMock.mentorProfile.update).not.toHaveBeenCalled();
+      expect(prismaMock.$executeRaw).not.toHaveBeenCalled();
       expect(notify).toHaveBeenCalledWith(expect.objectContaining({ type: 'MENTORSHIP_DECLINED', link: undefined }));
     });
 
@@ -343,7 +354,28 @@ describe('mentorshipService', () => {
       prismaMock.mentorshipRequest.findUnique.mockResolvedValue(request());
       await expect(mentorshipService.respondToRequest('mentee', 'r1', true)).rejects.toMatchObject({ statusCode: 403 });
       await expect(mentorshipService.respondToRequest('stranger', 'r1', true)).rejects.toMatchObject({ statusCode: 403 });
-      expect(prismaMock.mentorshipRequest.update).not.toHaveBeenCalled();
+      expect(prismaMock.mentorshipRequest.updateMany).not.toHaveBeenCalled();
+    });
+
+    it('lets only one of several concurrent responses through (the others find it already processed)', async () => {
+      prismaMock.mentorshipRequest.findUnique.mockResolvedValue(request());
+      prismaMock.mentorshipRequest.updateMany.mockResolvedValue({ count: 0 }); // another request claimed it first
+      await expect(mentorshipService.respondToRequest('mentor', 'r1', true)).rejects.toMatchObject({
+        statusCode: 400,
+        code: 'ALREADY_PROCESSED',
+      });
+      expect(prismaMock.$executeRaw).not.toHaveBeenCalled();
+      expect(notify).not.toHaveBeenCalled();
+    });
+
+    it('answers MENTOR_FULL (and rolls the claim back) when concurrent accepts took the last seat', async () => {
+      prismaMock.mentorshipRequest.findUnique.mockResolvedValue(request());
+      prismaMock.$executeRaw.mockResolvedValue(0); // no seat left when the guarded UPDATE ran
+      await expect(mentorshipService.respondToRequest('mentor', 'r1', true)).rejects.toMatchObject({
+        statusCode: 400,
+        code: 'MENTOR_FULL',
+      });
+      expect(notify).not.toHaveBeenCalled();
     });
 
     it('404s for unknown requests', async () => {

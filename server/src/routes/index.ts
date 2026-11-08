@@ -18,9 +18,11 @@ import { platformController } from '../controllers/platformController';
 import { adminUserController, accountController } from '../controllers/adminUserController';
 import { geoController } from '../controllers/geoController';
 import { socialFeedController as social } from '../controllers/socialFeedController';
-import { authenticate, optionalAuth, isAdmin, isSuperAdmin, isChapterAdmin } from '../middleware/auth';
+import { authenticate, authenticateIfPresent, optionalAuth, isAdmin, isSuperAdmin, isChapterAdmin } from '../middleware/auth';
 import { validate } from '../middleware/validate';
+import { issueOAuthState, verifyOAuthState } from '../middleware/oauthState';
 import { cacheMiddleware } from '../middleware/cache';
+import { sanitizeInput } from '../middleware/sanitizeInput';
 import { upload, videoUpload } from '../utils/storage';
 import config from '../config';
 import {
@@ -75,9 +77,12 @@ const isGoogleOAuthConfigured = Boolean(config.google.clientId && config.google.
 const isLinkedInOAuthConfigured = Boolean(config.linkedin.clientId && config.linkedin.clientSecret);
 
 if (isGoogleOAuthConfigured) {
-  router.get('/auth/google', passport.authenticate('google', { scope: ['profile', 'email'], session: false }));
+  router.get('/auth/google', (req, res, next) =>
+    passport.authenticate('google', { scope: ['profile', 'email'], session: false, state: issueOAuthState(res) })(req, res, next)
+  );
   router.get(
     '/auth/google/callback',
+    verifyOAuthState,
     passport.authenticate('google', { session: false, failureRedirect: `${config.frontendUrl}/login?error=oauth_failed` }),
     authController.googleCallback
   );
@@ -91,9 +96,12 @@ if (isGoogleOAuthConfigured) {
 }
 
 if (isLinkedInOAuthConfigured) {
-  router.get('/auth/linkedin', passport.authenticate('linkedin', { session: false }));
+  router.get('/auth/linkedin', (req, res, next) =>
+    passport.authenticate('linkedin', { session: false, state: issueOAuthState(res) })(req, res, next)
+  );
   router.get(
     '/auth/linkedin/callback',
+    verifyOAuthState,
     passport.authenticate('linkedin', { session: false, failureRedirect: `${config.frontendUrl}/login?error=oauth_failed` }),
     authController.linkedinCallback
   );
@@ -107,7 +115,10 @@ if (isLinkedInOAuthConfigured) {
 }
 
 // ============== SEARCH ROUTES ==============
-router.get('/search', authenticate, searchController.globalSearch);
+router.get('/search', authenticateIfPresent, searchController.globalSearch);
+
+// Multer parses multipart text fields (captions, titles) AFTER the app-wide sanitizeInput ran, so every upload route
+// runs it again on the fields multer produced.
 
 // ============== USER ROUTES ==============
 router.get('/users/stats', userController.getPublicStats);
@@ -130,8 +141,8 @@ router.get('/users/:id/followers', authenticate, social.listFollowers);
 router.get('/users/:id/following', authenticate, social.listFollowing);
 router.get('/users/:id/posts', optionalAuth, social.getUserPosts);
 router.patch('/users/profile', authenticate, validate(updateProfileSchema), userController.updateProfile);
-router.patch('/users/profile-photo', authenticate, upload.single('photo'), userController.updateProfilePhoto);
-router.patch('/users/cover-photo', authenticate, upload.single('photo'), userController.updateCoverPhoto);
+router.patch('/users/profile-photo', authenticate, upload.single('photo'), sanitizeInput, userController.updateProfilePhoto);
+router.patch('/users/cover-photo', authenticate, upload.single('photo'), sanitizeInput, userController.updateCoverPhoto);
 
 // Work Experience
 router.post('/users/work-experience', authenticate, validate(workExperienceSchema), userController.addWorkExperience);
@@ -155,7 +166,7 @@ router.put('/users/skills', authenticate, validate(updateSkillsSchema), userCont
 router.get('/posts', optionalAuth, cacheMiddleware({ ttl: config.cache.feedTtlSeconds }), postController.getFeed);
 router.get('/posts/:id', optionalAuth, postController.getPost);
 router.post('/posts', authenticate, validate(createPostSchema), postController.createPost);
-router.post('/posts/media', authenticate, upload.array('media', 5), postController.uploadMedia);
+router.post('/posts/media', authenticate, upload.array('media', 5), sanitizeInput, postController.uploadMedia);
 router.patch('/posts/:id', authenticate, postController.updatePost);
 router.delete('/posts/:id', authenticate, postController.deletePost);
 router.post('/posts/:id/like', authenticate, postController.likePost);
@@ -170,7 +181,7 @@ router.get('/saved', authenticate, social.getSaved);
 router.get('/hashtags/trending', optionalAuth, social.getTrendingHashtags);
 router.get('/hashtags/:tag/posts', optionalAuth, social.getHashtagPosts);
 // Bound lazily so suites that mock utils/storage without videoUpload can still build the router
-router.post('/posts/video', authenticate, (req, res, next) => videoUpload(req, res, next), social.uploadVideo);
+router.post('/posts/video', authenticate, (req, res, next) => videoUpload(req, res, next), sanitizeInput, social.uploadVideo);
 router.post('/posts/:id/react', authenticate, social.reactToPost);
 router.get('/posts/:id/reactions', authenticate, social.listPostReactions);
 router.get('/posts/:id/comments', optionalAuth, social.listComments);
@@ -235,7 +246,7 @@ router.patch('/gallery/albums/:id', authenticate, isAdmin, galleryController.upd
 router.delete('/gallery/albums/:id', authenticate, isAdmin, galleryController.deleteAlbum);
 
 // User photo upload (for batch memories, personal uploads)
-router.post('/gallery/albums/:albumId/photos', authenticate, upload.array('photos', 10), galleryController.userAddPhoto);
+router.post('/gallery/albums/:albumId/photos', authenticate, upload.array('photos', 10), sanitizeInput, galleryController.userAddPhoto);
 router.delete('/gallery/photos/:id', authenticate, galleryController.userDeletePhoto);
 
 // Admin-only photo management

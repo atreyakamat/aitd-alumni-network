@@ -83,6 +83,25 @@ export const errorHandler = (
         },
       });
     }
+    if (prismaErr.code === 'P2003') {
+      // Foreign key: the request names a record (event, user, chapter ...) that does not exist
+      return res.status(400).json({
+        success: false,
+        error: {
+          message: 'A referenced record does not exist',
+          code: 'INVALID_REFERENCE',
+        },
+      });
+    }
+    if (prismaErr.code === 'P2000') {
+      return res.status(400).json({
+        success: false,
+        error: {
+          message: 'A value is too long',
+          code: 'VALUE_TOO_LONG',
+        },
+      });
+    }
     if (prismaErr.code === 'P2025') {
       return res.status(404).json({
         success: false,
@@ -92,6 +111,15 @@ export const errorHandler = (
         },
       });
     }
+  }
+
+  // Client errors raised by Express itself (http-errors style), e.g. a malformed %-escape in the URL
+  const httpStatus = (err as { status?: unknown; statusCode?: unknown }).status ?? (err as { statusCode?: unknown }).statusCode;
+  if (typeof httpStatus === 'number' && httpStatus >= 400 && httpStatus < 500) {
+    return res.status(httpStatus).json({
+      success: false,
+      error: { message: 'Bad request', code: 'BAD_REQUEST' },
+    });
   }
 
   // JWT errors

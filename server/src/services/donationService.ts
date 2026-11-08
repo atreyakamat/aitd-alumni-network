@@ -163,7 +163,7 @@ export class DonationService {
     razorpayPaymentId: string,
     razorpaySignature: string
   ) {
-    if (!razorpayOrderId || !razorpayPaymentId || !razorpaySignature) {
+    if ([razorpayOrderId, razorpayPaymentId, razorpaySignature].some((value) => typeof value !== 'string' || !value)) {
       throw validationError('razorpay_order_id, razorpay_payment_id and razorpay_signature are required');
     }
     if (!config.razorpay.keySecret) {
@@ -196,8 +196,10 @@ export class DonationService {
     }
 
     if (!signatureValid) {
-      await prisma.transaction.update({
-        where: { id: transaction.id },
+      // Only a still-PENDING transaction may be marked FAILED: a forged signature must never
+      // rewrite a settled one (REFUNDED would become claimable again and could be re-completed)
+      await prisma.transaction.updateMany({
+        where: { id: transaction.id, status: 'PENDING' },
         data: { status: 'FAILED', gatewayPaymentId: razorpayPaymentId },
       });
       throw new AppError('Invalid payment signature', 400, 'INVALID_SIGNATURE');

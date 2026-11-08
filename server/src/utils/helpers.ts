@@ -88,4 +88,11 @@ export const buildPaginationResponse = <T>(
  * Case-insensitive substring filter. PostgreSQL compares text case-sensitively, so every
  * user-facing search goes through this rather than a bare `{ contains }`.
  */
-export const ilike = (value: string) => ({ contains: value, mode: 'insensitive' as const });
+export const ilike = (value: string) => ({ contains: escapeLikePattern(value), mode: 'insensitive' as const });
+
+/**
+ * Prisma passes `contains` to `ILIKE '%value%'` WITHOUT escaping, so a visitor's "%%" or "__" matched every row
+ * ("snake_case" matched "snakeXcase", "100%" matched "100 apples"). PostgreSQL's default escape character is the
+ * backslash: escape it and the two wildcards so the query means what the user typed.
+ */
+export const escapeLikePattern = (value: string) => value.replace(/[\\%_]/g, (c) => `\\${c}`);

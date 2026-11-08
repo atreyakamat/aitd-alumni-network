@@ -4,6 +4,7 @@ import { paginationHelper, buildPaginationResponse } from '../utils/helpers';
 import { PostType, Prisma } from '@prisma/client';
 import { clientLinks } from '../utils/clientLinks';
 import { isManagedStorageUrl } from '../utils/storage';
+import { assertSafeHttpUrl, assertSafeMediaRef, optionalSafeHttpUrl } from '../utils/safeUrl';
 import { hashtagService } from './hashtagService';
 import { reactionService } from './reactionService';
 import { actorName, notifyOnce, SocialNotice } from './socialNotifications';
@@ -12,6 +13,7 @@ import {
   badRequest,
   canViewPost,
   loadViewerContext,
+  lockPostRow,
   notFound,
   pageResult,
   parsePage,
@@ -81,7 +83,8 @@ const validateMediaUrls = (mediaUrls: unknown): string[] => {
   if (mediaUrls.length > MAX_MEDIA_URLS) {
     throw new AppError(`A post can have at most ${MAX_MEDIA_URLS} media items`, 400, 'VALIDATION_ERROR');
   }
-  return mediaUrls as string[];
+  // Only our own uploads or absolute http(s) links: never javascript:, data: or control-char smuggled schemes
+  return (mediaUrls as string[]).map((url) => assertSafeMediaRef(url, 'mediaUrls'));
 };
 
 /** Video and poster URLs must be files uploaded through this API (no hot-linking arbitrary media). */
@@ -158,7 +161,7 @@ export class PostService {
 
     const post = await prisma.$transaction(async (tx) => {
       const created = await tx.post.create({
-        data: { userId, type, content, mediaUrls, videoUrl, thumbnailUrl, isReel, visibility, linkUrl: input.linkUrl },
+        data: { userId, type, content, mediaUrls, videoUrl, thumbnailUrl, isReel, visibility, linkUrl: optionalSafeHttpUrl(input.linkUrl, 'linkUrl') },
         include: postInclude,
       });
       await hashtagService.syncPostHashtags(tx, created.id, content, created.createdAt);
@@ -210,7 +213,7 @@ export class PostService {
       if (input.linkUrl !== null && typeof input.linkUrl !== 'string') {
         throw new AppError('linkUrl must be a string', 400, 'VALIDATION_ERROR');
       }
-      update.linkUrl = input.linkUrl;
+      update.linkUrl = input.linkUrl === null || input.linkUrl === '' ? null : assertSafeHttpUrl(input.linkUrl, 'linkUrl');
     }
     if (input.type !== undefined) update.type = validateType(input.type);
     if (input.visibility !== undefined) update.visibility = parseVisibility(input.visibility);
@@ -271,6 +274,7 @@ export class PostService {
       await tx.post.deleteMany({ where: { repostOfId: postId, isRepost: true, content: '' } });
       await tx.post.delete({ where: { id: postId } });
       if (post.isRepost && post.repostOfId) {
+        await lockPostRow(tx, post.repostOfId);
         const reposts = await tx.post.count({ where: { repostOfId: post.repostOfId, isRepost: true } });
         await tx.post.updateMany({ where: { id: post.repostOfId }, data: { repostCount: reposts ?? 0 } });
       }
@@ -376,6 +380,7 @@ export class PostService {
     const mentionIds = await resolveMentionIds(rawMentionIds, userId);
 
     const comment = await prisma.$transaction(async (tx) => {
+      await lockPostRow(tx, postId);
       const created = await tx.postComment.create({
         data: { postId, userId, content: text, parentId: topLevelId },
         include: commentInclude,
@@ -480,6 +485,7 @@ export class PostService {
     }
 
     await prisma.$transaction(async (tx) => {
+      await lockPostRow(tx, comment.postId);
       // Replies cascade in the database; deleteMany covers rows written before that constraint
       await tx.postComment.deleteMany({ where: { parentId: commentId } });
       await tx.postComment.deleteMany({ where: { id: commentId } });

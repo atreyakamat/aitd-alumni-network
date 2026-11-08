@@ -190,12 +190,16 @@ describe('networkService', () => {
     it('lets the addressee accept and notifies the requester', async () => {
       arrangeUsers();
       prismaMock.connection.findUnique.mockResolvedValue(conn({ requesterId: THEM, addresseeId: ME }));
-      prismaMock.connection.update.mockResolvedValue(conn({ status: 'ACCEPTED' }));
+      prismaMock.connection.updateMany.mockResolvedValue({ count: 1 });
 
       const result = await networkService.respondToRequest(ME, 'c1', true);
 
       expect(result).toEqual({ message: 'Connection accepted', status: 'ACCEPTED' });
-      expect(prismaMock.connection.update).toHaveBeenCalledWith({ where: { id: 'c1' }, data: { status: 'ACCEPTED' } });
+      // Conditional update: only a still-PENDING request is changed, so a double-submit acts once
+      expect(prismaMock.connection.updateMany).toHaveBeenCalledWith({
+        where: { id: 'c1', status: 'PENDING' },
+        data: { status: 'ACCEPTED' },
+      });
       expect(createNotification).toHaveBeenCalledWith(expect.objectContaining({
         userId: THEM,
         type: 'CONNECTION_ACCEPTED',
@@ -205,12 +209,25 @@ describe('networkService', () => {
 
     it('lets the addressee decline without notifying', async () => {
       prismaMock.connection.findUnique.mockResolvedValue(conn({ requesterId: THEM, addresseeId: ME }));
-      prismaMock.connection.update.mockResolvedValue(conn({ status: 'REJECTED' }));
+      prismaMock.connection.updateMany.mockResolvedValue({ count: 1 });
 
       const result = await networkService.respondToRequest(ME, 'c1', false);
 
       expect(result).toEqual({ message: 'Connection declined', status: 'REJECTED' });
-      expect(prismaMock.connection.update).toHaveBeenCalledWith({ where: { id: 'c1' }, data: { status: 'REJECTED' } });
+      expect(prismaMock.connection.updateMany).toHaveBeenCalledWith({
+        where: { id: 'c1', status: 'PENDING' },
+        data: { status: 'REJECTED' },
+      });
+      expect(createNotification).not.toHaveBeenCalled();
+    });
+
+    it('acts only once when the same request is answered concurrently (no duplicate notification)', async () => {
+      prismaMock.connection.findUnique.mockResolvedValue(conn({ requesterId: THEM, addresseeId: ME }));
+      prismaMock.connection.updateMany.mockResolvedValue({ count: 0 }); // another request already changed it
+      await expect(networkService.respondToRequest(ME, 'c1', true)).rejects.toMatchObject({
+        statusCode: 400,
+        code: 'REQUEST_NOT_PENDING',
+      });
       expect(createNotification).not.toHaveBeenCalled();
     });
 
@@ -218,7 +235,7 @@ describe('networkService', () => {
       prismaMock.connection.findUnique.mockResolvedValue(conn({ requesterId: ME, addresseeId: THEM }));
       await expect(networkService.respondToRequest(ME, 'c1', true)).rejects.toMatchObject({ statusCode: 403 });
       await expect(networkService.respondToRequest('stranger', 'c1', true)).rejects.toMatchObject({ statusCode: 403 });
-      expect(prismaMock.connection.update).not.toHaveBeenCalled();
+      expect(prismaMock.connection.updateMany).not.toHaveBeenCalled();
     });
 
     it('404s for a missing request', async () => {
@@ -229,7 +246,7 @@ describe('networkService', () => {
     it.each(['ACCEPTED', 'REJECTED', 'BLOCKED'])('400s when the request is already %s', async (status) => {
       prismaMock.connection.findUnique.mockResolvedValue(conn({ requesterId: THEM, addresseeId: ME, status }));
       await expect(networkService.respondToRequest(ME, 'c1', true)).rejects.toMatchObject({ statusCode: 400 });
-      expect(prismaMock.connection.update).not.toHaveBeenCalled();
+      expect(prismaMock.connection.updateMany).not.toHaveBeenCalled();
     });
 
     it.each([undefined, 'true', 1, null])('400s when accept is not a boolean (%p)', async (accept) => {

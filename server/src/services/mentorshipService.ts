@@ -403,20 +403,29 @@ export class MentorshipService {
 
     const status = accept ? 'ACCEPTED' : 'DECLINED';
 
-    const [updatedRequest] = await prisma.$transaction([
-      prisma.mentorshipRequest.update({
-        where: { id: requestId },
+    const updatedRequest = await prisma.$transaction(async (tx) => {
+      // Claim the request: only one of several concurrent responses can still see it PENDING
+      const claimed = await tx.mentorshipRequest.updateMany({
+        where: { id: requestId, status: 'PENDING' },
         data: { status },
-      }),
-      ...(accept
-        ? [
-            prisma.mentorProfile.update({
-              where: { id: request.profileId },
-              data: { currentMentees: { increment: 1 } },
-            }),
-          ]
-        : []),
-    ]);
+      });
+      if (claimed.count === 0) {
+        throw new AppError('Request has already been processed', 400, 'ALREADY_PROCESSED');
+      }
+
+      if (accept) {
+        // Take the seat with one guarded UPDATE (row-locked by Postgres), so concurrent accepts can never
+        // push currentMentees past maxMentees; throwing rolls the claim above back.
+        const seats = await tx.$executeRaw`
+          UPDATE "MentorProfile" SET "currentMentees" = "currentMentees" + 1
+          WHERE id = ${request.profileId} AND "currentMentees" < "maxMentees"`;
+        if (seats === 0) {
+          throw new AppError('You have reached your maximum mentee capacity', 400, 'MENTOR_FULL');
+        }
+      }
+
+      return tx.mentorshipRequest.findUniqueOrThrow({ where: { id: requestId } });
+    });
 
     await notifySafely({
       userId: request.menteeId,

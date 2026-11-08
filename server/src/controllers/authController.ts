@@ -99,7 +99,7 @@ export class AuthController {
   // Disable 2FA for current user
   async disable2FA(req: Request, res: Response, next: NextFunction) {
     try {
-      const result = await twoFactorService.disable2FA(req.user!.id);
+      const result = await twoFactorService.disable2FA(req.user!.id, req.body?.password);
       res.json({ success: true, data: result });
     } catch (error) {
       next(error);

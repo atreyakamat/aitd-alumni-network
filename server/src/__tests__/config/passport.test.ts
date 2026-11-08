@@ -16,6 +16,7 @@ const existing = (overrides: Record<string, unknown> = {}) => ({
   profilePhotoUrl: null,
   linkedinUrl: null,
   isActive: true,
+  emailVerifiedAt: new Date('2024-01-01'),
   ...overrides,
 });
 
@@ -33,6 +34,17 @@ describe('config/passport', () => {
       expect(prismaMock.user.findUnique).toHaveBeenCalledWith({ where: { email: 'ada@aitd.edu' } });
       expect(prismaMock.user.create).not.toHaveBeenCalled();
       expect(prismaMock.user.update).not.toHaveBeenCalled();
+    });
+
+    it('AU-01: linking an account whose e-mail was never verified drops its password and sessions', async () => {
+      prismaMock.user.findUnique.mockResolvedValue(existing({ emailVerifiedAt: null, passwordHash: 'attacker-hash' }));
+      await resolveOAuthUser('google', profile());
+
+      const data = prismaMock.user.update.mock.calls[0][0].data;
+      expect(data).toMatchObject({ passwordHash: null, tokenVersion: { increment: 1 } });
+      expect(data.emailVerifiedAt).toBeInstanceOf(Date);
+      expect(prismaMock.refreshToken.deleteMany).toHaveBeenCalledWith({ where: { userId: 'u1' } });
+      expect(prismaMock.verificationToken.deleteMany).toHaveBeenCalledWith({ where: { userId: 'u1' } });
     });
 
     it('creates a password-less MEMBER for a new Google user', async () => {

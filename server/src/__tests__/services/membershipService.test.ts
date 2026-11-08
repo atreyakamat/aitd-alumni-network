@@ -317,8 +317,9 @@ describe('verifyPayment', () => {
   it('marks the transaction FAILED and never activates on an invalid signature', async () => {
     prismaMock.transaction.findFirst.mockResolvedValue(txn());
     await expectAppError(membershipService.verifyPayment(USER, 'order_1', 'pay_1', 'deadbeef'), 400, 'INVALID_SIGNATURE');
-    expect(prismaMock.transaction.update).toHaveBeenCalledWith({
-      where: { id: 'txn-1' },
+    // Only a PENDING transaction may be marked FAILED (a forged signature must not rewrite a settled one)
+    expect(prismaMock.transaction.updateMany).toHaveBeenCalledWith({
+      where: { id: 'txn-1', status: 'PENDING' },
       data: { status: 'FAILED', gatewayPaymentId: 'pay_1' },
     });
     expect(prismaMock.userMembership.create).not.toHaveBeenCalled();

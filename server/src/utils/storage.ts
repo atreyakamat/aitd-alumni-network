@@ -18,9 +18,10 @@ const s3Client = new S3Client({
   },
 });
 
-const isS3Enabled = config.aws.accessKeyId && config.aws.secretAccessKey;
+/** Receipts hold donor names and amounts: private in the bucket (public-read is for photos and videos). */
+const aclFor = (folder: string) => (folder === 'receipts' ? ('private' as const) : ('public-read' as const));
 
-const COMPRESSIBLE_IMAGE_TYPES = new Set(['image/jpeg', 'image/jpg', 'image/png', 'image/webp']);
+const isS3Enabled = config.aws.accessKeyId && config.aws.secretAccessKey;
 
 const inferExtension = (mimetype: string, fallback: string = '.bin') => {
   switch (mimetype.toLowerCase()) {
@@ -52,15 +53,37 @@ const getFileBuffer = (file: Express.Multer.File): Buffer => {
   throw new Error('Uploaded file buffer is unavailable');
 };
 
+// Declared image types we accept. The REAL format is read from the bytes (never from the filename or
+// Content-Type, which the uploader controls) and decides how the image is re-encoded.
+const IMAGE_MIME_TYPES = new Set(['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/gif']);
+const REENCODED_FORMATS = {
+  jpeg: { mimetype: 'image/jpeg', extension: '.jpg' },
+  png: { mimetype: 'image/png', extension: '.png' },
+  webp: { mimetype: 'image/webp', extension: '.webp' },
+  gif: { mimetype: 'image/gif', extension: '.gif' },
+} as const;
+type ReencodedFormat = keyof typeof REENCODED_FORMATS;
+
+// ~8000 x 5000 pixels: far above any phone photo, far below a "pixel flood" decompression bomb that would
+// otherwise expand a tiny file into gigabytes of RAM when decoded.
+const MAX_INPUT_PIXELS = 40_000_000;
+
+const invalidImage = () => new AppError('The file is not a valid image', 400, 'INVALID_FILE_TYPE');
+
+/**
+ * Every image is decoded and re-encoded. That proves the bytes really are an image (a script or HTML file
+ * wearing a .gif name is rejected), destroys polyglot payloads and trailing data, strips EXIF/GPS and other
+ * metadata (members' photos must not leak where they were taken), and bounds the pixel count.
+ * Non-image types (PDF receipts, documents) are stored untouched.
+ */
 const optimizeImageBuffer = async (
   buffer: Buffer,
   mimetype: string
 ): Promise<{ buffer: Buffer; mimetype: string; extension: string }> => {
   const normalizedMimeType = mimetype.toLowerCase();
 
-  if (!config.image.enableCompression || !COMPRESSIBLE_IMAGE_TYPES.has(normalizedMimeType)) {
+  if (!IMAGE_MIME_TYPES.has(normalizedMimeType)) {
     // Unknown types return '' so callers fall back to the original file extension
-    // (previously e.g. .gif/.docx uploads were stored with a .jpg extension).
     return {
       buffer,
       mimetype,
@@ -68,39 +91,56 @@ const optimizeImageBuffer = async (
     };
   }
 
-  const pipeline = sharp(buffer, { failOn: 'none' }).rotate().resize({
-    width: config.image.maxWidth,
-    height: config.image.maxHeight,
-    fit: 'inside',
-    withoutEnlargement: true,
+  const input = sharp(buffer, {
+    failOn: 'error',
+    limitInputPixels: MAX_INPUT_PIXELS,
+    animated: normalizedMimeType === 'image/gif',
   });
 
-  if (normalizedMimeType === 'image/png') {
-    const optimized = await pipeline
-      .png({ compressionLevel: 9, quality: config.image.quality, adaptiveFiltering: true })
-      .toBuffer();
-    return {
-      buffer: optimized,
-      mimetype: 'image/png',
-      extension: '.png',
-    };
+  let format: string | undefined;
+  try {
+    format = (await input.metadata()).format;
+  } catch {
+    throw invalidImage();
   }
+  if (!format || !(format in REENCODED_FORMATS)) throw invalidImage();
+  const target = REENCODED_FORMATS[format as ReencodedFormat];
 
-  if (normalizedMimeType === 'image/webp') {
-    const optimized = await pipeline.webp({ quality: config.image.quality }).toBuffer();
-    return {
-      buffer: optimized,
-      mimetype: 'image/webp',
-      extension: '.webp',
-    };
+  const compress = config.image.enableCompression;
+  const quality = compress ? config.image.quality : 95;
+
+  try {
+    // rotate() bakes in the EXIF orientation; sharp then writes no metadata. GIFs have no orientation (and
+    // rotating animated frames is unsupported), so they skip it.
+    let pipeline = format === 'gif' ? input : input.rotate();
+    if (compress) {
+      pipeline = pipeline.resize({
+        width: config.image.maxWidth,
+        height: config.image.maxHeight,
+        fit: 'inside',
+        withoutEnlargement: true,
+      });
+    }
+
+    let encoded: Buffer;
+    switch (format as ReencodedFormat) {
+      case 'png':
+        encoded = await pipeline.png({ compressionLevel: 9, quality, adaptiveFiltering: true }).toBuffer();
+        break;
+      case 'webp':
+        encoded = await pipeline.webp({ quality }).toBuffer();
+        break;
+      case 'gif':
+        encoded = await pipeline.gif().toBuffer();
+        break;
+      default:
+        encoded = await pipeline.jpeg({ quality, mozjpeg: true }).toBuffer();
+    }
+    return { buffer: encoded, mimetype: target.mimetype, extension: target.extension };
+  } catch {
+    // Truncated or malformed data that only fails while decoding
+    throw invalidImage();
   }
-
-  const optimized = await pipeline.jpeg({ quality: config.image.quality, mozjpeg: true }).toBuffer();
-  return {
-    buffer: optimized,
-    mimetype: 'image/jpeg',
-    extension: '.jpg',
-  };
 };
 
 // Multer filter: every upload route takes photos, so only images whose extension
@@ -120,10 +160,17 @@ const fileFilter = (req: any, file: any, cb: any) => {
   cb(new AppError('Invalid file type. Only JPG, PNG and GIF images are allowed.', 400, 'INVALID_FILE_TYPE'));
 };
 
+/**
+ * multer buffers every TEXT field of a multipart body in memory and, by default, bounds neither their number nor the
+ * request: one authenticated request with a million fields could exhaust the process. The upload routes only ever read
+ * a caption or two next to the files, so the text parts are capped tightly.
+ */
+export const MULTIPART_TEXT_LIMITS = { fields: 10, fieldSize: 16 * 1024, parts: 30 } as const;
+
 export const upload = multer({
   storage: multer.memoryStorage(),
   fileFilter,
-  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB limit
+  limits: { fileSize: 5 * 1024 * 1024, ...MULTIPART_TEXT_LIMITS }, // 5MB per file
 });
 
 /**
@@ -143,7 +190,7 @@ export const uploadToStorage = async (file: Express.Multer.File, folder: string 
       Key: key,
       Body: optimized.buffer,
       ContentType: optimized.mimetype,
-      ACL: 'public-read',
+      ACL: aclFor(folder),
     });
 
     await s3Client.send(command);
@@ -184,7 +231,7 @@ export const uploadBufferToStorage = async (
       Key: key,
       Body: optimized.buffer,
       ContentType: optimized.mimetype,
-      ACL: 'public-read',
+      ACL: aclFor(folder),
     });
 
     await s3Client.send(command);
@@ -301,7 +348,7 @@ const videoMulter = multer({
     filename: (_req, _file, cb) => cb(null, `${uuidv4()}.upload`),
   }),
   fileFilter: videoFileFilter,
-  limits: { fileSize: VIDEO_MAX_BYTES, files: 1 },
+  limits: { fileSize: VIDEO_MAX_BYTES, files: 1, ...MULTIPART_TEXT_LIMITS },
 });
 
 /** `upload.single('video')` with the size error worded for videos (multer removes the partial file). */

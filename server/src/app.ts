@@ -6,16 +6,39 @@ import passport from 'passport';
 import { rateLimit } from 'express-rate-limit';
 import routes from './routes';
 import prisma from './config/database';
-import { errorHandler } from './middleware/errorHandler';
+import { AppError, errorHandler } from './middleware/errorHandler';
+import { parseTrustProxy } from './utils/trustProxy';
 import { notFoundHandler } from './middleware/notFoundHandler';
 import { sanitizeInput } from './middleware/sanitizeInput';
-import { captureRawBody, isWebhookRequest } from './middleware/rawBody';
+import { captureRawBody, isWebhookRequest, WEBHOOK_PATH_PREFIX } from './middleware/rawBody';
 import './config/passport'; // Initialize passport strategies
 
 export interface AppOptions {
   /** Disable rate limiting (used by the test suite). */
   disableRateLimit?: boolean;
 }
+
+/**
+ * True when a request path under /uploads points into the private receipts folder, however it is spelled: any case,
+ * percent-encoding, "." / ".." segments (the static handler normalises them AFTER a first-segment check would have
+ * passed: /uploads/x/../receipts/f.pdf), repeated slashes, backslashes (path separators on Windows), and trailing
+ * dots, spaces or ":stream" suffixes (ignored by the Windows file system).
+ */
+export const isReceiptsPath = (requestPath: string): boolean => {
+  let decoded = requestPath;
+  try {
+    decoded = decodeURIComponent(requestPath);
+  } catch {
+    /* undecodable: the static handler answers 400 itself */
+  }
+  const normalised = path.posix.normalize('/' + decoded.split("\\").join('/'));
+  return normalised
+    .split('/')
+    .some((segment) => segment.split(':')[0].replace(/[. ]+$/, '').toLowerCase() === 'receipts');
+};
+
+/** "http://user@host:port" at the start of an absolute-form request target (the authority ends at the first / ? or #). */
+const ABSOLUTE_FORM_PREFIX = /^[a-z][a-z0-9+.-]*:\/\/[^/?#]*/i;
 
 export const createApp = (options: AppOptions = {}) => {
   const app = express();
@@ -24,7 +47,30 @@ export const createApp = (options: AppOptions = {}) => {
     ? !options.disableRateLimit
     : process.env.DISABLE_RATE_LIMIT !== 'true';
 
-  app.set('trust proxy', 1);
+  // Collapse repeated slashes in the path before ANYTHING matches it. `app.use('/api', router)` also matches
+  // "/api//auth/login" (its mount pattern swallows one slash), while the per-endpoint limiters mounted on
+  // '/api/auth/login' do not: the doubled slash reached the login handler with only the global budget applied.
+  // An ABSOLUTE-form request target ("POST http://host/api//auth/login HTTP/1.1", legal in HTTP/1.1) reaches Express with
+  // the scheme and authority still in `req.url`, so it does not start with "/" and the origin-form check alone skipped it.
+  // The "scheme://authority" prefix is left exactly as it is (Express's router measures it once, at the start of routing,
+  // and slices `req.url` by that length: removing it here makes every mounted path miss, which is a 404 for the request)
+  // and only the path behind it is collapsed.
+  app.use((req, _res, next) => {
+    const prefix = ABSOLUTE_FORM_PREFIX.exec(req.url)?.[0] ?? '';
+    const target = req.url.slice(prefix.length);
+    if (target.startsWith('/')) {
+      const queryAt = target.indexOf('?');
+      const pathname = queryAt === -1 ? target : target.slice(0, queryAt);
+      if (pathname.includes('//')) {
+        req.url = prefix + pathname.replace(/\/{2,}/g, '/') + (queryAt === -1 ? '' : target.slice(queryAt));
+        req.originalUrl = req.url;
+      }
+    }
+    next();
+  });
+
+  // Number of reverse proxies in front of the API (TRUST_PROXY, default 1); see utils/trustProxy.ts
+  app.set('trust proxy', parseTrustProxy(process.env.TRUST_PROXY));
 
   // Security middleware
   app.use(helmet({
@@ -36,7 +82,7 @@ export const createApp = (options: AppOptions = {}) => {
       if (!origin || allowedOrigins.includes(origin)) {
         callback(null, true);
       } else {
-        callback(new Error('Not allowed by CORS'));
+        callback(new AppError('Origin not allowed', 403, 'FORBIDDEN_ORIGIN'));
       }
     },
     credentials: true,
@@ -76,6 +122,38 @@ export const createApp = (options: AppOptions = {}) => {
     }
     app.use('/api/auth/refresh-token', authLimiter(60));
 
+    // Abuse-prone endpoints that otherwise only had the global budget. Several paths can share one budget.
+    const budget = (max: number, message: string) =>
+      rateLimit({
+        windowMs: 15 * 60 * 1000,
+        max,
+        message: { success: false, error: { message, code: 'RATE_LIMITED' } },
+      });
+    // 2FA management is rare for a real user
+    app.use('/api/auth/2fa', budget(10, 'Too many two-factor requests, please try again later.'));
+    // Guest checkout creates a gateway order and a PENDING row per call
+    app.use('/api/donations/order', budget(20, 'Too many donation attempts, please try again later.'));
+    // Search is open to anonymous visitors and runs several ILIKE scans per call
+    app.use('/api/search', budget(100, 'Too many searches, please slow down.'));
+    // Outbound e-mail from the platform's sender address
+    app.use(['/api/invites/send', '/api/invites/bulk'], budget(30, 'Too many invitations sent, please try again later.'));
+    // Uploads are the heaviest requests the API serves (image decoding, up to 100 MB of video)
+    app.use(
+      ['/api/posts/video', '/api/posts/media', '/api/users/profile-photo', '/api/users/cover-photo'],
+      budget(30, 'Too many uploads, please try again later.')
+    );
+
+    // Gateway webhooks are exempt from the global budget (Razorpay retries and must never be starved), but they are
+    // reachable by anybody until the signature has been checked: give them their own, much larger, budget.
+    app.use(WEBHOOK_PATH_PREFIX, rateLimit({
+      windowMs: 15 * 60 * 1000,
+      max: 1500,
+      // The gateway is a machine client: no budget headers on its responses
+      legacyHeaders: false,
+      standardHeaders: false,
+      message: { success: false, error: { message: 'Too many webhook requests.', code: 'RATE_LIMITED' } },
+    }));
+
     // Place search proxies a shared upstream (OSM Nominatim); keep per-client bursts small
     app.use('/api/geo', rateLimit({
       windowMs: 60 * 1000,
@@ -84,13 +162,34 @@ export const createApp = (options: AppOptions = {}) => {
     }));
   }
 
+  // PostgreSQL cannot store NUL bytes, so one in a path parameter would reach a query and fail as a 500.
+  // (Bodies and query strings are cleaned by sanitizeInput.)
+  app.use((req, res, next) => {
+    if (/%00/i.test(req.path)) {
+      return res.status(400).json({ success: false, error: { message: 'Invalid request path', code: 'INVALID_PATH' } });
+    }
+    next();
+  });
+
   // Body parsing
-  // `verify` keeps the raw bytes of webhook requests for HMAC verification (see middleware/rawBody)
-  app.use(express.json({ limit: '10mb', verify: captureRawBody }));
-  app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+  // `verify` keeps the raw bytes of webhook requests for HMAC verification (see middleware/rawBody).
+  // Webhook events are small JSON documents and unauthenticated until their signature is verified: parse them with a
+  // small limit before the general (10 MB) parser, which then skips the already-parsed request.
+  app.use(WEBHOOK_PATH_PREFIX, express.json({ limit: '256kb', verify: captureRawBody }));
+  // 1 MB is far above any JSON the app really sends (the largest is a 50-row bulk invite). Uploads are multipart with
+  // their own limits; every string of a body is walked by sanitizeInput, so the cap also bounds that work.
+  app.use(express.json({ limit: '1mb', verify: captureRawBody }));
+  app.use(express.urlencoded({ extended: true, limit: '1mb' }));
   app.use(sanitizeInput);
 
   // Static files
+  // Receipts (donor name, amount) are only available through the authenticated receipt endpoint, never as static files
+  app.use('/uploads', (req, res, next) => {
+    if (isReceiptsPath(req.path)) {
+      return res.status(404).json({ success: false, error: { message: 'Not found', code: 'NOT_FOUND' } });
+    }
+    next();
+  });
   app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')));
 
   // Health check

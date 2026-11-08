@@ -1,7 +1,8 @@
 import jwt from 'jsonwebtoken';
 import config from '../../config';
 import { generateAccessToken, generateRefreshToken } from '../../utils/jwt';
-import { socketAuthMiddleware } from '../../utils/socket';
+import * as mainSocket from '../../utils/socket';
+import { socketAuthMiddleware, SOCKET_EVENT_LIMIT, MAX_JOINED_CHATS } from '../../utils/socket';
 import { prismaMock } from '../../../tests/helpers';
 
 type SocketModule = typeof import('../../utils/socket');
@@ -255,22 +256,91 @@ describe('socket util', () => {
       expect(s.leave.mock.calls).toEqual([['chat:abc']]);
     });
 
-    it('relays typing indicators to the recipient only', () => {
+    describe('typing indicators (AU-08)', () => {
+      // Main module registry (not loadFresh): the permission lookup must hit the shared prismaMock
+      const connect = () => {
+        mainSocket.initSocket({} as any);
+        const s = fakeSocket();
+        s.userId = USER;
+        mainSocket.registerConnectionHandlers(s);
+        return s;
+      };
+      const allow = () => {
+        prismaMock.connection.findMany.mockResolvedValue([{ status: 'ACCEPTED' }]);
+      };
+      const flush = () => new Promise((resolve) => setImmediate(resolve));
+
+      it('relays to a connected recipient only', async () => {
+        allow();
+        const s = connect();
+        await s.handlers.typing({ receiverId: 'r1' });
+        expect(to).toHaveBeenLastCalledWith('user:r1');
+        expect(emit).toHaveBeenLastCalledWith('user_typing', { userId: USER });
+
+        await s.handlers.stop_typing({ receiverId: 'r1' });
+        expect(emit).toHaveBeenLastCalledWith('user_stop_typing', { userId: USER });
+
+        to.mockClear();
+        await s.handlers.typing({ receiverId: USER });
+        await s.handlers.typing({});
+        await s.handlers.typing(undefined);
+        await s.handlers.typing({ receiverId: 'x'.repeat(500) });
+        await s.handlers.stop_typing({ receiverId: 5 });
+        await s.handlers.stop_typing(undefined);
+        expect(to).not.toHaveBeenCalled();
+      });
+
+      it('does not relay to strangers or to users in a block', async () => {
+        prismaMock.connection.findMany.mockResolvedValue([]);
+        prismaMock.message.findFirst.mockResolvedValue(null);
+        const s = connect();
+        await s.handlers.typing({ receiverId: 'stranger' });
+        expect(to).not.toHaveBeenCalled();
+
+        prismaMock.connection.findMany.mockResolvedValue([{ status: 'ACCEPTED' }, { status: 'BLOCKED' }]);
+        await s.handlers.typing({ receiverId: 'blocked' });
+        expect(to).not.toHaveBeenCalled();
+      });
+
+      it('relays inside an accepted conversation without a connection', async () => {
+        prismaMock.connection.findMany.mockResolvedValue([]);
+        prismaMock.message.findFirst.mockResolvedValue({ id: 'm1' });
+        const s = connect();
+        await s.handlers.typing({ receiverId: 'talker' });
+        expect(to).toHaveBeenLastCalledWith('user:talker');
+        const where = prismaMock.message.findFirst.mock.calls[0][0].where;
+        expect(JSON.stringify(where)).toContain('ACCEPTED');
+      });
+
+      it('fails closed when the permission lookup errors', async () => {
+        prismaMock.connection.findMany.mockRejectedValue(new Error('db down'));
+        const s = connect();
+        await expect(s.handlers.typing({ receiverId: 'r1' })).resolves.toBeUndefined();
+        expect(to).not.toHaveBeenCalled();
+      });
+
+      it('rate-limits client events per socket and caches the permission decision', async () => {
+        allow();
+        const s = connect();
+        for (let i = 0; i < SOCKET_EVENT_LIMIT.max + 15; i++) await s.handlers.typing({ receiverId: 'r1' });
+        await flush();
+        expect(emit).toHaveBeenCalledTimes(SOCKET_EVENT_LIMIT.max);
+        expect(prismaMock.connection.findMany).toHaveBeenCalledTimes(1);
+      });
+    });
+
+    it('caps how many chat rooms one socket can join', () => {
       const s = connect();
-      s.handlers.typing({ receiverId: 'r1' });
-      expect(to).toHaveBeenLastCalledWith('user:r1');
-      expect(emit).toHaveBeenLastCalledWith('user_typing', { userId: USER });
+      s.join.mockClear();
+      for (let i = 0; i < MAX_JOINED_CHATS + 10; i++) s.handlers.join_chat(`${USER}:peer${i}`);
+      expect(s.join).toHaveBeenCalledTimes(MAX_JOINED_CHATS);
 
-      s.handlers.stop_typing({ receiverId: 'r1' });
-      expect(emit).toHaveBeenLastCalledWith('user_stop_typing', { userId: USER });
-
-      to.mockClear();
-      s.handlers.typing({ receiverId: USER });
-      s.handlers.typing({});
-      s.handlers.typing(undefined);
-      s.handlers.stop_typing({ receiverId: 5 });
-      s.handlers.stop_typing(undefined);
-      expect(to).not.toHaveBeenCalled();
+      // leaving frees a slot; re-joining a held room is not counted twice
+      s.handlers.leave_chat(`${USER}:peer0`);
+      s.join.mockClear();
+      s.handlers.join_chat(`${USER}:peer1`);
+      s.handlers.join_chat(`${USER}:fresh`);
+      expect(s.join.mock.calls).toEqual([[`chat:${USER}:peer1`], [`chat:${USER}:fresh`]]);
     });
 
     it('handles disconnects', () => {

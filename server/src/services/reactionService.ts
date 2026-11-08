@@ -8,6 +8,8 @@ import {
   canViewPost,
   isUniqueViolation,
   loadViewerContext,
+  lockCommentRow,
+  lockPostRow,
   notFound,
   pageResult,
   parsePage,
@@ -28,6 +30,7 @@ export class ReactionService {
     if (!post || !canViewPost(post, ctx)) throw notFound();
 
     const result = await prisma.$transaction(async (tx) => {
+      await lockPostRow(tx, postId);
       const existing = await tx.postLike.findUnique({ where: { postId_userId: { postId, userId: viewer.id } } });
       let reaction: ReactionType | null;
       let isNew = false;
@@ -118,6 +121,7 @@ export class ReactionService {
     if (!comment || !canViewPost(comment.post, ctx)) throw new AppError('Comment not found', 404, 'NOT_FOUND');
 
     const result = await prisma.$transaction(async (tx) => {
+      await lockCommentRow(tx, commentId);
       const key = { commentId_userId: { commentId, userId: viewer.id } };
       const existing = await tx.commentReaction.findUnique({ where: key });
       let reaction: ReactionType | null = type;

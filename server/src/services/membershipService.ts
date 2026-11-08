@@ -200,7 +200,7 @@ export class MembershipService {
     razorpayPaymentId: string,
     razorpaySignature: string
   ) {
-    if (!razorpayOrderId || !razorpayPaymentId || !razorpaySignature) {
+    if ([razorpayOrderId, razorpayPaymentId, razorpaySignature].some((value) => typeof value !== 'string' || !value)) {
       throw validationError('razorpay_order_id, razorpay_payment_id and razorpay_signature are required');
     }
     if (!config.razorpay.keySecret) {
@@ -226,8 +226,10 @@ export class MembershipService {
     }
 
     if (!signatureValid) {
-      await prisma.transaction.update({
-        where: { id: transaction.id },
+      // Only a still-PENDING transaction may be marked FAILED: a forged signature must never
+      // rewrite a settled one (REFUNDED would become claimable again and could be re-completed)
+      await prisma.transaction.updateMany({
+        where: { id: transaction.id, status: 'PENDING' },
         data: { status: 'FAILED', gatewayPaymentId: razorpayPaymentId },
       });
       throw new AppError('Invalid payment signature', 400, 'INVALID_SIGNATURE');
@@ -267,6 +269,11 @@ export class MembershipService {
     const endDate = tier.durationMonths ? addMonths(startDate, tier.durationMonths) : null;
 
     const membership = await prisma.$transaction(async (tx) => {
+      // Serialise this member's completions: "expire the current membership, then insert the new one" is a
+      // check-then-act, and three simultaneously paid orders ended with three ACTIVE memberships. The row lock is
+      // taken first (inserting a membership takes a KEY SHARE lock on the user that conflicts with FOR UPDATE).
+      await tx.$queryRaw`SELECT id FROM "User" WHERE id = ${userId} FOR UPDATE`;
+
       // Status-guarded update: only one concurrent completer can flip PENDING/FAILED → SUCCESS.
       if (!(await claimTransaction(tx, transaction.id, payment))) return null;
 

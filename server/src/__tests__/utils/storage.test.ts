@@ -9,9 +9,12 @@ const REGION = 'ap-south-1';
 const S3_HOST = `https://${BUCKET}.s3.${REGION}.amazonaws.com`;
 
 const sharpCalls: string[] = [];
+let detectedFormat: string | undefined = 'jpeg';
 const sharpMock = jest.fn(() => {
   const chain: any = {};
-  for (const step of ['rotate', 'resize', 'png', 'webp', 'jpeg']) {
+  // The real format is read from the bytes; tests pick what the "decoder" reports
+  chain.metadata = jest.fn(async () => ({ format: detectedFormat }));
+  for (const step of ['rotate', 'resize', 'png', 'webp', 'jpeg', 'gif']) {
     chain[step] = jest.fn(() => {
       sharpCalls.push(step);
       return chain;
@@ -60,6 +63,7 @@ beforeEach(() => {
   cwdSpy = jest.spyOn(process, 'cwd').mockReturnValue(tmp);
   sharpCalls.length = 0;
   sharpMock.mockClear();
+  detectedFormat = 'jpeg';
 });
 
 afterEach(() => {
@@ -68,6 +72,18 @@ afterEach(() => {
 });
 
 const readUpload = (url: string) => fs.readFileSync(path.join(tmp, url)).toString();
+
+describe('storage (S3 ACLs)', () => {
+  it.each([
+    ['receipts', 'private'],
+    ['posts', 'public-read'],
+    ['profiles', 'public-read'],
+  ])('uploads into %s with ACL %s', async (folder, acl) => {
+    const { mod, send } = load({ s3: true });
+    await mod.uploadBufferToStorage(Buffer.from('%PDF'), 'r.pdf', 'application/pdf', folder);
+    expect(send.mock.calls[0][0].input.ACL).toBe(acl);
+  });
+});
 
 describe('storage (local mode)', () => {
   it('compresses JPEGs and writes them under uploads/<folder>', async () => {
@@ -82,15 +98,31 @@ describe('storage (local mode)', () => {
     ['image/png', 'a.png', '.png', 'png'],
     ['image/webp', 'a.webp', '.webp', 'webp'],
   ])('re-encodes %s', async (mimetype, originalname, ext, step) => {
+    detectedFormat = step;
     const { mod } = load();
     const url = await mod.uploadToStorage(file({ mimetype, originalname }), 'covers');
     expect(url.endsWith(ext)).toBe(true);
     expect(sharpCalls).toContain(step);
   });
 
+  it('re-encodes GIFs without rotating them (animated frames have no EXIF orientation)', async () => {
+    detectedFormat = 'gif';
+    const { mod } = load();
+    const url = await mod.uploadToStorage(file({ mimetype: 'image/gif', originalname: 'anim.gif' }), 'covers');
+    expect(url.endsWith('.gif')).toBe(true);
+    expect(sharpCalls).toEqual(['resize', 'gif']);
+  });
+
+  it('rejects bytes that do not decode as one of the allowed image formats', async () => {
+    const { mod } = load();
+    detectedFormat = undefined;
+    await expect(mod.uploadToStorage(file(), 'profiles')).rejects.toMatchObject({ statusCode: 400, code: 'INVALID_FILE_TYPE' });
+    detectedFormat = 'svg';
+    await expect(mod.uploadToStorage(file(), 'profiles')).rejects.toMatchObject({ statusCode: 400, code: 'INVALID_FILE_TYPE' });
+  });
+
   it.each([
     ['application/pdf', 'cv.PDF', '.pdf'],
-    ['image/gif', 'anim.gif', '.gif'],
     ['application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'cv.docx', '.docx'],
   ])('keeps %s untouched with the right extension (not .jpg)', async (mimetype, originalname, ext) => {
     const { mod } = load();
@@ -100,12 +132,12 @@ describe('storage (local mode)', () => {
     expect(sharpMock).not.toHaveBeenCalled();
   });
 
-  it('skips compression when disabled', async () => {
+  it('still validates and strips metadata when compression is disabled (only the resize is skipped)', async () => {
     const { mod } = load({ compression: false });
     const url = await mod.uploadToStorage(file(), 'profiles');
     expect(path.extname(url)).toBe('.jpg');
-    expect(readUpload(url)).toBe('raw-bytes');
-    expect(sharpMock).not.toHaveBeenCalled();
+    expect(readUpload(url)).toBe('optimized');
+    expect(sharpCalls).toEqual(['rotate', 'jpeg']);
   });
 
   it('reads disk-stored uploads from their temp path', async () => {

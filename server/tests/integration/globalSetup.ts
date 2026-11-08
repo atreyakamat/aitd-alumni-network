@@ -35,6 +35,8 @@ export default async function globalSetup() {
       user: 'postgres',
       password: 'postgres',
       persistent: false,
+      // Windows initdb defaults to WIN1252, which rejects emoji; production (postgres:17) is UTF8
+      initdbFlags: ['--encoding=UTF8'],
       onLog: () => undefined,
     });
     await pg.initialise();

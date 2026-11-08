@@ -103,7 +103,25 @@ describe('errorHandler', () => {
   });
 
   it('falls through to 500 for unknown Prisma codes', () => {
-    expect(handle(namedError('PrismaClientKnownRequestError', { code: 'P2003' })).status).toBe(500);
+    expect(handle(namedError('PrismaClientKnownRequestError', { code: 'P2999' })).status).toBe(500);
+  });
+
+  it('maps a foreign key violation (P2003) to a 400 INVALID_REFERENCE', () => {
+    const res = handle(namedError('PrismaClientKnownRequestError', { code: 'P2003' }));
+    expect(res.status).toBe(400);
+    expect(res.body.error.code).toBe('INVALID_REFERENCE');
+  });
+
+  it('maps an over-long value (P2000) to a 400', () => {
+    const res = handle(namedError('PrismaClientKnownRequestError', { code: 'P2000' }));
+    expect(res.status).toBe(400);
+    expect(res.body.error.code).toBe('VALUE_TOO_LONG');
+  });
+
+  it('keeps the status of client errors raised by Express itself (malformed URL escape)', () => {
+    const res = handle(Object.assign(new Error('Failed to decode param'), { status: 400, statusCode: 400 }));
+    expect(res.status).toBe(400);
+    expect(res.body.error.code).toBe('BAD_REQUEST');
   });
 });
 

@@ -4,6 +4,8 @@ import { paginationHelper, buildPaginationResponse, ilike } from '../utils/helpe
 import { deleteFromStorage } from '../utils/storage';
 import { Actor, isAdminRole } from '../config/permissions';
 import { GalleryAlbumType, Prisma } from '@prisma/client';
+import { assertSafeMediaRef, normalizeUrlFields, optionalSafeMediaRef } from '../utils/safeUrl';
+import { idText, optionalBoolean, optionalInt, optionalText } from '../utils/inputGuards';
 
 interface CreateAlbumInput {
   title: string;
@@ -22,7 +24,7 @@ const MAX_SEARCH_LENGTH = 100;
 
 const assertAlbumType = (type: unknown): GalleryAlbumType | undefined => {
   if (type === undefined || type === null || type === '') return undefined;
-  if (!ALBUM_TYPES.includes(type as GalleryAlbumType)) {
+  if (typeof type !== 'string' || !ALBUM_TYPES.includes(type as GalleryAlbumType)) {
     throw new AppError('Invalid album type', 400, 'VALIDATION_ERROR');
   }
   return type as GalleryAlbumType;
@@ -113,21 +115,25 @@ export class GalleryService {
       throw new AppError('Album title is required', 400, 'VALIDATION_ERROR');
     }
     const albumType = assertAlbumType(data.albumType) || 'INSTITUTIONAL';
-    if (albumType === 'BATCH' && !data.batchYear) {
+    const description = optionalText(data.description, 'description');
+    const isPublic = data.isPublic === null ? undefined : optionalBoolean(data.isPublic, 'isPublic');
+    const batchYear = data.batchYear === null ? undefined : optionalInt(data.batchYear, 'batchYear', 1900, 2200);
+    const eventId = data.eventId === undefined || data.eventId === null ? undefined : idText(data.eventId, 'eventId');
+    if (albumType === 'BATCH' && !batchYear) {
       throw new AppError('Batch albums require a batch year', 400, 'VALIDATION_ERROR');
     }
-    if (albumType === 'EVENT' && !data.eventId) {
+    if (albumType === 'EVENT' && !eventId) {
       throw new AppError('Event albums require an event', 400, 'VALIDATION_ERROR');
     }
 
     return prisma.galleryAlbum.create({
       data: {
         title: data.title.trim(),
-        description: data.description,
+        description,
         albumType,
-        batchYear: data.batchYear !== undefined ? Number(data.batchYear) : undefined,
-        eventId: data.eventId,
-        isPublic: data.isPublic ?? true,
+        batchYear,
+        eventId,
+        isPublic: isPublic ?? true,
       },
     });
   }
@@ -142,7 +148,14 @@ export class GalleryService {
     for (const field of EDITABLE_ALBUM_FIELDS) {
       if (data && data[field] !== undefined) updates[field] = data[field];
     }
-    if (updates.albumType !== undefined) assertAlbumType(updates.albumType);
+    if (updates.albumType !== undefined && !assertAlbumType(updates.albumType)) {
+      throw new AppError('Invalid album type', 400, 'VALIDATION_ERROR');
+    }
+    if (updates.description !== undefined) updates.description = optionalText(updates.description, 'description');
+    if (updates.isPublic !== undefined) updates.isPublic = optionalBoolean(updates.isPublic, 'isPublic');
+    if (updates.batchYear !== undefined && updates.batchYear !== null) updates.batchYear = optionalInt(updates.batchYear, 'batchYear', 1900, 2200);
+    if (updates.eventId !== undefined && updates.eventId !== null) updates.eventId = idText(updates.eventId, 'eventId');
+    normalizeUrlFields(updates, { media: ['coverPhotoUrl'] });
     if (updates.title !== undefined && (typeof updates.title !== 'string' || !updates.title.trim())) {
       throw new AppError('Album title is required', 400, 'VALIDATION_ERROR');
     }
@@ -214,9 +227,15 @@ export class GalleryService {
     if (!albumId) {
       throw new AppError('Album is required', 400, 'VALIDATION_ERROR');
     }
+    if (typeof albumId !== 'string') {
+      throw new AppError('Album is required', 400, 'VALIDATION_ERROR');
+    }
     if (!url || typeof url !== 'string') {
       throw new AppError('Photo URL is required', 400, 'VALIDATION_ERROR');
     }
+    assertSafeMediaRef(url, 'url');
+    const thumb = optionalSafeMediaRef(thumbnailUrl, 'thumbnailUrl') ?? undefined;
+    const photoCaption = optionalText(caption, 'caption') ?? undefined;
 
     const album = await this.assertCanAddPhoto(albumId, actor);
 
@@ -225,8 +244,8 @@ export class GalleryService {
         data: {
           albumId,
           url,
-          thumbnailUrl,
-          caption,
+          thumbnailUrl: thumb,
+          caption: photoCaption,
           uploadedById: actor.id,
         },
       });

@@ -3,6 +3,8 @@ import prisma from '../config/database';
 import { sendEmail } from '../utils/email';
 import { config } from '../config';
 import { AppError } from '../middleware/errorHandler';
+import { clearAttempts, checkPasswordWithBudget, reserveAttempt } from './attemptLimiter';
+import { comparePassword } from '../utils/password';
 
 const OTP_LENGTH = 6;
 const OTP_EXPIRY_MINUTES = 10;
@@ -29,23 +31,6 @@ export class TwoFactorService {
     const bufA = Buffer.from(a);
     const bufB = Buffer.from(b);
     return bufA.length === bufB.length && crypto.timingSafeEqual(bufA, bufB);
-  }
-
-  private async recentFailures(userId: string): Promise<number> {
-    return prisma.verificationToken.count({
-      where: { userId, type: OTP_FAILURE_TYPE, expiresAt: { gt: new Date() } },
-    });
-  }
-
-  private async recordFailure(userId: string): Promise<void> {
-    await prisma.verificationToken.create({
-      data: {
-        userId,
-        type: OTP_FAILURE_TYPE,
-        token: crypto.randomBytes(16).toString('hex'),
-        expiresAt: new Date(Date.now() + OTP_LOCKOUT_MINUTES * 60 * 1000),
-      },
-    });
   }
 
   // Generate and send OTP to user's email
@@ -138,15 +123,15 @@ export class TwoFactorService {
   /**
    * Verify the OTP. Returns false for a wrong/expired/used code; throws 429
    * once the user has exhausted their attempts for the lockout window.
+   *
+   * The attempt is reserved before the code is compared (see attemptLimiter), so parallel
+   * guesses cannot exceed OTP_MAX_ATTEMPTS. A correct code clears the budget.
    */
   async verifyOTP(userId: string, otp: string): Promise<boolean> {
-    if ((await this.recentFailures(userId)) >= OTP_MAX_ATTEMPTS) {
-      throw new AppError(
-        'Too many invalid verification attempts. Please try again later.',
-        429,
-        'OTP_ATTEMPTS_EXCEEDED'
-      );
-    }
+    await reserveAttempt(userId, OTP_FAILURE_TYPE, OTP_MAX_ATTEMPTS, OTP_LOCKOUT_MINUTES, {
+      message: 'Too many invalid verification attempts. Please try again later.',
+      code: 'OTP_ATTEMPTS_EXCEEDED',
+    });
 
     const verificationToken = await prisma.verificationToken.findFirst({
       where: {
@@ -165,8 +150,7 @@ export class TwoFactorService {
       this.safeEqual(this.hashOTP(userId, candidate), verificationToken.token);
 
     if (!matches) {
-      await this.recordFailure(userId);
-      if ((await this.recentFailures(userId)) >= OTP_MAX_ATTEMPTS) {
+      if ((await prisma.verificationToken.count({ where: { userId, type: OTP_FAILURE_TYPE, expiresAt: { gt: new Date() } } })) >= OTP_MAX_ATTEMPTS) {
         // Burn the outstanding code once the attempt budget is spent
         await prisma.verificationToken.deleteMany({ where: { userId, type: OTP_TYPE } });
       }
@@ -182,7 +166,7 @@ export class TwoFactorService {
       return false;
     }
 
-    await prisma.verificationToken.deleteMany({ where: { userId, type: OTP_FAILURE_TYPE } });
+    await clearAttempts(userId, OTP_FAILURE_TYPE);
     return true;
   }
 
@@ -196,8 +180,29 @@ export class TwoFactorService {
     return { message: 'Two-factor authentication enabled' };
   }
 
-  // Disable 2FA for a user
-  async disable2FA(userId: string): Promise<{ message: string }> {
+  /**
+   * Disable 2FA. A bearer token alone is not enough (a stolen access token would otherwise
+   * strip the second factor): accounts with a password must re-enter it, under the
+   * per-account guess budget. Password-less (OAuth-only) accounts never use the 2FA login
+   * step, so there is nothing to re-check for them.
+   */
+  async disable2FA(userId: string, password?: unknown): Promise<{ message: string }> {
+    const user = await prisma.user.findUnique({ where: { id: userId }, select: { passwordHash: true } });
+    if (!user) {
+      throw new AppError('User not found', 404, 'USER_NOT_FOUND');
+    }
+
+    if (user.passwordHash) {
+      if (typeof password !== 'string' || !password) {
+        throw new AppError('Your password is required to turn off two-factor authentication', 400, 'PASSWORD_REQUIRED');
+      }
+      const hash = user.passwordHash;
+      const ok = await checkPasswordWithBudget(userId, () => comparePassword(password, hash));
+      if (!ok) {
+        throw new AppError('Password is incorrect', 401, 'INVALID_PASSWORD');
+      }
+    }
+
     await prisma.user.update({
       where: { id: userId },
       data: { twoFactorEnabled: false },

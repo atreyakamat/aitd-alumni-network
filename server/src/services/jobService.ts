@@ -5,6 +5,7 @@ import { JobType, WorkplaceType, JobStatus, Prisma } from '@prisma/client';
 import { isOwnerOrAdmin, Actor } from '../config/permissions';
 import { notificationService } from './notificationService';
 import { clientLinks } from '../utils/clientLinks';
+import { normalizeUrlFields } from '../utils/safeUrl';
 
 export interface CreateJobInput {
   title: string;
@@ -228,6 +229,9 @@ export class JobService {
     assertEnum(data.jobType, JOB_TYPES, 'job type');
     assertEnum(data.workplaceType, WORKPLACE_TYPES, 'workplace type');
 
+    const links: Record<string, unknown> = { applicationLink: data.applicationLink };
+    normalizeUrlFields(links, { http: ['applicationLink'] });
+
     return prisma.jobOpportunity.create({
       data: {
         postedById: userId,
@@ -243,7 +247,7 @@ export class JobService {
         experienceMin,
         experienceMax,
         skills: data.skills || [],
-        applicationLink: data.applicationLink,
+        applicationLink: links.applicationLink as string | null | undefined,
         deadline,
         status: isAdmin ? 'PUBLISHED' : 'PENDING_REVIEW',
       },
@@ -285,6 +289,7 @@ export class JobService {
         (update as Record<string, unknown>)[field] = input[field];
       }
     }
+    normalizeUrlFields(update as Record<string, unknown>, { http: ['applicationLink'] });
 
     assertEnum(update.jobType, JOB_TYPES, 'job type');
     assertEnum(update.workplaceType, WORKPLACE_TYPES, 'workplace type');

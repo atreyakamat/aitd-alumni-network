@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import { mentorshipService } from '../services/mentorshipService';
+import { queryText } from '../utils/inputGuards';
 
 export class MentorshipController {
   // ============== MENTOR PROFILES ==============
@@ -11,8 +12,8 @@ export class MentorshipController {
         Number(page),
         Number(limit),
         {
-          focusArea: focusArea as string,
-          search: search as string,
+          focusArea: queryText(focusArea),
+          search: queryText(search),
           available: available === 'true',
         }
       );
@@ -105,7 +106,7 @@ export class MentorshipController {
       const result = await mentorshipService.getMyMentorshipRequests(
         req.user!.id,
         'mentor',
-        status as string
+        queryText(status)
       );
       res.json({ success: true, data: result });
     } catch (error) {
@@ -119,7 +120,7 @@ export class MentorshipController {
       const result = await mentorshipService.getMyMentorshipRequests(
         req.user!.id,
         'mentee',
-        status as string
+        queryText(status)
       );
       res.json({ success: true, data: result });
     } catch (error) {

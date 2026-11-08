@@ -1,3 +1,5 @@
+import { randomBytes } from 'crypto';
+
 const toInt = (value: string | undefined, fallback: number) => {
   const parsed = Number.parseInt(value || '', 10);
   return Number.isFinite(parsed) ? parsed : fallback;
@@ -8,12 +10,27 @@ const toBool = (value: string | undefined, fallback: boolean) => {
   return ['1', 'true', 'yes', 'on'].includes(value.toLowerCase());
 };
 
+/**
+ * Signing secrets must never fall back to a value published in the source tree (anyone could then forge
+ * tokens offline). Production refuses to start without strong secrets (see src/index.ts); elsewhere a
+ * random per-process secret is generated, which only means dev/test sessions end when the process restarts.
+ */
+const requiredSecret = (name: 'JWT_SECRET' | 'JWT_REFRESH_SECRET'): string => {
+  const value = process.env[name];
+  if (value) return value;
+  if (process.env.NODE_ENV === 'production') {
+    throw new Error(`${name} must be set in production`);
+  }
+  console.warn(`[config] ${name} is not set: using a random per-process secret (sessions reset on restart)`);
+  return randomBytes(48).toString('hex');
+};
+
 export const config = {
   port: toInt(process.env.PORT, 5000),
   corsOrigins: (process.env.CORS_ORIGINS || 'http://localhost:3000').split(','),
   jwt: {
-    secret: process.env.JWT_SECRET || 'default-secret-change-me',
-    refreshSecret: process.env.JWT_REFRESH_SECRET || 'default-refresh-secret-change-me',
+    secret: requiredSecret('JWT_SECRET'),
+    refreshSecret: requiredSecret('JWT_REFRESH_SECRET'),
     expiresIn: process.env.JWT_EXPIRES_IN || '24h',
     refreshExpiresIn: process.env.JWT_REFRESH_EXPIRES_IN || '7d',
   },

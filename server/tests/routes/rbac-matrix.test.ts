@@ -43,7 +43,7 @@ const MATRIX: Record<string, Level> = {
   'get /auth/linkedin/callback': 'public',
 
   // Search
-  'get /search': 'auth',
+  'get /search': 'optional',
 
   // Users
   'get /users/stats': 'public',

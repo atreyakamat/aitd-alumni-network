@@ -172,6 +172,8 @@ export class UserController {
       const q = req.query;
       const filters = {
         name: queryString(q.name),
+        // The directory's single search box: matches name, designation, company and skills
+        search: queryString(q.search),
         department: queryString(q.department),
         city: queryString(q.city),
         company: queryString(q.company),

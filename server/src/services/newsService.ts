@@ -3,6 +3,8 @@ import { AppError } from '../middleware/errorHandler';
 import { paginationHelper, buildPaginationResponse, slugify, calculateReadingTime, ilike } from '../utils/helpers';
 import { Actor, isAdminRole } from '../config/permissions';
 import { NewsCategory, ArticleStatus, Prisma } from '@prisma/client';
+import { normalizeUrlFields } from '../utils/safeUrl';
+import { optionalText } from '../utils/inputGuards';
 
 interface CreateArticleInput {
   title: string;
@@ -164,19 +166,23 @@ export class NewsService {
       throw new AppError('Content is required', 400, 'VALIDATION_ERROR');
     }
     const category = assertCategory(data.category) || 'INSTITUTE_UPDATE';
+    const excerpt = optionalText(data.excerpt, 'excerpt');
 
     const title = data.title.trim();
     const slug = await this.generateUniqueSlug(title);
     const readingTime = calculateReadingTime(stripHtml(data.content));
+
+    const links: Record<string, unknown> = { featuredImage: data.featuredImage };
+    normalizeUrlFields(links, { media: ['featuredImage'] });
 
     return prisma.newsArticle.create({
       data: {
         title,
         slug,
         content: data.content,
-        excerpt: data.excerpt || buildExcerpt(data.content),
+        excerpt: excerpt || buildExcerpt(data.content),
         category,
-        featuredImage: data.featuredImage,
+        featuredImage: links.featuredImage as string | null | undefined,
         authorId,
         readingTime,
         status: 'DRAFT',
@@ -197,6 +203,7 @@ export class NewsService {
     for (const field of EDITABLE_FIELDS) {
       if (data && data[field] !== undefined) updateData[field] = data[field];
     }
+    normalizeUrlFields(updateData, { media: ['featuredImage'] });
 
     if (updateData.title !== undefined) {
       if (typeof updateData.title !== 'string' || !updateData.title.trim()) {
@@ -216,7 +223,10 @@ export class NewsService {
       updateData.readingTime = calculateReadingTime(stripHtml(updateData.content));
     }
 
-    if (updateData.category !== undefined) assertCategory(updateData.category);
+    if (updateData.category !== undefined && !assertCategory(updateData.category)) {
+      throw new AppError('Invalid news category', 400, 'VALIDATION_ERROR');
+    }
+    if (updateData.excerpt !== undefined) updateData.excerpt = optionalText(updateData.excerpt, 'excerpt');
 
     return prisma.newsArticle.update({
       where: { id },

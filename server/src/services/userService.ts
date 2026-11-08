@@ -47,6 +47,8 @@ interface EducationInput {
 
 interface DirectoryFilters {
   name?: string;
+  /** Free text over name, designation, current/past company and skill names. */
+  search?: string;
   batchYear?: number;
   batchYearStart?: number;
   batchYearEnd?: number;
@@ -611,6 +613,15 @@ export class UserService {
 
     if (filters.name) {
       where.fullName = ilike(filters.name);
+    }
+
+    if (filters.search) {
+      where.OR = [
+        { fullName: ilike(filters.search) },
+        { currentDesignation: ilike(filters.search) },
+        { workExperiences: { some: { company: ilike(filters.search) } } },
+        { skills: { some: { skill: { name: ilike(filters.search) } } } },
+      ];
     }
 
     if (filters.batchYear) {

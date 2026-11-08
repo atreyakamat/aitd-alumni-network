@@ -37,6 +37,30 @@ describe('sanitizeValue', () => {
     expect(sanitizeValue('a <b></b>  b\n<i></i>c')).toBe('a b\nc');
   });
 
+  it('strips dangerous protocols even when control characters are smuggled inside the scheme', () => {
+    const inputs = [
+      'java\tscript:alert(1)',
+      'java\nscript:alert(1)',
+      'java\rscript:alert(1)',
+      'j a v a s c r i p t :alert(1)',
+      'java\u0000script:alert(1)',
+      'vb\tscript:msgbox(1)',
+    ];
+    for (const input of inputs) {
+      const out = sanitizeValue(input) as string;
+      // eslint-disable-next-line no-control-regex -- the control characters are the point of this test
+      expect(out.replace(/[\s\u0000-\u001f]/g, '')).not.toMatch(/^(javascript|vbscript):/i);
+    }
+  });
+
+  it('strips unclosed tags that carry attributes, but leaves ordinary text with < alone', () => {
+    expect(sanitizeValue('Hi <img src=x onerror=alert(1)')).toBe('Hi');
+    expect(sanitizeValue('<svg onload=alert(1)')).toBe('');
+    expect(sanitizeValue('text <a href="x" onclick=evil() more <b>bold</b>')).not.toMatch(/onclick/i);
+    expect(sanitizeValue('salary < 5 LPA and 3 < 4')).toBe('salary < 5 LPA and 3 < 4');
+    expect(sanitizeValue('use a <b to start')).toBe('use a <b to start');
+  });
+
   it('removes null bytes', () => {
     expect(sanitizeValue('abc\u0000def')).toBe('abcdef');
   });
@@ -58,6 +82,16 @@ describe('sanitizeInput middleware', () => {
     const next = run(req);
     expect(next).toHaveBeenCalledWith();
     expect(req.body).toEqual({ title: 'Hi', tags: ['a', 'b'], nested: { bio: 'ok' } });
+  });
+
+  it('sanitizes free-text fields even when their name ends like a credential field (referralCode, qrCode, ...)', () => {
+    const req: Partial<Request> = {
+      body: { referralCode: '<img src=x onerror=alert(1)>ABC', inviteCode: '<b>X1</b>', bio: '<i>hi</i>' },
+      query: {},
+      params: {},
+    };
+    run(req);
+    expect(req.body).toEqual({ referralCode: 'ABC', inviteCode: 'X1', bio: 'hi' });
   });
 
   it('never alters password or token fields', () => {

@@ -11,6 +11,7 @@ import {
   canViewPost,
   isUniqueViolation,
   loadViewerContext,
+  lockPostRow,
   notFound,
   parseVisibility,
   ViewerInput,
@@ -23,6 +24,7 @@ type Tx = Prisma.TransactionClient;
 
 /** Reposts (plain and quote) that still point at the original. */
 const recountReposts = async (tx: Tx, originalId: string) => {
+  await lockPostRow(tx, originalId); // see lockPostRow: concurrent reposts must not recount from stale snapshots
   const total = await tx.post.count({ where: { repostOfId: originalId, isRepost: true } });
   await tx.post.update({ where: { id: originalId }, data: { repostCount: total ?? 0 } });
   return total ?? 0;
@@ -64,6 +66,7 @@ export class RepostService {
     let created;
     try {
       created = await prisma.$transaction(async (tx) => {
+        await lockPostRow(tx, original.id); // first statement: see lockPostRow
         const post = await tx.post.create({
           data: {
             userId: viewer.id,

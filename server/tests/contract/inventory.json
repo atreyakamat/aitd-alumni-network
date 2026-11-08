@@ -1,0 +1,4116 @@
+[
+  {
+    "method": "get",
+    "path": "/admin/audit",
+    "source": "client/src/lib/api.ts",
+    "line": 1107,
+    "caller": "adminApi.getAuditLogs",
+    "body": null,
+    "multipart": false,
+    "query": [
+      {
+        "name": "action",
+        "optional": true
+      },
+      {
+        "name": "endDate",
+        "optional": true
+      },
+      {
+        "name": "entityId",
+        "optional": true
+      },
+      {
+        "name": "entityType",
+        "optional": true
+      },
+      {
+        "name": "limit",
+        "optional": true
+      },
+      {
+        "name": "page",
+        "optional": true
+      },
+      {
+        "name": "startDate",
+        "optional": true
+      },
+      {
+        "name": "userId",
+        "optional": true
+      }
+    ],
+    "responseType": "AuditLogPage",
+    "consumers": []
+  },
+  {
+    "method": "get",
+    "path": "/admin/audit/:entityType/:entityId",
+    "source": "client/src/lib/api.ts",
+    "line": 1111,
+    "caller": "adminApi.getEntityAuditHistory",
+    "body": null,
+    "multipart": false,
+    "query": null,
+    "responseType": "{ success: true; logs: AuditLogEntry[] }",
+    "consumers": []
+  },
+  {
+    "method": "get",
+    "path": "/admin/audit/activity",
+    "source": "client/src/lib/api.ts",
+    "line": 1109,
+    "caller": "adminApi.getRecentAuditActivity",
+    "body": null,
+    "multipart": false,
+    "query": [
+      {
+        "name": "limit",
+        "optional": true
+      }
+    ],
+    "responseType": "{ success: true; logs: AuditLogEntry[] }",
+    "consumers": []
+  },
+  {
+    "method": "post",
+    "path": "/admin/audit/cleanup",
+    "source": "client/src/lib/api.ts",
+    "line": 1114,
+    "caller": "adminApi.cleanupAuditLogs",
+    "body": [
+      {
+        "name": "daysToKeep",
+        "optional": false
+      }
+    ],
+    "multipart": false,
+    "query": null,
+    "responseType": "{ success: true; message: string; deletedCount: number }",
+    "consumers": []
+  },
+  {
+    "method": "get",
+    "path": "/admin/export/:entity",
+    "source": "client/src/lib/api.ts",
+    "line": 1105,
+    "caller": "adminApi.exportEntity",
+    "body": null,
+    "multipart": false,
+    "query": null,
+    "responseType": "Blob",
+    "consumers": []
+  },
+  {
+    "method": "get",
+    "path": "/admin/jobs/pending",
+    "source": "client/src/lib/api.ts",
+    "line": 1101,
+    "caller": "adminApi.getPendingJobs",
+    "body": null,
+    "multipart": false,
+    "query": [
+      {
+        "name": "limit",
+        "optional": true
+      },
+      {
+        "name": "page",
+        "optional": true
+      }
+    ],
+    "responseType": "ApiPaginated<PendingJob>",
+    "consumers": []
+  },
+  {
+    "method": "get",
+    "path": "/admin/mentorship/overview",
+    "source": "client/src/lib/api.ts",
+    "line": 1102,
+    "caller": "adminApi.getMentorshipOverview",
+    "body": null,
+    "multipart": false,
+    "query": null,
+    "responseType": "ApiSuccess<MentorshipOverview>",
+    "consumers": []
+  },
+  {
+    "method": "get",
+    "path": "/admin/reports",
+    "source": "client/src/lib/social.ts",
+    "line": 736,
+    "caller": "socialApi.adminReports",
+    "body": null,
+    "multipart": false,
+    "query": [
+      {
+        "name": "cursor",
+        "optional": true
+      },
+      {
+        "name": "limit",
+        "optional": true
+      },
+      {
+        "name": "status",
+        "optional": false
+      }
+    ],
+    "responseType": null,
+    "consumers": [
+      "normalizePage",
+      "data",
+      "normalizeReport"
+    ]
+  },
+  {
+    "method": "patch",
+    "path": "/admin/reports/:id",
+    "source": "client/src/lib/social.ts",
+    "line": 738,
+    "caller": "socialApi.resolveReport",
+    "body": [
+      {
+        "name": "action",
+        "optional": false
+      },
+      {
+        "name": "note",
+        "optional": true
+      }
+    ],
+    "multipart": false,
+    "query": null,
+    "responseType": null,
+    "consumers": [
+      "data"
+    ]
+  },
+  {
+    "method": "get",
+    "path": "/admin/stats",
+    "source": "client/src/lib/api.ts",
+    "line": 1090,
+    "caller": "adminApi.getStats",
+    "body": null,
+    "multipart": false,
+    "query": null,
+    "responseType": null,
+    "consumers": []
+  },
+  {
+    "method": "get",
+    "path": "/admin/users",
+    "source": "client/src/lib/api.ts",
+    "line": 1092,
+    "caller": "adminApi.listUsers",
+    "body": null,
+    "multipart": false,
+    "query": [
+      {
+        "name": "batchYear",
+        "optional": true
+      },
+      {
+        "name": "isActive",
+        "optional": true
+      },
+      {
+        "name": "limit",
+        "optional": true
+      },
+      {
+        "name": "page",
+        "optional": true
+      },
+      {
+        "name": "role",
+        "optional": true
+      },
+      {
+        "name": "search",
+        "optional": true
+      }
+    ],
+    "responseType": "ApiPaginated<AdminUser>",
+    "consumers": []
+  },
+  {
+    "method": "patch",
+    "path": "/admin/users/:id/role",
+    "source": "client/src/lib/api.ts",
+    "line": 1094,
+    "caller": "adminApi.updateUserRole",
+    "body": [
+      {
+        "name": "role",
+        "optional": false
+      }
+    ],
+    "multipart": false,
+    "query": null,
+    "responseType": "ApiSuccess<AdminUser>",
+    "consumers": []
+  },
+  {
+    "method": "patch",
+    "path": "/admin/users/:id/status",
+    "source": "client/src/lib/api.ts",
+    "line": 1096,
+    "caller": "adminApi.updateUserStatus",
+    "body": [
+      {
+        "name": "isActive",
+        "optional": false
+      },
+      {
+        "name": "reason",
+        "optional": false
+      }
+    ],
+    "multipart": false,
+    "query": null,
+    "responseType": "ApiSuccess<AdminUser>",
+    "consumers": []
+  },
+  {
+    "method": "post",
+    "path": "/auth/2fa/disable",
+    "source": "client/src/lib/api.ts",
+    "line": 905,
+    "caller": "twoFactorApi.disable2FA",
+    "body": [
+      {
+        "name": "password",
+        "optional": false
+      }
+    ],
+    "multipart": false,
+    "query": null,
+    "responseType": null,
+    "consumers": []
+  },
+  {
+    "method": "post",
+    "path": "/auth/2fa/enable",
+    "source": "client/src/lib/api.ts",
+    "line": 903,
+    "caller": "twoFactorApi.enable2FA",
+    "body": null,
+    "multipart": false,
+    "query": null,
+    "responseType": null,
+    "consumers": []
+  },
+  {
+    "method": "post",
+    "path": "/auth/change-password",
+    "source": "client/src/lib/api.ts",
+    "line": 434,
+    "caller": "authApi.changePassword",
+    "body": [
+      {
+        "name": "currentPassword",
+        "optional": false
+      },
+      {
+        "name": "newPassword",
+        "optional": false
+      }
+    ],
+    "multipart": false,
+    "query": null,
+    "responseType": "ApiSuccess<{ accessToken: string; refreshToken: string; message?: string }>",
+    "consumers": []
+  },
+  {
+    "method": "post",
+    "path": "/auth/forgot-password",
+    "source": "client/src/lib/api.ts",
+    "line": 424,
+    "caller": "authApi.forgotPassword",
+    "body": [
+      {
+        "name": "email",
+        "optional": false
+      }
+    ],
+    "multipart": false,
+    "query": null,
+    "responseType": null,
+    "consumers": []
+  },
+  {
+    "method": "post",
+    "path": "/auth/login",
+    "source": "client/src/lib/api.ts",
+    "line": 419,
+    "caller": "authApi.login",
+    "body": [
+      {
+        "name": "email",
+        "optional": false
+      },
+      {
+        "name": "password",
+        "optional": false
+      }
+    ],
+    "multipart": false,
+    "query": null,
+    "responseType": null,
+    "consumers": []
+  },
+  {
+    "method": "post",
+    "path": "/auth/logout",
+    "source": "client/src/lib/api.ts",
+    "line": 430,
+    "caller": "authApi.logout",
+    "body": [
+      {
+        "name": "refreshToken",
+        "optional": false
+      }
+    ],
+    "multipart": false,
+    "query": null,
+    "responseType": null,
+    "consumers": []
+  },
+  {
+    "method": "get",
+    "path": "/auth/me",
+    "source": "client/src/lib/api.ts",
+    "line": 436,
+    "caller": "authApi.me",
+    "body": null,
+    "multipart": false,
+    "query": null,
+    "responseType": null,
+    "consumers": []
+  },
+  {
+    "method": "post",
+    "path": "/auth/oauth/exchange",
+    "source": "client/src/app/(auth)/login/page.tsx",
+    "line": 106,
+    "caller": "response",
+    "body": [
+      {
+        "name": "code",
+        "optional": false
+      }
+    ],
+    "multipart": false,
+    "query": null,
+    "responseType": null,
+    "consumers": []
+  },
+  {
+    "method": "get",
+    "path": "/auth/oauth/providers",
+    "source": "client/src/app/(auth)/login/page.tsx",
+    "line": 55,
+    "caller": "response",
+    "body": null,
+    "multipart": false,
+    "query": null,
+    "responseType": null,
+    "consumers": []
+  },
+  {
+    "method": "post",
+    "path": "/auth/refresh-token",
+    "source": "client/src/lib/api.ts",
+    "line": 130,
+    "caller": "refreshAccessToken",
+    "body": [
+      {
+        "name": "refreshToken",
+        "optional": false
+      }
+    ],
+    "multipart": false,
+    "query": null,
+    "responseType": null,
+    "consumers": []
+  },
+  {
+    "method": "post",
+    "path": "/auth/register",
+    "source": "client/src/lib/api.ts",
+    "line": 416,
+    "caller": "authApi.register",
+    "body": [
+      {
+        "name": "batchYear",
+        "optional": false
+      },
+      {
+        "name": "degree",
+        "optional": false
+      },
+      {
+        "name": "department",
+        "optional": false
+      },
+      {
+        "name": "email",
+        "optional": false
+      },
+      {
+        "name": "fullName",
+        "optional": false
+      },
+      {
+        "name": "password",
+        "optional": false
+      },
+      {
+        "name": "roleType",
+        "optional": true
+      }
+    ],
+    "multipart": false,
+    "query": null,
+    "responseType": null,
+    "consumers": []
+  },
+  {
+    "method": "post",
+    "path": "/auth/resend-2fa",
+    "source": "client/src/lib/api.ts",
+    "line": 902,
+    "caller": "twoFactorApi.resend2FA",
+    "body": [
+      {
+        "name": "twoFactorToken",
+        "optional": false
+      }
+    ],
+    "multipart": false,
+    "query": null,
+    "responseType": null,
+    "consumers": []
+  },
+  {
+    "method": "post",
+    "path": "/auth/reset-password",
+    "source": "client/src/lib/api.ts",
+    "line": 427,
+    "caller": "authApi.resetPassword",
+    "body": [
+      {
+        "name": "password",
+        "optional": false
+      },
+      {
+        "name": "token",
+        "optional": false
+      }
+    ],
+    "multipart": false,
+    "query": null,
+    "responseType": null,
+    "consumers": []
+  },
+  {
+    "method": "post",
+    "path": "/auth/verify-2fa",
+    "source": "client/src/lib/api.ts",
+    "line": 900,
+    "caller": "twoFactorApi.verify2FA",
+    "body": [
+      {
+        "name": "otp",
+        "optional": false
+      },
+      {
+        "name": "twoFactorToken",
+        "optional": false
+      }
+    ],
+    "multipart": false,
+    "query": null,
+    "responseType": null,
+    "consumers": []
+  },
+  {
+    "method": "post",
+    "path": "/auth/verify-email",
+    "source": "client/src/lib/api.ts",
+    "line": 421,
+    "caller": "authApi.verifyEmail",
+    "body": [
+      {
+        "name": "token",
+        "optional": false
+      }
+    ],
+    "multipart": false,
+    "query": null,
+    "responseType": null,
+    "consumers": []
+  },
+  {
+    "method": "get",
+    "path": "/chapters",
+    "source": "client/src/lib/api.ts",
+    "line": 798,
+    "caller": "chapterApi.getChapters",
+    "body": null,
+    "multipart": false,
+    "query": [
+      {
+        "name": "limit",
+        "optional": false
+      },
+      {
+        "name": "page",
+        "optional": false
+      }
+    ],
+    "responseType": null,
+    "consumers": []
+  },
+  {
+    "method": "post",
+    "path": "/chapters",
+    "source": "client/src/lib/api.ts",
+    "line": 806,
+    "caller": "chapterApi.createChapter",
+    "body": [
+      {
+        "name": "adminUserId",
+        "optional": true
+      },
+      {
+        "name": "description",
+        "optional": true
+      },
+      {
+        "name": "logoUrl",
+        "optional": true
+      },
+      {
+        "name": "name",
+        "optional": false
+      },
+      {
+        "name": "region",
+        "optional": false
+      }
+    ],
+    "multipart": false,
+    "query": null,
+    "responseType": null,
+    "consumers": []
+  },
+  {
+    "method": "get",
+    "path": "/chapters/:id",
+    "source": "client/src/lib/api.ts",
+    "line": 799,
+    "caller": "chapterApi.getChapter",
+    "body": null,
+    "multipart": false,
+    "query": null,
+    "responseType": null,
+    "consumers": []
+  },
+  {
+    "method": "patch",
+    "path": "/chapters/:id",
+    "source": "client/src/lib/api.ts",
+    "line": 808,
+    "caller": "chapterApi.updateChapter",
+    "body": [
+      {
+        "name": "description",
+        "optional": true
+      },
+      {
+        "name": "logoUrl",
+        "optional": true
+      },
+      {
+        "name": "name",
+        "optional": true
+      },
+      {
+        "name": "region",
+        "optional": true
+      }
+    ],
+    "multipart": false,
+    "query": null,
+    "responseType": null,
+    "consumers": []
+  },
+  {
+    "method": "put",
+    "path": "/chapters/:id/admin",
+    "source": "client/src/lib/api.ts",
+    "line": 810,
+    "caller": "chapterApi.assignAdmin",
+    "body": [
+      {
+        "name": "userId",
+        "optional": false
+      }
+    ],
+    "multipart": false,
+    "query": null,
+    "responseType": null,
+    "consumers": []
+  },
+  {
+    "method": "post",
+    "path": "/chapters/:id/join",
+    "source": "client/src/lib/api.ts",
+    "line": 801,
+    "caller": "chapterApi.joinChapter",
+    "body": null,
+    "multipart": false,
+    "query": null,
+    "responseType": null,
+    "consumers": []
+  },
+  {
+    "method": "post",
+    "path": "/chapters/:id/leave",
+    "source": "client/src/lib/api.ts",
+    "line": 802,
+    "caller": "chapterApi.leaveChapter",
+    "body": null,
+    "multipart": false,
+    "query": null,
+    "responseType": null,
+    "consumers": []
+  },
+  {
+    "method": "get",
+    "path": "/chapters/:id/members",
+    "source": "client/src/lib/api.ts",
+    "line": 804,
+    "caller": "chapterApi.getMembers",
+    "body": null,
+    "multipart": false,
+    "query": [
+      {
+        "name": "limit",
+        "optional": false
+      },
+      {
+        "name": "page",
+        "optional": false
+      }
+    ],
+    "responseType": null,
+    "consumers": []
+  },
+  {
+    "method": "get",
+    "path": "/chapters/my",
+    "source": "client/src/lib/api.ts",
+    "line": 800,
+    "caller": "chapterApi.getMyChapters",
+    "body": null,
+    "multipart": false,
+    "query": null,
+    "responseType": null,
+    "consumers": []
+  },
+  {
+    "method": "get",
+    "path": "/comments/:commentId/replies",
+    "source": "client/src/lib/social.ts",
+    "line": 698,
+    "caller": "socialApi.replies",
+    "body": null,
+    "multipart": false,
+    "query": [
+      {
+        "name": "cursor",
+        "optional": true
+      },
+      {
+        "name": "limit",
+        "optional": true
+      }
+    ],
+    "responseType": null,
+    "consumers": [
+      "normalizePage",
+      "data",
+      "normalizeComment"
+    ]
+  },
+  {
+    "method": "delete",
+    "path": "/comments/:id",
+    "source": "client/src/lib/api.ts",
+    "line": 654,
+    "caller": "postApi.deleteComment",
+    "body": null,
+    "multipart": false,
+    "query": null,
+    "responseType": null,
+    "consumers": []
+  },
+  {
+    "method": "delete",
+    "path": "/comments/:id",
+    "source": "client/src/lib/social.ts",
+    "line": 703,
+    "caller": "socialApi.deleteComment",
+    "body": null,
+    "multipart": false,
+    "query": null,
+    "responseType": null,
+    "consumers": []
+  },
+  {
+    "method": "patch",
+    "path": "/comments/:id",
+    "source": "client/src/lib/api.ts",
+    "line": 653,
+    "caller": "postApi.updateComment",
+    "body": [
+      {
+        "name": "content",
+        "optional": false
+      }
+    ],
+    "multipart": false,
+    "query": null,
+    "responseType": null,
+    "consumers": []
+  },
+  {
+    "method": "patch",
+    "path": "/comments/:id",
+    "source": "client/src/lib/social.ts",
+    "line": 702,
+    "caller": "socialApi.updateComment",
+    "body": [
+      {
+        "name": "content",
+        "optional": false
+      },
+      {
+        "name": "mentionIds",
+        "optional": true
+      }
+    ],
+    "multipart": false,
+    "query": null,
+    "responseType": null,
+    "consumers": [
+      "normalizeComment",
+      "data"
+    ]
+  },
+  {
+    "method": "post",
+    "path": "/comments/:id/react",
+    "source": "client/src/lib/social.ts",
+    "line": 704,
+    "caller": "socialApi.reactComment",
+    "body": [
+      {
+        "name": "type",
+        "optional": false
+      }
+    ],
+    "multipart": false,
+    "query": null,
+    "responseType": null,
+    "consumers": [
+      "data"
+    ]
+  },
+  {
+    "method": "post",
+    "path": "/comments/:id/report",
+    "source": "client/src/lib/social.ts",
+    "line": 734,
+    "caller": "socialApi.reportComment",
+    "body": [
+      {
+        "name": "details",
+        "optional": true
+      },
+      {
+        "name": "reason",
+        "optional": false
+      }
+    ],
+    "multipart": false,
+    "query": null,
+    "responseType": null,
+    "consumers": [
+      "data"
+    ]
+  },
+  {
+    "method": "get",
+    "path": "/donations/chapters",
+    "source": "client/src/lib/api.ts",
+    "line": 853,
+    "caller": "donationApi.getChapterDonations",
+    "body": null,
+    "multipart": false,
+    "query": null,
+    "responseType": null,
+    "consumers": []
+  },
+  {
+    "method": "get",
+    "path": "/donations/featured",
+    "source": "client/src/lib/api.ts",
+    "line": 852,
+    "caller": "donationApi.getFeaturedDonors",
+    "body": null,
+    "multipart": false,
+    "query": null,
+    "responseType": null,
+    "consumers": []
+  },
+  {
+    "method": "get",
+    "path": "/donations/leaderboard",
+    "source": "client/src/lib/api.ts",
+    "line": 851,
+    "caller": "donationApi.getLeaderboard",
+    "body": null,
+    "multipart": false,
+    "query": null,
+    "responseType": null,
+    "consumers": []
+  },
+  {
+    "method": "get",
+    "path": "/donations/my",
+    "source": "client/src/lib/api.ts",
+    "line": 855,
+    "caller": "donationApi.getMyDonations",
+    "body": null,
+    "multipart": false,
+    "query": null,
+    "responseType": null,
+    "consumers": []
+  },
+  {
+    "method": "post",
+    "path": "/donations/order",
+    "source": "client/src/lib/api.ts",
+    "line": 857,
+    "caller": "donationApi.createOrder",
+    "body": [
+      {
+        "name": "amount",
+        "optional": false
+      },
+      {
+        "name": "chapterId",
+        "optional": true
+      },
+      {
+        "name": "dedicatedTo",
+        "optional": true
+      },
+      {
+        "name": "donorEmail",
+        "optional": true
+      },
+      {
+        "name": "donorName",
+        "optional": true
+      },
+      {
+        "name": "isAnonymous",
+        "optional": true
+      },
+      {
+        "name": "message",
+        "optional": true
+      }
+    ],
+    "multipart": false,
+    "query": null,
+    "responseType": "ApiSuccess<PaymentOrder>",
+    "consumers": []
+  },
+  {
+    "method": "get",
+    "path": "/donations/stats",
+    "source": "client/src/lib/api.ts",
+    "line": 854,
+    "caller": "donationApi.getStats",
+    "body": null,
+    "multipart": false,
+    "query": null,
+    "responseType": null,
+    "consumers": []
+  },
+  {
+    "method": "post",
+    "path": "/donations/verify",
+    "source": "client/src/lib/api.ts",
+    "line": 860,
+    "caller": "donationApi.verifyPayment",
+    "body": [
+      {
+        "name": "razorpay_order_id",
+        "optional": false
+      },
+      {
+        "name": "razorpay_payment_id",
+        "optional": false
+      },
+      {
+        "name": "razorpay_signature",
+        "optional": false
+      }
+    ],
+    "multipart": false,
+    "query": null,
+    "responseType": null,
+    "consumers": []
+  },
+  {
+    "method": "get",
+    "path": "/donations/wall",
+    "source": "client/src/lib/api.ts",
+    "line": 850,
+    "caller": "donationApi.getDonorsWall",
+    "body": null,
+    "multipart": false,
+    "query": [
+      {
+        "name": "limit",
+        "optional": false
+      },
+      {
+        "name": "page",
+        "optional": false
+      }
+    ],
+    "responseType": null,
+    "consumers": []
+  },
+  {
+    "method": "get",
+    "path": "/events",
+    "source": "client/src/lib/api.ts",
+    "line": 685,
+    "caller": "eventApi.getEvents",
+    "body": null,
+    "multipart": false,
+    "query": [
+      {
+        "name": "limit",
+        "optional": true
+      },
+      {
+        "name": "page",
+        "optional": true
+      },
+      {
+        "name": "type",
+        "optional": true
+      },
+      {
+        "name": "upcoming",
+        "optional": true
+      }
+    ],
+    "responseType": null,
+    "consumers": []
+  },
+  {
+    "method": "post",
+    "path": "/events",
+    "source": "client/src/lib/api.ts",
+    "line": 690,
+    "caller": "eventApi.createEvent",
+    "body": [
+      {
+        "name": "address",
+        "optional": true
+      },
+      {
+        "name": "bannerUrl",
+        "optional": true
+      },
+      {
+        "name": "capacity",
+        "optional": true
+      },
+      {
+        "name": "chapterId",
+        "optional": true
+      },
+      {
+        "name": "city",
+        "optional": true
+      },
+      {
+        "name": "description",
+        "optional": false
+      },
+      {
+        "name": "endDate",
+        "optional": true
+      },
+      {
+        "name": "eventType",
+        "optional": true
+      },
+      {
+        "name": "isPublic",
+        "optional": true
+      },
+      {
+        "name": "joinLink",
+        "optional": true
+      },
+      {
+        "name": "startDate",
+        "optional": false
+      },
+      {
+        "name": "tags",
+        "optional": true
+      },
+      {
+        "name": "title",
+        "optional": false
+      },
+      {
+        "name": "venue",
+        "optional": true
+      }
+    ],
+    "multipart": false,
+    "query": null,
+    "responseType": null,
+    "consumers": []
+  },
+  {
+    "method": "delete",
+    "path": "/events/:id",
+    "source": "client/src/lib/api.ts",
+    "line": 692,
+    "caller": "eventApi.deleteEvent",
+    "body": null,
+    "multipart": false,
+    "query": null,
+    "responseType": null,
+    "consumers": []
+  },
+  {
+    "method": "get",
+    "path": "/events/:id",
+    "source": "client/src/app/(main)/events/[id]/layout.tsx",
+    "line": 16,
+    "caller": "res",
+    "body": null,
+    "multipart": false,
+    "query": null,
+    "responseType": null,
+    "consumers": []
+  },
+  {
+    "method": "get",
+    "path": "/events/:id",
+    "source": "client/src/lib/api.ts",
+    "line": 686,
+    "caller": "eventApi.getEvent",
+    "body": null,
+    "multipart": false,
+    "query": null,
+    "responseType": null,
+    "consumers": []
+  },
+  {
+    "method": "patch",
+    "path": "/events/:id",
+    "source": "client/src/lib/api.ts",
+    "line": 691,
+    "caller": "eventApi.updateEvent",
+    "body": [
+      {
+        "name": "address",
+        "optional": true
+      },
+      {
+        "name": "bannerUrl",
+        "optional": true
+      },
+      {
+        "name": "capacity",
+        "optional": true
+      },
+      {
+        "name": "chapterId",
+        "optional": true
+      },
+      {
+        "name": "city",
+        "optional": true
+      },
+      {
+        "name": "description",
+        "optional": true
+      },
+      {
+        "name": "endDate",
+        "optional": true
+      },
+      {
+        "name": "eventType",
+        "optional": true
+      },
+      {
+        "name": "isPublic",
+        "optional": true
+      },
+      {
+        "name": "joinLink",
+        "optional": true
+      },
+      {
+        "name": "startDate",
+        "optional": true
+      },
+      {
+        "name": "tags",
+        "optional": true
+      },
+      {
+        "name": "title",
+        "optional": true
+      },
+      {
+        "name": "venue",
+        "optional": true
+      }
+    ],
+    "multipart": false,
+    "query": null,
+    "responseType": null,
+    "consumers": []
+  },
+  {
+    "method": "get",
+    "path": "/events/:id/attendees",
+    "source": "client/src/lib/api.ts",
+    "line": 694,
+    "caller": "eventApi.getAttendees",
+    "body": null,
+    "multipart": false,
+    "query": null,
+    "responseType": null,
+    "consumers": []
+  },
+  {
+    "method": "post",
+    "path": "/events/:id/rsvp",
+    "source": "client/src/lib/api.ts",
+    "line": 693,
+    "caller": "eventApi.rsvpEvent",
+    "body": null,
+    "multipart": false,
+    "query": null,
+    "responseType": null,
+    "consumers": []
+  },
+  {
+    "method": "get",
+    "path": "/events/upcoming",
+    "source": "client/src/lib/api.ts",
+    "line": 688,
+    "caller": "eventApi.getUpcoming",
+    "body": null,
+    "multipart": false,
+    "query": [
+      {
+        "name": "limit",
+        "optional": false
+      }
+    ],
+    "responseType": null,
+    "consumers": []
+  },
+  {
+    "method": "get",
+    "path": "/feed",
+    "source": "client/src/lib/social.ts",
+    "line": 679,
+    "caller": "socialApi.feed",
+    "body": null,
+    "multipart": false,
+    "query": [
+      {
+        "name": "cursor",
+        "optional": true
+      },
+      {
+        "name": "limit",
+        "optional": true
+      },
+      {
+        "name": "tab",
+        "optional": false
+      }
+    ],
+    "responseType": null,
+    "consumers": [
+      "normalizePage",
+      "data",
+      "normalizePost"
+    ]
+  },
+  {
+    "method": "get",
+    "path": "/gallery/albums",
+    "source": "client/src/lib/api.ts",
+    "line": 751,
+    "caller": "galleryApi.getAlbums",
+    "body": null,
+    "multipart": false,
+    "query": [
+      {
+        "name": "limit",
+        "optional": false
+      },
+      {
+        "name": "page",
+        "optional": false
+      },
+      {
+        "name": "search",
+        "optional": false
+      },
+      {
+        "name": "type",
+        "optional": false
+      }
+    ],
+    "responseType": null,
+    "consumers": []
+  },
+  {
+    "method": "post",
+    "path": "/gallery/albums",
+    "source": "client/src/lib/api.ts",
+    "line": 756,
+    "caller": "galleryApi.createAlbum",
+    "body": [
+      {
+        "name": "albumType",
+        "optional": true
+      },
+      {
+        "name": "batchYear",
+        "optional": true
+      },
+      {
+        "name": "description",
+        "optional": true
+      },
+      {
+        "name": "eventId",
+        "optional": true
+      },
+      {
+        "name": "isPublic",
+        "optional": true
+      },
+      {
+        "name": "title",
+        "optional": false
+      }
+    ],
+    "multipart": false,
+    "query": null,
+    "responseType": null,
+    "consumers": []
+  },
+  {
+    "method": "get",
+    "path": "/gallery/albums/:id",
+    "source": "client/src/lib/api.ts",
+    "line": 752,
+    "caller": "galleryApi.getAlbum",
+    "body": null,
+    "multipart": false,
+    "query": null,
+    "responseType": null,
+    "consumers": []
+  },
+  {
+    "method": "get",
+    "path": "/gallery/recent",
+    "source": "client/src/lib/api.ts",
+    "line": 754,
+    "caller": "galleryApi.getRecentPhotos",
+    "body": null,
+    "multipart": false,
+    "query": [
+      {
+        "name": "limit",
+        "optional": false
+      }
+    ],
+    "responseType": null,
+    "consumers": []
+  },
+  {
+    "method": "get",
+    "path": "/geo/reverse",
+    "source": "client/src/lib/api.ts",
+    "line": 576,
+    "caller": "geoApi.reverse",
+    "body": null,
+    "multipart": false,
+    "query": [
+      {
+        "name": "lat",
+        "optional": false
+      },
+      {
+        "name": "lng",
+        "optional": false
+      }
+    ],
+    "responseType": null,
+    "consumers": []
+  },
+  {
+    "method": "get",
+    "path": "/geo/search",
+    "source": "client/src/lib/api.ts",
+    "line": 574,
+    "caller": "geoApi.search",
+    "body": null,
+    "multipart": false,
+    "query": [
+      {
+        "name": "limit",
+        "optional": false
+      },
+      {
+        "name": "q",
+        "optional": false
+      }
+    ],
+    "responseType": null,
+    "consumers": []
+  },
+  {
+    "method": "get",
+    "path": "/hashtags/:tag/posts",
+    "source": "client/src/lib/social.ts",
+    "line": 729,
+    "caller": "socialApi.hashtagPosts",
+    "body": null,
+    "multipart": false,
+    "query": [
+      {
+        "name": "cursor",
+        "optional": true
+      },
+      {
+        "name": "limit",
+        "optional": true
+      }
+    ],
+    "responseType": null,
+    "consumers": [
+      "normalizePage",
+      "data",
+      "normalizePost"
+    ]
+  },
+  {
+    "method": "get",
+    "path": "/hashtags/trending",
+    "source": "client/src/lib/social.ts",
+    "line": 727,
+    "caller": "socialApi.trending",
+    "body": null,
+    "multipart": false,
+    "query": [
+      {
+        "name": "days",
+        "optional": false
+      },
+      {
+        "name": "limit",
+        "optional": false
+      }
+    ],
+    "responseType": null,
+    "consumers": [
+      "normalizeTrending",
+      "data"
+    ]
+  },
+  {
+    "method": "post",
+    "path": "/invites/:token/accept",
+    "source": "client/src/lib/api.ts",
+    "line": 882,
+    "caller": "inviteApi.acceptInvite",
+    "body": null,
+    "multipart": false,
+    "query": null,
+    "responseType": null,
+    "consumers": []
+  },
+  {
+    "method": "post",
+    "path": "/invites/bulk",
+    "source": "client/src/lib/api.ts",
+    "line": 875,
+    "caller": "inviteApi.sendBulkInvites",
+    "body": [
+      {
+        "name": "invites",
+        "optional": false
+      },
+      {
+        "name": "message",
+        "optional": true
+      }
+    ],
+    "multipart": false,
+    "query": null,
+    "responseType": null,
+    "consumers": []
+  },
+  {
+    "method": "post",
+    "path": "/invites/generate-link",
+    "source": "client/src/app/(main)/invite/page.tsx",
+    "line": 123,
+    "caller": "response",
+    "body": null,
+    "multipart": false,
+    "query": null,
+    "responseType": null,
+    "consumers": []
+  },
+  {
+    "method": "post",
+    "path": "/invites/generate-link",
+    "source": "client/src/lib/api.ts",
+    "line": 877,
+    "caller": "inviteApi.generateShareableLink",
+    "body": null,
+    "multipart": false,
+    "query": null,
+    "responseType": null,
+    "consumers": []
+  },
+  {
+    "method": "post",
+    "path": "/invites/send",
+    "source": "client/src/app/(main)/invite/page.tsx",
+    "line": 146,
+    "caller": "sendInvitations",
+    "body": [
+      {
+        "name": "batchYear",
+        "optional": false
+      },
+      {
+        "name": "email",
+        "optional": false
+      },
+      {
+        "name": "message",
+        "optional": false
+      },
+      {
+        "name": "name",
+        "optional": false
+      }
+    ],
+    "multipart": false,
+    "query": null,
+    "responseType": null,
+    "consumers": []
+  },
+  {
+    "method": "post",
+    "path": "/invites/send",
+    "source": "client/src/lib/api.ts",
+    "line": 873,
+    "caller": "inviteApi.sendInvite",
+    "body": [
+      {
+        "name": "batchYear",
+        "optional": true
+      },
+      {
+        "name": "email",
+        "optional": false
+      },
+      {
+        "name": "message",
+        "optional": true
+      },
+      {
+        "name": "name",
+        "optional": true
+      }
+    ],
+    "multipart": false,
+    "query": null,
+    "responseType": null,
+    "consumers": []
+  },
+  {
+    "method": "get",
+    "path": "/invites/sent",
+    "source": "client/src/lib/api.ts",
+    "line": 879,
+    "caller": "inviteApi.getSentInvites",
+    "body": null,
+    "multipart": false,
+    "query": [
+      {
+        "name": "limit",
+        "optional": false
+      },
+      {
+        "name": "page",
+        "optional": false
+      }
+    ],
+    "responseType": null,
+    "consumers": []
+  },
+  {
+    "method": "get",
+    "path": "/invites/stats",
+    "source": "client/src/lib/api.ts",
+    "line": 880,
+    "caller": "inviteApi.getStats",
+    "body": null,
+    "multipart": false,
+    "query": null,
+    "responseType": null,
+    "consumers": []
+  },
+  {
+    "method": "get",
+    "path": "/invites/verify/:token",
+    "source": "client/src/lib/api.ts",
+    "line": 881,
+    "caller": "inviteApi.verifyInvite",
+    "body": null,
+    "multipart": false,
+    "query": null,
+    "responseType": null,
+    "consumers": []
+  },
+  {
+    "method": "get",
+    "path": "/jobs",
+    "source": "client/src/lib/api.ts",
+    "line": 668,
+    "caller": "jobApi.getJobs",
+    "body": null,
+    "multipart": false,
+    "query": [
+      {
+        "name": "jobType",
+        "optional": true
+      },
+      {
+        "name": "limit",
+        "optional": true
+      },
+      {
+        "name": "location",
+        "optional": true
+      },
+      {
+        "name": "page",
+        "optional": true
+      },
+      {
+        "name": "search",
+        "optional": true
+      },
+      {
+        "name": "type",
+        "optional": true
+      },
+      {
+        "name": "workplaceType",
+        "optional": true
+      }
+    ],
+    "responseType": null,
+    "consumers": []
+  },
+  {
+    "method": "post",
+    "path": "/jobs",
+    "source": "client/src/lib/api.ts",
+    "line": 671,
+    "caller": "jobApi.createJob",
+    "body": [
+      {
+        "name": "applicationLink",
+        "optional": true
+      },
+      {
+        "name": "company",
+        "optional": false
+      },
+      {
+        "name": "deadline",
+        "optional": true
+      },
+      {
+        "name": "description",
+        "optional": false
+      },
+      {
+        "name": "experienceMax",
+        "optional": true
+      },
+      {
+        "name": "experienceMin",
+        "optional": true
+      },
+      {
+        "name": "industry",
+        "optional": true
+      },
+      {
+        "name": "jobType",
+        "optional": true
+      },
+      {
+        "name": "location",
+        "optional": true
+      },
+      {
+        "name": "salaryMax",
+        "optional": true
+      },
+      {
+        "name": "salaryMin",
+        "optional": true
+      },
+      {
+        "name": "skills",
+        "optional": true
+      },
+      {
+        "name": "title",
+        "optional": false
+      },
+      {
+        "name": "workplaceType",
+        "optional": true
+      }
+    ],
+    "multipart": false,
+    "query": null,
+    "responseType": null,
+    "consumers": []
+  },
+  {
+    "method": "delete",
+    "path": "/jobs/:id",
+    "source": "client/src/lib/api.ts",
+    "line": 674,
+    "caller": "jobApi.deleteJob",
+    "body": null,
+    "multipart": false,
+    "query": null,
+    "responseType": null,
+    "consumers": []
+  },
+  {
+    "method": "get",
+    "path": "/jobs/:id",
+    "source": "client/src/lib/api.ts",
+    "line": 669,
+    "caller": "jobApi.getJob",
+    "body": null,
+    "multipart": false,
+    "query": null,
+    "responseType": null,
+    "consumers": []
+  },
+  {
+    "method": "patch",
+    "path": "/jobs/:id",
+    "source": "client/src/lib/api.ts",
+    "line": 673,
+    "caller": "jobApi.updateJob",
+    "body": [
+      {
+        "name": "applicationLink",
+        "optional": true
+      },
+      {
+        "name": "company",
+        "optional": true
+      },
+      {
+        "name": "deadline",
+        "optional": true
+      },
+      {
+        "name": "description",
+        "optional": true
+      },
+      {
+        "name": "experienceMax",
+        "optional": true
+      },
+      {
+        "name": "experienceMin",
+        "optional": true
+      },
+      {
+        "name": "industry",
+        "optional": true
+      },
+      {
+        "name": "jobType",
+        "optional": true
+      },
+      {
+        "name": "location",
+        "optional": true
+      },
+      {
+        "name": "salaryMax",
+        "optional": true
+      },
+      {
+        "name": "salaryMin",
+        "optional": true
+      },
+      {
+        "name": "skills",
+        "optional": true
+      },
+      {
+        "name": "title",
+        "optional": true
+      },
+      {
+        "name": "workplaceType",
+        "optional": true
+      }
+    ],
+    "multipart": false,
+    "query": null,
+    "responseType": null,
+    "consumers": []
+  },
+  {
+    "method": "post",
+    "path": "/jobs/:id/approve",
+    "source": "client/src/lib/api.ts",
+    "line": 678,
+    "caller": "jobApi.approveJob",
+    "body": null,
+    "multipart": false,
+    "query": null,
+    "responseType": null,
+    "consumers": []
+  },
+  {
+    "method": "post",
+    "path": "/jobs/:id/reject",
+    "source": "client/src/lib/api.ts",
+    "line": 679,
+    "caller": "jobApi.rejectJob",
+    "body": [
+      {
+        "name": "reason",
+        "optional": false
+      }
+    ],
+    "multipart": false,
+    "query": null,
+    "responseType": null,
+    "consumers": []
+  },
+  {
+    "method": "get",
+    "path": "/jobs/my",
+    "source": "client/src/lib/api.ts",
+    "line": 676,
+    "caller": "jobApi.getMyJobs",
+    "body": null,
+    "multipart": false,
+    "query": [
+      {
+        "name": "limit",
+        "optional": false
+      },
+      {
+        "name": "page",
+        "optional": false
+      }
+    ],
+    "responseType": null,
+    "consumers": []
+  },
+  {
+    "method": "get",
+    "path": "/marketplace",
+    "source": "client/src/lib/api.ts",
+    "line": 816,
+    "caller": "marketplaceApi.getListings",
+    "body": null,
+    "multipart": false,
+    "query": [
+      {
+        "name": "category",
+        "optional": true
+      },
+      {
+        "name": "limit",
+        "optional": true
+      },
+      {
+        "name": "location",
+        "optional": true
+      },
+      {
+        "name": "page",
+        "optional": true
+      },
+      {
+        "name": "search",
+        "optional": true
+      },
+      {
+        "name": "type",
+        "optional": true
+      }
+    ],
+    "responseType": null,
+    "consumers": []
+  },
+  {
+    "method": "post",
+    "path": "/marketplace",
+    "source": "client/src/lib/api.ts",
+    "line": 822,
+    "caller": "marketplaceApi.createListing",
+    "body": [
+      {
+        "name": "category",
+        "optional": false
+      },
+      {
+        "name": "contactInfo",
+        "optional": true
+      },
+      {
+        "name": "description",
+        "optional": false
+      },
+      {
+        "name": "location",
+        "optional": true
+      },
+      {
+        "name": "priceRange",
+        "optional": true
+      },
+      {
+        "name": "title",
+        "optional": false
+      },
+      {
+        "name": "type",
+        "optional": true
+      },
+      {
+        "name": "website",
+        "optional": true
+      }
+    ],
+    "multipart": false,
+    "query": null,
+    "responseType": null,
+    "consumers": []
+  },
+  {
+    "method": "delete",
+    "path": "/marketplace/:id",
+    "source": "client/src/lib/api.ts",
+    "line": 826,
+    "caller": "marketplaceApi.deleteListing",
+    "body": null,
+    "multipart": false,
+    "query": null,
+    "responseType": null,
+    "consumers": []
+  },
+  {
+    "method": "get",
+    "path": "/marketplace/:id",
+    "source": "client/src/lib/api.ts",
+    "line": 818,
+    "caller": "marketplaceApi.getListing",
+    "body": null,
+    "multipart": false,
+    "query": null,
+    "responseType": null,
+    "consumers": []
+  },
+  {
+    "method": "patch",
+    "path": "/marketplace/:id",
+    "source": "client/src/lib/api.ts",
+    "line": 824,
+    "caller": "marketplaceApi.updateListing",
+    "body": [
+      {
+        "name": "category",
+        "optional": true
+      },
+      {
+        "name": "contactInfo",
+        "optional": true
+      },
+      {
+        "name": "description",
+        "optional": true
+      },
+      {
+        "name": "isActive",
+        "optional": true
+      },
+      {
+        "name": "isFeatured",
+        "optional": true
+      },
+      {
+        "name": "location",
+        "optional": true
+      },
+      {
+        "name": "priceRange",
+        "optional": true
+      },
+      {
+        "name": "title",
+        "optional": true
+      },
+      {
+        "name": "type",
+        "optional": true
+      },
+      {
+        "name": "website",
+        "optional": true
+      }
+    ],
+    "multipart": false,
+    "query": null,
+    "responseType": null,
+    "consumers": []
+  },
+  {
+    "method": "get",
+    "path": "/marketplace/categories",
+    "source": "client/src/lib/api.ts",
+    "line": 819,
+    "caller": "marketplaceApi.getCategories",
+    "body": null,
+    "multipart": false,
+    "query": null,
+    "responseType": null,
+    "consumers": []
+  },
+  {
+    "method": "get",
+    "path": "/marketplace/my",
+    "source": "client/src/lib/api.ts",
+    "line": 821,
+    "caller": "marketplaceApi.getMyListings",
+    "body": null,
+    "multipart": false,
+    "query": null,
+    "responseType": null,
+    "consumers": []
+  },
+  {
+    "method": "get",
+    "path": "/memberships/history",
+    "source": "client/src/lib/api.ts",
+    "line": 836,
+    "caller": "membershipApi.getHistory",
+    "body": null,
+    "multipart": false,
+    "query": [
+      {
+        "name": "limit",
+        "optional": true
+      },
+      {
+        "name": "page",
+        "optional": true
+      }
+    ],
+    "responseType": "ApiPaginated<any>",
+    "consumers": []
+  },
+  {
+    "method": "get",
+    "path": "/memberships/my",
+    "source": "client/src/lib/api.ts",
+    "line": 833,
+    "caller": "membershipApi.getMyMembership",
+    "body": null,
+    "multipart": false,
+    "query": null,
+    "responseType": null,
+    "consumers": []
+  },
+  {
+    "method": "post",
+    "path": "/memberships/order",
+    "source": "client/src/lib/api.ts",
+    "line": 838,
+    "caller": "membershipApi.createOrder",
+    "body": [
+      {
+        "name": "tierId",
+        "optional": false
+      }
+    ],
+    "multipart": false,
+    "query": null,
+    "responseType": "ApiSuccess<PaymentOrder>",
+    "consumers": []
+  },
+  {
+    "method": "get",
+    "path": "/memberships/tiers",
+    "source": "client/src/lib/api.ts",
+    "line": 831,
+    "caller": "membershipApi.getTiers",
+    "body": null,
+    "multipart": false,
+    "query": null,
+    "responseType": null,
+    "consumers": []
+  },
+  {
+    "method": "get",
+    "path": "/memberships/tiers/:id",
+    "source": "client/src/lib/api.ts",
+    "line": 832,
+    "caller": "membershipApi.getTier",
+    "body": null,
+    "multipart": false,
+    "query": null,
+    "responseType": null,
+    "consumers": []
+  },
+  {
+    "method": "post",
+    "path": "/memberships/verify",
+    "source": "client/src/lib/api.ts",
+    "line": 840,
+    "caller": "membershipApi.verifyPayment",
+    "body": [
+      {
+        "name": "razorpay_order_id",
+        "optional": false
+      },
+      {
+        "name": "razorpay_payment_id",
+        "optional": false
+      },
+      {
+        "name": "razorpay_signature",
+        "optional": false
+      }
+    ],
+    "multipart": false,
+    "query": null,
+    "responseType": null,
+    "consumers": []
+  },
+  {
+    "method": "get",
+    "path": "/mentorship/mentors",
+    "source": "client/src/app/(main)/mentorship/page.tsx",
+    "line": 110,
+    "caller": "fetchData",
+    "body": null,
+    "multipart": false,
+    "query": [
+      {
+        "name": "focusArea",
+        "optional": false
+      },
+      {
+        "name": "search",
+        "optional": false
+      }
+    ],
+    "responseType": null,
+    "consumers": []
+  },
+  {
+    "method": "get",
+    "path": "/mentorship/mentors",
+    "source": "client/src/lib/api.ts",
+    "line": 912,
+    "caller": "mentorshipApi.getMentors",
+    "body": null,
+    "multipart": false,
+    "query": [
+      {
+        "name": "available",
+        "optional": true
+      },
+      {
+        "name": "focusArea",
+        "optional": true
+      },
+      {
+        "name": "limit",
+        "optional": true
+      },
+      {
+        "name": "page",
+        "optional": true
+      },
+      {
+        "name": "search",
+        "optional": true
+      }
+    ],
+    "responseType": null,
+    "consumers": []
+  },
+  {
+    "method": "delete",
+    "path": "/mentorship/profile",
+    "source": "client/src/lib/api.ts",
+    "line": 919,
+    "caller": "mentorshipApi.deleteMentorProfile",
+    "body": null,
+    "multipart": false,
+    "query": null,
+    "responseType": null,
+    "consumers": []
+  },
+  {
+    "method": "get",
+    "path": "/mentorship/profile",
+    "source": "client/src/app/(main)/mentorship/page.tsx",
+    "line": 121,
+    "caller": "profileRes",
+    "body": null,
+    "multipart": false,
+    "query": null,
+    "responseType": null,
+    "consumers": []
+  },
+  {
+    "method": "get",
+    "path": "/mentorship/profile",
+    "source": "client/src/lib/api.ts",
+    "line": 914,
+    "caller": "mentorshipApi.getMyMentorProfile",
+    "body": null,
+    "multipart": false,
+    "query": null,
+    "responseType": null,
+    "consumers": []
+  },
+  {
+    "method": "patch",
+    "path": "/mentorship/profile",
+    "source": "client/src/lib/api.ts",
+    "line": 918,
+    "caller": "mentorshipApi.updateMentorProfile",
+    "body": [
+      {
+        "name": "availability",
+        "optional": true
+      },
+      {
+        "name": "bio",
+        "optional": true
+      },
+      {
+        "name": "focusAreas",
+        "optional": true
+      },
+      {
+        "name": "isActive",
+        "optional": true
+      },
+      {
+        "name": "maxMentees",
+        "optional": true
+      }
+    ],
+    "multipart": false,
+    "query": null,
+    "responseType": null,
+    "consumers": []
+  },
+  {
+    "method": "post",
+    "path": "/mentorship/profile",
+    "source": "client/src/app/(main)/mentorship/page.tsx",
+    "line": 141,
+    "caller": "handleBecomeMentor",
+    "body": [
+      {
+        "name": "availability",
+        "optional": false
+      },
+      {
+        "name": "bio",
+        "optional": false
+      },
+      {
+        "name": "focusAreas",
+        "optional": false
+      },
+      {
+        "name": "maxMentees",
+        "optional": false
+      }
+    ],
+    "multipart": false,
+    "query": null,
+    "responseType": null,
+    "consumers": []
+  },
+  {
+    "method": "post",
+    "path": "/mentorship/profile",
+    "source": "client/src/lib/api.ts",
+    "line": 916,
+    "caller": "mentorshipApi.createMentorProfile",
+    "body": [
+      {
+        "name": "availability",
+        "optional": true
+      },
+      {
+        "name": "bio",
+        "optional": true
+      },
+      {
+        "name": "focusAreas",
+        "optional": false
+      },
+      {
+        "name": "maxMentees",
+        "optional": true
+      }
+    ],
+    "multipart": false,
+    "query": null,
+    "responseType": null,
+    "consumers": []
+  },
+  {
+    "method": "get",
+    "path": "/mentorship/profile/:userId",
+    "source": "client/src/lib/api.ts",
+    "line": 913,
+    "caller": "mentorshipApi.getMentorProfile",
+    "body": null,
+    "multipart": false,
+    "query": null,
+    "responseType": null,
+    "consumers": []
+  },
+  {
+    "method": "post",
+    "path": "/mentorship/request/:id",
+    "source": "client/src/app/(main)/mentorship/page.tsx",
+    "line": 165,
+    "caller": "handleRequestMentorship",
+    "body": [
+      {
+        "name": "message",
+        "optional": false
+      }
+    ],
+    "multipart": false,
+    "query": null,
+    "responseType": null,
+    "consumers": []
+  },
+  {
+    "method": "post",
+    "path": "/mentorship/request/:mentorId",
+    "source": "client/src/lib/api.ts",
+    "line": 923,
+    "caller": "mentorshipApi.requestMentorship",
+    "body": [
+      {
+        "name": "message",
+        "optional": false
+      }
+    ],
+    "multipart": false,
+    "query": null,
+    "responseType": null,
+    "consumers": []
+  },
+  {
+    "method": "post",
+    "path": "/mentorship/request/:requestId/end",
+    "source": "client/src/lib/api.ts",
+    "line": 931,
+    "caller": "mentorshipApi.endMentorship",
+    "body": null,
+    "multipart": false,
+    "query": null,
+    "responseType": null,
+    "consumers": []
+  },
+  {
+    "method": "post",
+    "path": "/mentorship/request/:requestId/respond",
+    "source": "client/src/app/(main)/mentorship/page.tsx",
+    "line": 188,
+    "caller": "handleRespondToRequest",
+    "body": [
+      {
+        "name": "accept",
+        "optional": false
+      }
+    ],
+    "multipart": false,
+    "query": null,
+    "responseType": null,
+    "consumers": []
+  },
+  {
+    "method": "post",
+    "path": "/mentorship/request/:requestId/respond",
+    "source": "client/src/lib/api.ts",
+    "line": 925,
+    "caller": "mentorshipApi.respondToRequest",
+    "body": [
+      {
+        "name": "accept",
+        "optional": false
+      }
+    ],
+    "multipart": false,
+    "query": null,
+    "responseType": null,
+    "consumers": []
+  },
+  {
+    "method": "get",
+    "path": "/mentorship/request/:requestId/sessions",
+    "source": "client/src/lib/api.ts",
+    "line": 934,
+    "caller": "mentorshipApi.getSessions",
+    "body": null,
+    "multipart": false,
+    "query": null,
+    "responseType": null,
+    "consumers": []
+  },
+  {
+    "method": "post",
+    "path": "/mentorship/request/:requestId/sessions",
+    "source": "client/src/lib/api.ts",
+    "line": 936,
+    "caller": "mentorshipApi.scheduleSession",
+    "body": [
+      {
+        "name": "notes",
+        "optional": true
+      },
+      {
+        "name": "scheduledAt",
+        "optional": false
+      }
+    ],
+    "multipart": false,
+    "query": null,
+    "responseType": null,
+    "consumers": []
+  },
+  {
+    "method": "get",
+    "path": "/mentorship/requests/mentee",
+    "source": "client/src/app/(main)/mentorship/page.tsx",
+    "line": 112,
+    "caller": "fetchData",
+    "body": null,
+    "multipart": false,
+    "query": null,
+    "responseType": null,
+    "consumers": []
+  },
+  {
+    "method": "get",
+    "path": "/mentorship/requests/mentee",
+    "source": "client/src/lib/api.ts",
+    "line": 929,
+    "caller": "mentorshipApi.getMyMenteeRequests",
+    "body": null,
+    "multipart": false,
+    "query": [
+      {
+        "name": "status",
+        "optional": false
+      }
+    ],
+    "responseType": null,
+    "consumers": []
+  },
+  {
+    "method": "get",
+    "path": "/mentorship/requests/mentor",
+    "source": "client/src/app/(main)/mentorship/page.tsx",
+    "line": 111,
+    "caller": "fetchData",
+    "body": null,
+    "multipart": false,
+    "query": null,
+    "responseType": null,
+    "consumers": []
+  },
+  {
+    "method": "get",
+    "path": "/mentorship/requests/mentor",
+    "source": "client/src/lib/api.ts",
+    "line": 927,
+    "caller": "mentorshipApi.getMyMentorRequests",
+    "body": null,
+    "multipart": false,
+    "query": [
+      {
+        "name": "status",
+        "optional": false
+      }
+    ],
+    "responseType": null,
+    "consumers": []
+  },
+  {
+    "method": "post",
+    "path": "/mentorship/sessions/:sessionId/complete",
+    "source": "client/src/lib/api.ts",
+    "line": 938,
+    "caller": "mentorshipApi.completeSession",
+    "body": [
+      {
+        "name": "outcomes",
+        "optional": false
+      }
+    ],
+    "multipart": false,
+    "query": null,
+    "responseType": null,
+    "consumers": []
+  },
+  {
+    "method": "get",
+    "path": "/messages",
+    "source": "client/src/lib/api.ts",
+    "line": 713,
+    "caller": "messageApi.getConversations",
+    "body": null,
+    "multipart": false,
+    "query": [
+      {
+        "name": "limit",
+        "optional": false
+      },
+      {
+        "name": "page",
+        "optional": false
+      }
+    ],
+    "responseType": null,
+    "consumers": []
+  },
+  {
+    "method": "get",
+    "path": "/messages/:partnerId",
+    "source": "client/src/lib/api.ts",
+    "line": 715,
+    "caller": "messageApi.getMessages",
+    "body": null,
+    "multipart": false,
+    "query": [
+      {
+        "name": "limit",
+        "optional": false
+      },
+      {
+        "name": "page",
+        "optional": false
+      }
+    ],
+    "responseType": null,
+    "consumers": []
+  },
+  {
+    "method": "post",
+    "path": "/messages/:partnerId/read",
+    "source": "client/src/lib/api.ts",
+    "line": 719,
+    "caller": "messageApi.markAsRead",
+    "body": null,
+    "multipart": false,
+    "query": null,
+    "responseType": null,
+    "consumers": []
+  },
+  {
+    "method": "post",
+    "path": "/messages/:receiverId",
+    "source": "client/src/lib/api.ts",
+    "line": 717,
+    "caller": "messageApi.sendMessage",
+    "body": [
+      {
+        "name": "content",
+        "optional": false
+      },
+      {
+        "name": "mediaUrl",
+        "optional": false
+      }
+    ],
+    "multipart": false,
+    "query": null,
+    "responseType": null,
+    "consumers": []
+  },
+  {
+    "method": "get",
+    "path": "/messages/unread",
+    "source": "client/src/lib/api.ts",
+    "line": 718,
+    "caller": "messageApi.getUnreadCount",
+    "body": null,
+    "multipart": false,
+    "query": null,
+    "responseType": null,
+    "consumers": []
+  },
+  {
+    "method": "delete",
+    "path": "/network/connection/:id",
+    "source": "client/src/lib/api.ts",
+    "line": 707,
+    "caller": "networkApi.removeConnection",
+    "body": null,
+    "multipart": false,
+    "query": null,
+    "responseType": null,
+    "consumers": []
+  },
+  {
+    "method": "get",
+    "path": "/network/connections",
+    "source": "client/src/lib/api.ts",
+    "line": 700,
+    "caller": "networkApi.getConnections",
+    "body": null,
+    "multipart": false,
+    "query": [
+      {
+        "name": "limit",
+        "optional": false
+      },
+      {
+        "name": "page",
+        "optional": false
+      }
+    ],
+    "responseType": null,
+    "consumers": []
+  },
+  {
+    "method": "post",
+    "path": "/network/request/:userId",
+    "source": "client/src/lib/api.ts",
+    "line": 704,
+    "caller": "networkApi.sendRequest",
+    "body": null,
+    "multipart": false,
+    "query": null,
+    "responseType": null,
+    "consumers": []
+  },
+  {
+    "method": "get",
+    "path": "/network/requests",
+    "source": "client/src/lib/api.ts",
+    "line": 701,
+    "caller": "networkApi.getPendingRequests",
+    "body": null,
+    "multipart": false,
+    "query": null,
+    "responseType": null,
+    "consumers": []
+  },
+  {
+    "method": "post",
+    "path": "/network/respond/:id",
+    "source": "client/src/lib/api.ts",
+    "line": 706,
+    "caller": "networkApi.respondToRequest",
+    "body": [
+      {
+        "name": "accept",
+        "optional": false
+      }
+    ],
+    "multipart": false,
+    "query": null,
+    "responseType": null,
+    "consumers": []
+  },
+  {
+    "method": "get",
+    "path": "/network/suggestions",
+    "source": "client/src/lib/api.ts",
+    "line": 703,
+    "caller": "networkApi.getSuggestions",
+    "body": null,
+    "multipart": false,
+    "query": [
+      {
+        "name": "limit",
+        "optional": false
+      }
+    ],
+    "responseType": null,
+    "consumers": []
+  },
+  {
+    "method": "get",
+    "path": "/news",
+    "source": "client/src/lib/api.ts",
+    "line": 771,
+    "caller": "newsApi.getArticles",
+    "body": null,
+    "multipart": false,
+    "query": [
+      {
+        "name": "category",
+        "optional": true
+      },
+      {
+        "name": "limit",
+        "optional": true
+      },
+      {
+        "name": "page",
+        "optional": true
+      },
+      {
+        "name": "search",
+        "optional": true
+      }
+    ],
+    "responseType": null,
+    "consumers": []
+  },
+  {
+    "method": "get",
+    "path": "/news/:slug",
+    "source": "client/src/lib/api.ts",
+    "line": 773,
+    "caller": "newsApi.getArticle",
+    "body": null,
+    "multipart": false,
+    "query": null,
+    "responseType": null,
+    "consumers": []
+  },
+  {
+    "method": "get",
+    "path": "/news/latest",
+    "source": "client/src/lib/api.ts",
+    "line": 774,
+    "caller": "newsApi.getLatest",
+    "body": null,
+    "multipart": false,
+    "query": [
+      {
+        "name": "limit",
+        "optional": false
+      }
+    ],
+    "responseType": null,
+    "consumers": []
+  },
+  {
+    "method": "get",
+    "path": "/notifications",
+    "source": "client/src/lib/api.ts",
+    "line": 726,
+    "caller": "notificationApi.getNotifications",
+    "body": null,
+    "multipart": false,
+    "query": [
+      {
+        "name": "limit",
+        "optional": false
+      },
+      {
+        "name": "page",
+        "optional": false
+      },
+      {
+        "name": "unread",
+        "optional": false
+      }
+    ],
+    "responseType": "ApiPaginated<AppNotification>",
+    "consumers": []
+  },
+  {
+    "method": "delete",
+    "path": "/notifications/:id",
+    "source": "client/src/lib/api.ts",
+    "line": 732,
+    "caller": "notificationApi.deleteNotification",
+    "body": null,
+    "multipart": false,
+    "query": null,
+    "responseType": null,
+    "consumers": []
+  },
+  {
+    "method": "post",
+    "path": "/notifications/:id/read",
+    "source": "client/src/lib/api.ts",
+    "line": 730,
+    "caller": "notificationApi.markAsRead",
+    "body": null,
+    "multipart": false,
+    "query": null,
+    "responseType": null,
+    "consumers": []
+  },
+  {
+    "method": "post",
+    "path": "/notifications/read-all",
+    "source": "client/src/lib/api.ts",
+    "line": 731,
+    "caller": "notificationApi.markAllAsRead",
+    "body": null,
+    "multipart": false,
+    "query": null,
+    "responseType": null,
+    "consumers": []
+  },
+  {
+    "method": "get",
+    "path": "/notifications/unread",
+    "source": "client/src/lib/api.ts",
+    "line": 729,
+    "caller": "notificationApi.getUnreadCount",
+    "body": null,
+    "multipart": false,
+    "query": null,
+    "responseType": "ApiSuccess<{ unreadCount: number }>",
+    "consumers": []
+  },
+  {
+    "method": "get",
+    "path": "/platform/readiness",
+    "source": "client/src/lib/api.ts",
+    "line": 1149,
+    "caller": "platformApi.getReadiness",
+    "body": null,
+    "multipart": false,
+    "query": null,
+    "responseType": null,
+    "consumers": []
+  },
+  {
+    "method": "get",
+    "path": "/posts",
+    "source": "client/src/lib/api.ts",
+    "line": 644,
+    "caller": "postApi.getFeed",
+    "body": null,
+    "multipart": false,
+    "query": [
+      {
+        "name": "limit",
+        "optional": false
+      },
+      {
+        "name": "page",
+        "optional": false
+      }
+    ],
+    "responseType": null,
+    "consumers": []
+  },
+  {
+    "method": "post",
+    "path": "/posts",
+    "source": "client/src/lib/api.ts",
+    "line": 646,
+    "caller": "postApi.createPost",
+    "body": [
+      {
+        "name": "content",
+        "optional": false
+      },
+      {
+        "name": "mediaUrls",
+        "optional": true
+      },
+      {
+        "name": "visibility",
+        "optional": true
+      }
+    ],
+    "multipart": false,
+    "query": null,
+    "responseType": null,
+    "consumers": []
+  },
+  {
+    "method": "post",
+    "path": "/posts",
+    "source": "client/src/lib/social.ts",
+    "line": 681,
+    "caller": "socialApi.createPost",
+    "body": [
+      {
+        "name": "content",
+        "optional": true
+      },
+      {
+        "name": "isReel",
+        "optional": true
+      },
+      {
+        "name": "linkUrl",
+        "optional": true
+      },
+      {
+        "name": "mediaUrls",
+        "optional": true
+      },
+      {
+        "name": "mentionIds",
+        "optional": true
+      },
+      {
+        "name": "thumbnailUrl",
+        "optional": true
+      },
+      {
+        "name": "type",
+        "optional": true
+      },
+      {
+        "name": "videoUrl",
+        "optional": true
+      },
+      {
+        "name": "visibility",
+        "optional": true
+      }
+    ],
+    "multipart": false,
+    "query": null,
+    "responseType": null,
+    "consumers": [
+      "normalizePost",
+      "data"
+    ]
+  },
+  {
+    "method": "delete",
+    "path": "/posts/:id",
+    "source": "client/src/lib/api.ts",
+    "line": 648,
+    "caller": "postApi.deletePost",
+    "body": null,
+    "multipart": false,
+    "query": null,
+    "responseType": null,
+    "consumers": []
+  },
+  {
+    "method": "delete",
+    "path": "/posts/:id",
+    "source": "client/src/lib/social.ts",
+    "line": 684,
+    "caller": "socialApi.deletePost",
+    "body": null,
+    "multipart": false,
+    "query": null,
+    "responseType": null,
+    "consumers": []
+  },
+  {
+    "method": "get",
+    "path": "/posts/:id",
+    "source": "client/src/lib/api.ts",
+    "line": 645,
+    "caller": "postApi.getPost",
+    "body": null,
+    "multipart": false,
+    "query": null,
+    "responseType": null,
+    "consumers": []
+  },
+  {
+    "method": "get",
+    "path": "/posts/:id",
+    "source": "client/src/lib/social.ts",
+    "line": 680,
+    "caller": "socialApi.getPost",
+    "body": null,
+    "multipart": false,
+    "query": null,
+    "responseType": null,
+    "consumers": [
+      "normalizePost",
+      "data"
+    ]
+  },
+  {
+    "method": "patch",
+    "path": "/posts/:id",
+    "source": "client/src/lib/api.ts",
+    "line": 647,
+    "caller": "postApi.updatePost",
+    "body": [
+      {
+        "name": "content",
+        "optional": true
+      },
+      {
+        "name": "mediaUrls",
+        "optional": true
+      },
+      {
+        "name": "visibility",
+        "optional": true
+      }
+    ],
+    "multipart": false,
+    "query": null,
+    "responseType": null,
+    "consumers": []
+  },
+  {
+    "method": "patch",
+    "path": "/posts/:id",
+    "source": "client/src/lib/social.ts",
+    "line": 683,
+    "caller": "socialApi.updatePost",
+    "body": [
+      {
+        "name": "content",
+        "optional": true
+      },
+      {
+        "name": "isPinned",
+        "optional": true
+      },
+      {
+        "name": "isReel",
+        "optional": true
+      },
+      {
+        "name": "linkUrl",
+        "optional": true
+      },
+      {
+        "name": "mediaUrls",
+        "optional": true
+      },
+      {
+        "name": "mentionIds",
+        "optional": true
+      },
+      {
+        "name": "thumbnailUrl",
+        "optional": true
+      },
+      {
+        "name": "type",
+        "optional": true
+      },
+      {
+        "name": "videoUrl",
+        "optional": true
+      },
+      {
+        "name": "visibility",
+        "optional": true
+      }
+    ],
+    "multipart": false,
+    "query": null,
+    "responseType": null,
+    "consumers": [
+      "normalizePost",
+      "data"
+    ]
+  },
+  {
+    "method": "post",
+    "path": "/posts/:id/like",
+    "source": "client/src/lib/api.ts",
+    "line": 649,
+    "caller": "postApi.likePost",
+    "body": null,
+    "multipart": false,
+    "query": null,
+    "responseType": null,
+    "consumers": []
+  },
+  {
+    "method": "post",
+    "path": "/posts/:id/react",
+    "source": "client/src/lib/social.ts",
+    "line": 685,
+    "caller": "socialApi.react",
+    "body": [
+      {
+        "name": "type",
+        "optional": false
+      }
+    ],
+    "multipart": false,
+    "query": null,
+    "responseType": null,
+    "consumers": [
+      "data"
+    ]
+  },
+  {
+    "method": "get",
+    "path": "/posts/:id/reactions",
+    "source": "client/src/lib/social.ts",
+    "line": 688,
+    "caller": "socialApi.reactions",
+    "body": null,
+    "multipart": false,
+    "query": [
+      {
+        "name": "cursor",
+        "optional": true
+      },
+      {
+        "name": "limit",
+        "optional": true
+      },
+      {
+        "name": "type",
+        "optional": true
+      }
+    ],
+    "responseType": null,
+    "consumers": [
+      "normalizePage",
+      "data",
+      "normalizeReactionEntry"
+    ]
+  },
+  {
+    "method": "post",
+    "path": "/posts/:id/report",
+    "source": "client/src/lib/social.ts",
+    "line": 732,
+    "caller": "socialApi.reportPost",
+    "body": [
+      {
+        "name": "details",
+        "optional": true
+      },
+      {
+        "name": "reason",
+        "optional": false
+      }
+    ],
+    "multipart": false,
+    "query": null,
+    "responseType": null,
+    "consumers": [
+      "data"
+    ]
+  },
+  {
+    "method": "delete",
+    "path": "/posts/:id/repost",
+    "source": "client/src/lib/social.ts",
+    "line": 707,
+    "caller": "socialApi.undoRepost",
+    "body": null,
+    "multipart": false,
+    "query": null,
+    "responseType": null,
+    "consumers": [
+      "data"
+    ]
+  },
+  {
+    "method": "post",
+    "path": "/posts/:id/repost",
+    "source": "client/src/lib/social.ts",
+    "line": 706,
+    "caller": "socialApi.repost",
+    "body": [
+      {
+        "name": "content",
+        "optional": true
+      },
+      {
+        "name": "visibility",
+        "optional": true
+      }
+    ],
+    "multipart": false,
+    "query": null,
+    "responseType": null,
+    "consumers": [
+      "normalizePost",
+      "data"
+    ]
+  },
+  {
+    "method": "post",
+    "path": "/posts/:id/save",
+    "source": "client/src/lib/social.ts",
+    "line": 708,
+    "caller": "socialApi.toggleSave",
+    "body": null,
+    "multipart": false,
+    "query": null,
+    "responseType": null,
+    "consumers": [
+      "data"
+    ]
+  },
+  {
+    "method": "post",
+    "path": "/posts/:id/view",
+    "source": "client/src/lib/social.ts",
+    "line": 691,
+    "caller": "socialApi.view",
+    "body": null,
+    "multipart": false,
+    "query": null,
+    "responseType": null,
+    "consumers": []
+  },
+  {
+    "method": "get",
+    "path": "/posts/:postId/comments",
+    "source": "client/src/lib/social.ts",
+    "line": 694,
+    "caller": "socialApi.comments",
+    "body": null,
+    "multipart": false,
+    "query": [
+      {
+        "name": "cursor",
+        "optional": true
+      },
+      {
+        "name": "limit",
+        "optional": true
+      },
+      {
+        "name": "sort",
+        "optional": false
+      }
+    ],
+    "responseType": null,
+    "consumers": [
+      "normalizePage",
+      "data",
+      "normalizeComment"
+    ]
+  },
+  {
+    "method": "post",
+    "path": "/posts/:postId/comments",
+    "source": "client/src/lib/api.ts",
+    "line": 651,
+    "caller": "postApi.addComment",
+    "body": [
+      {
+        "name": "content",
+        "optional": false
+      },
+      {
+        "name": "parentId",
+        "optional": false
+      }
+    ],
+    "multipart": false,
+    "query": null,
+    "responseType": null,
+    "consumers": []
+  },
+  {
+    "method": "post",
+    "path": "/posts/:postId/comments",
+    "source": "client/src/lib/social.ts",
+    "line": 700,
+    "caller": "socialApi.addComment",
+    "body": [
+      {
+        "name": "content",
+        "optional": false
+      },
+      {
+        "name": "mentionIds",
+        "optional": true
+      },
+      {
+        "name": "parentId",
+        "optional": true
+      }
+    ],
+    "multipart": false,
+    "query": null,
+    "responseType": null,
+    "consumers": [
+      "normalizeComment",
+      "data"
+    ]
+  },
+  {
+    "method": "post",
+    "path": "/posts/media",
+    "source": "client/src/lib/social.ts",
+    "line": 742,
+    "caller": "d",
+    "body": null,
+    "multipart": true,
+    "query": null,
+    "responseType": null,
+    "consumers": [
+      "asObject",
+      "data"
+    ]
+  },
+  {
+    "method": "post",
+    "path": "/posts/video",
+    "source": "client/src/lib/social.ts",
+    "line": 750,
+    "caller": "d",
+    "body": null,
+    "multipart": true,
+    "query": null,
+    "responseType": null,
+    "consumers": [
+      "asObject",
+      "data"
+    ]
+  },
+  {
+    "method": "get",
+    "path": "/reels",
+    "source": "client/src/lib/social.ts",
+    "line": 731,
+    "caller": "socialApi.reels",
+    "body": null,
+    "multipart": false,
+    "query": [
+      {
+        "name": "cursor",
+        "optional": true
+      },
+      {
+        "name": "limit",
+        "optional": true
+      }
+    ],
+    "responseType": null,
+    "consumers": [
+      "normalizePage",
+      "data",
+      "normalizePost"
+    ]
+  },
+  {
+    "method": "get",
+    "path": "/saved",
+    "source": "client/src/lib/social.ts",
+    "line": 710,
+    "caller": "socialApi.saved",
+    "body": null,
+    "multipart": false,
+    "query": [
+      {
+        "name": "cursor",
+        "optional": true
+      },
+      {
+        "name": "limit",
+        "optional": true
+      }
+    ],
+    "responseType": null,
+    "consumers": [
+      "normalizePage",
+      "data",
+      "normalizePost"
+    ]
+  },
+  {
+    "method": "get",
+    "path": "/search",
+    "source": "client/src/lib/api.ts",
+    "line": 955,
+    "caller": "searchApi.globalSearch",
+    "body": null,
+    "multipart": false,
+    "query": [
+      {
+        "name": "q",
+        "optional": false
+      }
+    ],
+    "responseType": "ApiSuccess<GlobalSearchResults>",
+    "consumers": []
+  },
+  {
+    "method": "get",
+    "path": "/transactions/:id/receipt",
+    "source": "client/src/lib/api.ts",
+    "line": 1144,
+    "caller": "transactionApi.downloadReceipt",
+    "body": null,
+    "multipart": false,
+    "query": null,
+    "responseType": "Blob",
+    "consumers": []
+  },
+  {
+    "method": "get",
+    "path": "/transactions/my",
+    "source": "client/src/lib/api.ts",
+    "line": 1141,
+    "caller": "transactionApi.getMyTransactions",
+    "body": null,
+    "multipart": false,
+    "query": [
+      {
+        "name": "limit",
+        "optional": true
+      },
+      {
+        "name": "page",
+        "optional": true
+      },
+      {
+        "name": "status",
+        "optional": true
+      },
+      {
+        "name": "type",
+        "optional": true
+      }
+    ],
+    "responseType": "ApiPaginated<Transaction>",
+    "consumers": []
+  },
+  {
+    "method": "get",
+    "path": "/users/:id",
+    "source": "client/src/app/(main)/profile/[id]/page.tsx",
+    "line": 14,
+    "caller": "response",
+    "body": null,
+    "multipart": false,
+    "query": null,
+    "responseType": null,
+    "consumers": []
+  },
+  {
+    "method": "get",
+    "path": "/users/:id",
+    "source": "client/src/lib/api.ts",
+    "line": 581,
+    "caller": "userApi.getProfile",
+    "body": null,
+    "multipart": false,
+    "query": null,
+    "responseType": null,
+    "consumers": []
+  },
+  {
+    "method": "delete",
+    "path": "/users/:userId/follow",
+    "source": "client/src/lib/social.ts",
+    "line": 712,
+    "caller": "socialApi.unfollow",
+    "body": null,
+    "multipart": false,
+    "query": null,
+    "responseType": null,
+    "consumers": [
+      "data"
+    ]
+  },
+  {
+    "method": "post",
+    "path": "/users/:userId/follow",
+    "source": "client/src/lib/social.ts",
+    "line": 711,
+    "caller": "socialApi.follow",
+    "body": null,
+    "multipart": false,
+    "query": null,
+    "responseType": null,
+    "consumers": [
+      "data"
+    ]
+  },
+  {
+    "method": "get",
+    "path": "/users/:userId/followers",
+    "source": "client/src/lib/social.ts",
+    "line": 714,
+    "caller": "socialApi.followers",
+    "body": null,
+    "multipart": false,
+    "query": [
+      {
+        "name": "cursor",
+        "optional": true
+      },
+      {
+        "name": "limit",
+        "optional": true
+      }
+    ],
+    "responseType": null,
+    "consumers": [
+      "normalizePage",
+      "data",
+      "normalizeFollowPerson"
+    ]
+  },
+  {
+    "method": "get",
+    "path": "/users/:userId/following",
+    "source": "client/src/lib/social.ts",
+    "line": 716,
+    "caller": "socialApi.following",
+    "body": null,
+    "multipart": false,
+    "query": [
+      {
+        "name": "cursor",
+        "optional": true
+      },
+      {
+        "name": "limit",
+        "optional": true
+      }
+    ],
+    "responseType": null,
+    "consumers": [
+      "normalizePage",
+      "data",
+      "normalizeFollowPerson"
+    ]
+  },
+  {
+    "method": "get",
+    "path": "/users/:userId/posts",
+    "source": "client/src/lib/social.ts",
+    "line": 719,
+    "caller": "socialApi.userPosts",
+    "body": null,
+    "multipart": false,
+    "query": [
+      {
+        "name": "cursor",
+        "optional": true
+      },
+      {
+        "name": "limit",
+        "optional": true
+      },
+      {
+        "name": "reels",
+        "optional": true
+      }
+    ],
+    "responseType": null,
+    "consumers": [
+      "normalizePage",
+      "data",
+      "normalizePost"
+    ]
+  },
+  {
+    "method": "patch",
+    "path": "/users/cover-photo",
+    "source": "client/src/lib/api.ts",
+    "line": 587,
+    "caller": "userApi.uploadCoverPhoto",
+    "body": null,
+    "multipart": true,
+    "query": null,
+    "responseType": null,
+    "consumers": []
+  },
+  {
+    "method": "get",
+    "path": "/users/directory",
+    "source": "client/src/lib/api.ts",
+    "line": 589,
+    "caller": "userApi.getDirectory",
+    "body": null,
+    "multipart": false,
+    "query": [
+      {
+        "name": "batchYear",
+        "optional": true
+      },
+      {
+        "name": "department",
+        "optional": true
+      },
+      {
+        "name": "limit",
+        "optional": true
+      },
+      {
+        "name": "page",
+        "optional": true
+      },
+      {
+        "name": "search",
+        "optional": true
+      }
+    ],
+    "responseType": null,
+    "consumers": []
+  },
+  {
+    "method": "post",
+    "path": "/users/education",
+    "source": "client/src/lib/api.ts",
+    "line": 632,
+    "caller": "userApi.addEducation",
+    "body": [
+      {
+        "name": "degree",
+        "optional": false
+      },
+      {
+        "name": "description",
+        "optional": true
+      },
+      {
+        "name": "endYear",
+        "optional": true
+      },
+      {
+        "name": "fieldOfStudy",
+        "optional": true
+      },
+      {
+        "name": "grade",
+        "optional": true
+      },
+      {
+        "name": "institution",
+        "optional": false
+      },
+      {
+        "name": "isPrimary",
+        "optional": true
+      },
+      {
+        "name": "startYear",
+        "optional": false
+      }
+    ],
+    "multipart": false,
+    "query": null,
+    "responseType": null,
+    "consumers": []
+  },
+  {
+    "method": "delete",
+    "path": "/users/education/:id",
+    "source": "client/src/lib/api.ts",
+    "line": 635,
+    "caller": "userApi.deleteEducation",
+    "body": null,
+    "multipart": false,
+    "query": null,
+    "responseType": null,
+    "consumers": []
+  },
+  {
+    "method": "patch",
+    "path": "/users/education/:id",
+    "source": "client/src/lib/api.ts",
+    "line": 634,
+    "caller": "userApi.updateEducation",
+    "body": [
+      {
+        "name": "degree",
+        "optional": true
+      },
+      {
+        "name": "description",
+        "optional": true
+      },
+      {
+        "name": "endYear",
+        "optional": true
+      },
+      {
+        "name": "fieldOfStudy",
+        "optional": true
+      },
+      {
+        "name": "grade",
+        "optional": true
+      },
+      {
+        "name": "institution",
+        "optional": true
+      },
+      {
+        "name": "isPrimary",
+        "optional": true
+      },
+      {
+        "name": "startYear",
+        "optional": true
+      }
+    ],
+    "multipart": false,
+    "query": null,
+    "responseType": null,
+    "consumers": []
+  },
+  {
+    "method": "get",
+    "path": "/users/locations",
+    "source": "client/src/lib/api.ts",
+    "line": 604,
+    "caller": "userApi.getLocations",
+    "body": null,
+    "multipart": false,
+    "query": [
+      {
+        "name": "batchYear",
+        "optional": true
+      },
+      {
+        "name": "department",
+        "optional": true
+      },
+      {
+        "name": "east",
+        "optional": true
+      },
+      {
+        "name": "limit",
+        "optional": true
+      },
+      {
+        "name": "north",
+        "optional": true
+      },
+      {
+        "name": "search",
+        "optional": true
+      },
+      {
+        "name": "south",
+        "optional": true
+      },
+      {
+        "name": "west",
+        "optional": true
+      }
+    ],
+    "responseType": null,
+    "consumers": []
+  },
+  {
+    "method": "delete",
+    "path": "/users/me",
+    "source": "client/src/lib/api.ts",
+    "line": 1123,
+    "caller": "accountApi.deleteMyAccount",
+    "body": [
+      {
+        "name": "confirm",
+        "optional": false
+      },
+      {
+        "name": "password",
+        "optional": false
+      }
+    ],
+    "multipart": false,
+    "query": null,
+    "responseType": null,
+    "consumers": []
+  },
+  {
+    "method": "get",
+    "path": "/users/me/export",
+    "source": "client/src/lib/api.ts",
+    "line": 1122,
+    "caller": "accountApi.exportMyData",
+    "body": null,
+    "multipart": false,
+    "query": null,
+    "responseType": "ApiSuccess<Record<string, unknown> & { exportedAt: string }>",
+    "consumers": []
+  },
+  {
+    "method": "get",
+    "path": "/users/mention-search",
+    "source": "client/src/lib/social.ts",
+    "line": 723,
+    "caller": "d",
+    "body": null,
+    "multipart": false,
+    "query": [
+      {
+        "name": "limit",
+        "optional": false
+      },
+      {
+        "name": "q",
+        "optional": false
+      }
+    ],
+    "responseType": null,
+    "consumers": [
+      "data"
+    ]
+  },
+  {
+    "method": "get",
+    "path": "/users/nearby",
+    "source": "client/src/lib/api.ts",
+    "line": 613,
+    "caller": "userApi.getNearby",
+    "body": null,
+    "multipart": false,
+    "query": [
+      {
+        "name": "batchYear",
+        "optional": true
+      },
+      {
+        "name": "department",
+        "optional": true
+      },
+      {
+        "name": "lat",
+        "optional": false
+      },
+      {
+        "name": "limit",
+        "optional": false
+      },
+      {
+        "name": "lng",
+        "optional": false
+      },
+      {
+        "name": "radius",
+        "optional": false
+      },
+      {
+        "name": "search",
+        "optional": true
+      }
+    ],
+    "responseType": null,
+    "consumers": []
+  },
+  {
+    "method": "get",
+    "path": "/users/notable",
+    "source": "client/src/lib/api.ts",
+    "line": 593,
+    "caller": "userApi.getNotable",
+    "body": null,
+    "multipart": false,
+    "query": [
+      {
+        "name": "limit",
+        "optional": false
+      }
+    ],
+    "responseType": null,
+    "consumers": []
+  },
+  {
+    "method": "patch",
+    "path": "/users/profile",
+    "source": "client/src/lib/api.ts",
+    "line": 582,
+    "caller": "userApi.updateProfile",
+    "body": [
+      {
+        "name": "city",
+        "optional": true
+      },
+      {
+        "name": "currentDesignation",
+        "optional": true
+      },
+      {
+        "name": "fullName",
+        "optional": true
+      },
+      {
+        "name": "githubUrl",
+        "optional": true
+      },
+      {
+        "name": "hometown",
+        "optional": true
+      },
+      {
+        "name": "isLocationPublic",
+        "optional": true
+      },
+      {
+        "name": "linkedinUrl",
+        "optional": true
+      },
+      {
+        "name": "locationLat",
+        "optional": true
+      },
+      {
+        "name": "locationLng",
+        "optional": true
+      },
+      {
+        "name": "phoneNumber",
+        "optional": true
+      },
+      {
+        "name": "phoneVisibility",
+        "optional": true
+      },
+      {
+        "name": "secondaryEmail",
+        "optional": true
+      },
+      {
+        "name": "shortBio",
+        "optional": true
+      },
+      {
+        "name": "twitterUrl",
+        "optional": true
+      },
+      {
+        "name": "websiteUrl",
+        "optional": true
+      }
+    ],
+    "multipart": false,
+    "query": null,
+    "responseType": null,
+    "consumers": []
+  },
+  {
+    "method": "patch",
+    "path": "/users/profile-photo",
+    "source": "client/src/lib/api.ts",
+    "line": 585,
+    "caller": "userApi.uploadProfilePhoto",
+    "body": null,
+    "multipart": true,
+    "query": null,
+    "responseType": null,
+    "consumers": []
+  },
+  {
+    "method": "put",
+    "path": "/users/skills",
+    "source": "client/src/lib/api.ts",
+    "line": 638,
+    "caller": "userApi.updateSkills",
+    "body": [
+      {
+        "name": "skills",
+        "optional": false
+      }
+    ],
+    "multipart": false,
+    "query": null,
+    "responseType": null,
+    "consumers": []
+  },
+  {
+    "method": "get",
+    "path": "/users/stats",
+    "source": "client/src/lib/api.ts",
+    "line": 592,
+    "caller": "userApi.getStats",
+    "body": null,
+    "multipart": false,
+    "query": null,
+    "responseType": null,
+    "consumers": []
+  },
+  {
+    "method": "post",
+    "path": "/users/work-experience",
+    "source": "client/src/lib/api.ts",
+    "line": 625,
+    "caller": "userApi.addWorkExperience",
+    "body": [
+      {
+        "name": "company",
+        "optional": false
+      },
+      {
+        "name": "description",
+        "optional": true
+      },
+      {
+        "name": "endDate",
+        "optional": true
+      },
+      {
+        "name": "isCurrent",
+        "optional": true
+      },
+      {
+        "name": "location",
+        "optional": true
+      },
+      {
+        "name": "role",
+        "optional": false
+      },
+      {
+        "name": "startDate",
+        "optional": false
+      }
+    ],
+    "multipart": false,
+    "query": null,
+    "responseType": null,
+    "consumers": []
+  },
+  {
+    "method": "delete",
+    "path": "/users/work-experience/:id",
+    "source": "client/src/lib/api.ts",
+    "line": 629,
+    "caller": "userApi.deleteWorkExperience",
+    "body": null,
+    "multipart": false,
+    "query": null,
+    "responseType": null,
+    "consumers": []
+  },
+  {
+    "method": "patch",
+    "path": "/users/work-experience/:id",
+    "source": "client/src/lib/api.ts",
+    "line": 627,
+    "caller": "userApi.updateWorkExperience",
+    "body": [
+      {
+        "name": "company",
+        "optional": true
+      },
+      {
+        "name": "description",
+        "optional": true
+      },
+      {
+        "name": "endDate",
+        "optional": true
+      },
+      {
+        "name": "isCurrent",
+        "optional": true
+      },
+      {
+        "name": "location",
+        "optional": true
+      },
+      {
+        "name": "role",
+        "optional": true
+      },
+      {
+        "name": "startDate",
+        "optional": true
+      }
+    ],
+    "multipart": false,
+    "query": null,
+    "responseType": null,
+    "consumers": []
+  },
+  {
+    "method": "get",
+    "path": "/users/yearbook/:year",
+    "source": "client/src/lib/api.ts",
+    "line": 591,
+    "caller": "userApi.getYearbook",
+    "body": null,
+    "multipart": false,
+    "query": [
+      {
+        "name": "department",
+        "optional": false
+      }
+    ],
+    "responseType": null,
+    "consumers": []
+  }
+]

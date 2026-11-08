@@ -1,6 +1,7 @@
 import prisma from '../config/database';
 import { AppError } from '../middleware/errorHandler';
 import { comparePassword } from '../utils/password';
+import { checkPasswordWithBudget } from './attemptLimiter';
 import { logAuditAction } from './auditService';
 import type { RequestMeta } from './adminService';
 import { disconnectUser } from '../utils/socket';
@@ -67,6 +68,15 @@ export class PrivacyService {
       mentorship,
       marketplaceListings,
       notifications,
+      follows,
+      savedPosts,
+      invitesSent,
+      reactions,
+      commentReactions,
+      reportsFiled,
+      galleryPhotos,
+      eventsCreated,
+      activityLog,
     ] = await Promise.all([
       prisma.post.findMany({ where: { userId } }),
       prisma.postComment.findMany({ where: { userId } }),
@@ -81,6 +91,23 @@ export class PrivacyService {
       prisma.mentorshipRequest.findMany({ where: { OR: [{ menteeId: userId }, { mentorId: userId }] }, include: { sessions: true } }),
       prisma.marketplaceListing.findMany({ where: { userId } }),
       prisma.notification.findMany({ where: { userId } }),
+      prisma.follow.findMany({ where: { OR: [{ followerId: userId }, { followingId: userId }] } }),
+      prisma.savedPost.findMany({ where: { userId } }),
+      // Invite tokens are bearer secrets: never exported
+      prisma.invite.findMany({
+        where: { inviterId: userId },
+        select: { id: true, email: true, name: true, batchYear: true, status: true, isShareable: true, createdAt: true, expiresAt: true, acceptedAt: true },
+      }),
+      // Everything else the member wrote or did that is stored against their id
+      prisma.postLike.findMany({ where: { userId } }),
+      prisma.commentReaction.findMany({ where: { userId } }),
+      prisma.contentReport.findMany({
+        where: { reporterId: userId },
+        select: { id: true, postId: true, commentId: true, reason: true, details: true, status: true, createdAt: true },
+      }),
+      prisma.galleryPhoto.findMany({ where: { uploadedById: userId } }),
+      prisma.event.findMany({ where: { createdById: userId } }),
+      prisma.auditLog.findMany({ where: { userId }, orderBy: { createdAt: 'asc' } }),
     ]);
 
     await logAuditAction({
@@ -100,25 +127,38 @@ export class PrivacyService {
       eventRsvps,
       connections,
       messages,
-      transactions,
+      // The checkout signature is a payment credential, not something a data subject needs
+      transactions: (transactions ?? []).map(({ gatewaySignature: _signature, ...rest }) => rest),
       donations,
       memberships,
       chapters,
       mentorship,
       marketplaceListings,
       notifications,
+      follows,
+      savedPosts,
+      invitesSent,
+      reactions,
+      commentReactions,
+      reportsFiled,
+      galleryPhotos,
+      eventsCreated,
+      activityLog,
     };
   }
 
   async deleteMyAccount(userId: string, input: DeleteAccountInput, meta: RequestMeta = {}) {
     const user = await prisma.user.findUnique({
       where: { id: userId },
-      select: { id: true, userRole: true, passwordHash: true },
+      select: { id: true, email: true, userRole: true, passwordHash: true },
     });
     if (!user) throw new AppError('User not found', 404, 'NOT_FOUND');
 
     if (user.passwordHash) {
-      const ok = input.password ? await comparePassword(input.password, user.passwordHash) : false;
+      const { password } = input;
+      const currentHash = user.passwordHash;
+      // Shares the per-account budget with change-password: a stolen token cannot guess the password here
+      const ok = password ? await checkPasswordWithBudget(userId, () => comparePassword(password, currentHash)) : false;
       if (!ok) throw new AppError('Password is incorrect', 401, 'INVALID_PASSWORD');
     } else if (input.confirm !== 'DELETE') {
       throw new AppError('Type DELETE to confirm account deletion', 400, 'CONFIRMATION_REQUIRED');
@@ -140,6 +180,15 @@ export class PrivacyService {
       await tx.notification.deleteMany({ where: { userId } });
       await tx.connection.deleteMany({ where: { OR: [{ requesterId: userId }, { addresseeId: userId }] } });
       await tx.marketplaceListing.deleteMany({ where: { userId } });
+      // Social graph and bookmarks exist only because of this user
+      await tx.follow.deleteMany({ where: { OR: [{ followerId: userId }, { followingId: userId }] } });
+      await tx.savedPost.deleteMany({ where: { userId } });
+      await tx.postImpression.deleteMany({ where: { userId } });
+      // The audit trail keeps WHAT happened (accountability) but not WHERE FROM: the address and browser are personal data
+      await tx.auditLog.updateMany({ where: { userId }, data: { ipAddress: null, userAgent: null } });
+      // Invites sent by the user carry third parties' e-mail addresses; invites addressed to
+      // them carry their own address (the account row is anonymised below)
+      await tx.invite.deleteMany({ where: { OR: [{ inviterId: userId }, { email: user.email }] } });
       // Deactivate (not delete) so mentees keep their request/session history
       await tx.mentorProfile.updateMany({ where: { userId }, data: { isActive: false, bio: null, availability: null } });
 
@@ -178,12 +227,12 @@ export class PrivacyService {
     });
     disconnectUser(userId);
 
+    // Recorded without the request's address / user agent, for the same reason as above
     await logAuditAction({
       userId,
       action: 'DELETE',
       entityType: 'USER',
       entityId: userId,
-      ...meta,
     });
 
     return { message: 'Account deleted' };

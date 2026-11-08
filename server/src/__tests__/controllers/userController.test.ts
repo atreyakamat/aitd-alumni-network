@@ -189,6 +189,13 @@ describe('userController (unit)', () => {
       expect(res.json).toHaveBeenCalledWith({ success: true, data: [], pagination: { total: 0 } });
     });
 
+    it('forwards the directory search box (`search`) separately from `name`', async () => {
+      const spy = spyOn('searchDirectory', { data: [] });
+      const { req, res, next } = asUser({ query: { search: ' acme ' } });
+      await userController.searchDirectory(req, res, next);
+      expect(spy.mock.calls[0][0]).toMatchObject({ search: 'acme', name: undefined });
+    });
+
     it('defaults page and limit', async () => {
       const spy = spyOn('searchDirectory', { data: [] });
       const { req, res, next } = asUser({ query: { page: 'x' } });

@@ -1,6 +1,7 @@
 import crypto from 'crypto';
 import prisma from '../config/database';
-import { hashPassword, comparePassword } from '../utils/password';
+import { hashPassword, comparePassword, assertPasswordAllowed } from '../utils/password';
+import { checkPasswordWithBudget } from './attemptLimiter';
 import {
   generateAccessToken,
   generateRefreshToken,
@@ -194,6 +195,7 @@ export class AuthService {
 
   async register(input: RegisterInput) {
     const email = normaliseEmail(input.email);
+    assertPasswordAllowed(input.password, email);
     const existingUser = await prisma.user.findUnique({ where: { email } });
 
     if (existingUser) {
@@ -335,6 +337,8 @@ export class AuthService {
   }
 
   async resetPassword(token: string, newPassword: string) {
+    // Checked before the token is consumed so a rejected password does not burn the reset link
+    assertPasswordAllowed(newPassword);
     const record = await this.consumeOneTimeToken(token, TOKEN_TYPES.PASSWORD_RESET);
     if (!record) {
       throw new AppError('Invalid or expired reset token', 400, 'INVALID_TOKEN');
@@ -380,13 +384,16 @@ export class AuthService {
       );
     }
 
-    const isValid = await comparePassword(currentPassword, user.passwordHash);
+    // Per-account guess budget: a stolen access token must not be a password-guessing oracle
+    const currentHash = user.passwordHash;
+    const isValid = await checkPasswordWithBudget(userId, () => comparePassword(currentPassword, currentHash));
     if (!isValid) {
       throw new AppError('Current password is incorrect', 401, 'INVALID_PASSWORD');
     }
     if (newPassword === currentPassword) {
       throw new AppError('New password must be different from your current password', 400, 'PASSWORD_UNCHANGED');
     }
+    assertPasswordAllowed(newPassword, user.email);
 
     const passwordHash = await hashPassword(newPassword);
 

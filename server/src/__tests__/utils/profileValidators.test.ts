@@ -44,7 +44,15 @@ describe('profile validators', () => {
       expect(parse({ locationLat: null, locationLng: null }).success).toBe(true);
     });
 
-    it.each(['javascript:alert(1)', 'ftp://example.com', 'not a url', `https://x.io/${'a'.repeat(200)}`])(
+    it.each([
+      'javascript:alert(1)',
+      'ftp://example.com',
+      'not a url',
+      `https://x.io/${'a'.repeat(200)}`,
+      'https://user:secret@example.com/profile',
+      'https://exa\tmple.com/profile',
+      'https://example.com/pro\nfile',
+    ])(
       'rejects non-http(s) or oversized links (%s)',
       (url) => {
         expect(parse({ linkedinUrl: url }).success).toBe(false);

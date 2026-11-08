@@ -4,6 +4,7 @@ import { privacyService } from '../services/privacyService';
 import { transactionService } from '../services/transactionService';
 import { chapterService } from '../services/chapterService';
 import { logAuditAction } from '../services/auditService';
+import { queryText } from '../utils/inputGuards';
 
 const requestMeta = (req: Request): RequestMeta => ({
   ipAddress: req.ip,
@@ -18,14 +19,14 @@ const actorOf = (req: Request) => ({ id: req.user!.id, userRole: req.user!.userR
 export const adminUserController = {
   async listUsers(req: Request, res: Response, next: NextFunction) {
     try {
-      const { search, role, isActive, batchYear, page, limit } = req.query as Record<string, string>;
+      const q = req.query;
       const result = await adminService.listUsers({
-        search,
-        role,
-        isActive,
-        batchYear,
-        page: parseInt(page, 10) || 1,
-        limit: parseInt(limit, 10) || 20,
+        search: queryText(q.search),
+        role: queryText(q.role),
+        isActive: queryText(q.isActive),
+        batchYear: queryText(q.batchYear),
+        page: parseInt(queryText(q.page) ?? '', 10) || 1,
+        limit: parseInt(queryText(q.limit) ?? '', 10) || 20,
       });
       res.json({ success: true, ...result });
     } catch (error) {

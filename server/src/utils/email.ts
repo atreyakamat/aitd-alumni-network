@@ -56,12 +56,21 @@ export const sendEmail = async (options: EmailOptions): Promise<void> => {
   }
 };
 
+/** Every user-controlled value placed in an HTML email goes through this. */
+const escapeEmailHtml = (value: string) =>
+  String(value).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+
+/** Names inside Subject lines: no line breaks (header injection), no angle brackets, bounded length. */
+const headerSafe = (value: string) =>
+  // eslint-disable-next-line no-control-regex
+  String(value).replace(/[\x00-\x1f\x7f<>]+/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 80);
+
 export const sendVerificationEmail = async (
   email: string,
   name: string,
   token: string
 ): Promise<void> => {
-  const verificationUrl = `${config.frontendUrl}/verify-email?token=${token}`;
+  const verificationUrl = `${config.frontendUrl}/verify-email?token=${encodeURIComponent(token)}`;
   
   await sendEmail({
     to: email,
@@ -69,7 +78,7 @@ export const sendVerificationEmail = async (
     html: `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
         <h1 style="color: #0A66C2;">Welcome to AITD Connection!</h1>
-        <p>Hi ${name},</p>
+        <p>Hi ${escapeEmailHtml(name)},</p>
         <p>Thank you for registering. Please verify your email address by clicking the button below:</p>
         <a href="${verificationUrl}" 
            style="display: inline-block; background-color: #0A66C2; color: white; padding: 12px 24px; 
@@ -93,7 +102,7 @@ export const sendPasswordResetEmail = async (
   name: string,
   token: string
 ): Promise<void> => {
-  const resetUrl = `${config.frontendUrl}/reset-password?token=${token}`;
+  const resetUrl = `${config.frontendUrl}/reset-password?token=${encodeURIComponent(token)}`;
   
   await sendEmail({
     to: email,
@@ -101,7 +110,7 @@ export const sendPasswordResetEmail = async (
     html: `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
         <h1 style="color: #0A66C2;">Password Reset</h1>
-        <p>Hi ${name},</p>
+        <p>Hi ${escapeEmailHtml(name)},</p>
         <p>We received a request to reset your password. Click the button below to create a new password:</p>
         <a href="${resetUrl}" 
            style="display: inline-block; background-color: #0A66C2; color: white; padding: 12px 24px; 
@@ -130,7 +139,7 @@ export const sendWelcomeEmail = async (
     html: `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
         <h1 style="color: #0A66C2;">Welcome to AITD Connection!</h1>
-        <p>Hi ${name},</p>
+        <p>Hi ${escapeEmailHtml(name)},</p>
         <p>Your email has been verified and your account is now active.</p>
         <p>Here's what you can do:</p>
         <ul>
@@ -153,9 +162,6 @@ export const sendWelcomeEmail = async (
     `,
   });
 };
-
-const escapeEmailHtml = (value: string) =>
-  value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 
 /** Security notice after a signed-in password change (all other sessions were signed out). */
 export const sendPasswordChangedEmail = async (email: string, name: string): Promise<void> => {
@@ -188,15 +194,15 @@ export const sendInviteEmail = async (
   inviterName: string,
   token: string
 ): Promise<void> => {
-  const inviteUrl = `${config.frontendUrl}/register?invite=${token}`;
+  const inviteUrl = `${config.frontendUrl}/register?invite=${encodeURIComponent(token)}`;
   
   await sendEmail({
     to: email,
-    subject: `${inviterName} invited you to join AITD Connection`,
+    subject: `${headerSafe(inviterName)} invited you to join AITD Connection`,
     html: `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
         <h1 style="color: #0A66C2;">You're Invited!</h1>
-        <p>${inviterName} has invited you to join the AITD Connection network.</p>
+        <p>${escapeEmailHtml(inviterName)} has invited you to join the AITD Connection network.</p>
         <p>Connect with fellow alumni, explore career opportunities, and stay updated with events.</p>
         <a href="${inviteUrl}" 
            style="display: inline-block; background-color: #0A66C2; color: white; padding: 12px 24px; 

@@ -133,6 +133,25 @@ describe('postService', () => {
   });
 
   describe('createPost', () => {
+
+  it.each(['javascript:alert(1)', 'java	script:alert(1)', 'data:text/html,<script>alert(1)</script>', '//evil.example.com'])(
+    'rejects an unsafe linkUrl %j instead of storing it',
+    async (linkUrl) => {
+      await expect(postService.createPost('u1', { content: 'hi', linkUrl })).rejects.toMatchObject({
+        statusCode: 400,
+        code: 'INVALID_URL',
+      });
+      expect(prismaMock.post.create).not.toHaveBeenCalled();
+    }
+  );
+
+  it('rejects media references that are not uploads or http(s) links', async () => {
+    await expect(postService.createPost('u1', { content: 'hi', mediaUrls: ['javascript:alert(1)'] })).rejects.toMatchObject({
+      statusCode: 400,
+      code: 'INVALID_URL',
+    });
+    expect(prismaMock.post.create).not.toHaveBeenCalled();
+  });
     beforeEach(() => {
       arrangeViewer(OWNER);
       prismaMock.post.create.mockImplementation(async ({ data }: any) => postRow({ id: 'new', ...data }));
@@ -150,7 +169,7 @@ describe('postService', () => {
         thumbnailUrl: null,
         isReel: false,
         visibility: 'PUBLIC',
-        linkUrl: undefined,
+        linkUrl: null,
       });
       expect(view).toMatchObject({ id: 'new', content: 'hi there', viewer: { isAuthor: true } });
     });

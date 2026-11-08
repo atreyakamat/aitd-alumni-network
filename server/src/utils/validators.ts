@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { isSafeHttpUrl, isSafeMediaRef } from './safeUrl';
 
 const MIN_BATCH_YEAR = 1950;
 const MAX_BATCH_YEARS_AHEAD = 5;
@@ -132,7 +133,8 @@ export const httpUrlField = z
   .trim()
   .max(VARCHAR_MAX, `Links must be at most ${VARCHAR_MAX} characters`)
   .url('Enter a valid URL')
-  .refine((value) => /^https?:\/\//i.test(value), { message: 'Links must start with http:// or https://' });
+  // The shared rule (utils/safeUrl.ts): literal http(s) scheme, no control characters or whitespace, no credentials
+  .refine((value) => isSafeHttpUrl(value), { message: 'Links must start with http:// or https://' });
 
 const optionalHttpUrl = z.preprocess(emptyStringToNull, httpUrlField.nullable().optional());
 
@@ -320,21 +322,31 @@ export const updateSkillsSchema = z.object({
   }),
 });
 
-// Post schemas
+// Post schemas. Every field the service understands is listed here: zod strips unknown keys, so a field
+// missing from this schema is silently dropped (a CONNECTIONS-only post would become PUBLIC).
+const safeLink = z.string().refine(isSafeHttpUrl, { message: 'Enter a valid http(s) link' });
+const mediaRef = z.string().refine(isSafeMediaRef, { message: 'Media must be an uploaded file or an http(s) link' });
+
 export const createPostSchema = z.object({
   body: z.object({
     type: z.enum(['GENERAL', 'JOB', 'BUSINESS', 'ANNOUNCEMENT']).optional(),
-    content: z.string().min(1, 'Content is required'),
-    mediaUrls: z.array(z.string().url()).optional(),
-    linkUrl: z.string().url().optional(),
+    // May be empty for media-only posts and reels; the service requires text, an image or a video
+    content: z.string().max(5000, 'Content must be at most 5000 characters').optional(),
+    mediaUrls: z.array(mediaRef).max(10, 'A post can have at most 10 media items').optional(),
+    videoUrl: mediaRef.nullable().optional(),
+    thumbnailUrl: mediaRef.nullable().optional(),
+    isReel: z.boolean().optional(),
+    visibility: z.enum(['PUBLIC', 'CONNECTIONS']).optional(),
+    linkUrl: safeLink.nullable().optional(),
+    mentionIds: z.array(z.string().uuid()).max(20, 'You can mention at most 20 people').optional(),
   }),
 });
 
 export const updatePostSchema = z.object({
   body: z.object({
     content: z.string().min(1).optional(),
-    mediaUrls: z.array(z.string().url()).optional(),
-    linkUrl: z.string().url().optional().nullable(),
+    mediaUrls: z.array(mediaRef).optional(),
+    linkUrl: safeLink.optional().nullable(),
     isPinned: z.boolean().optional(),
   }),
   params: z.object({
@@ -361,6 +373,8 @@ export const updateCommentSchema = z.object({
       .trim()
       .min(1, 'Comment is required')
       .max(2000, 'Comment must be at most 2000 characters'),
+    // Listed so zod does not strip it: people mentioned while editing must still be notified
+    mentionIds: z.array(z.string().uuid()).max(20, 'You can mention at most 20 people').optional(),
   }),
 });
 
@@ -379,7 +393,7 @@ export const createJobSchema = z.object({
     experienceMin: z.number().int().optional(),
     experienceMax: z.number().int().optional(),
     skills: z.array(z.string()).optional(),
-    applicationLink: z.string().url().optional(),
+    applicationLink: safeLink.optional(),
     deadline: z.string().datetime().or(z.date()).optional(),
   }),
 });
@@ -389,12 +403,12 @@ export const createEventSchema = z.object({
   body: z.object({
     title: z.string().min(1, 'Title is required'),
     description: z.string().min(1, 'Description is required'),
-    bannerUrl: z.string().url().optional(),
+    bannerUrl: mediaRef.optional(),
     eventType: z.enum(['ONLINE', 'OFFLINE', 'HYBRID']).optional(),
     venue: z.string().optional(),
     address: z.string().optional(),
     city: z.string().optional(),
-    joinLink: z.string().url().optional(),
+    joinLink: safeLink.optional(),
     startDate: z.string().datetime().or(z.date()),
     endDate: z.string().datetime().or(z.date()).optional(),
     capacity: z.number().int().positive().optional(),
@@ -415,7 +429,7 @@ export const connectionRequestSchema = z.object({
 export const sendMessageSchema = z.object({
   body: z.object({
     content: z.string().min(1, 'Message is required'),
-    mediaUrl: z.string().url().optional(),
+    mediaUrl: mediaRef.optional(),
   }),
   params: z.object({
     receiverId: z.string().uuid(),
@@ -468,6 +482,8 @@ const listingWebsite = z.preprocess(
     .max(MARKETPLACE_LIMITS.websiteMax, `Website must be at most ${MARKETPLACE_LIMITS.websiteMax} characters`)
     .regex(/^https?:\/\/[^\s]+$/i, 'Website must be an http(s) URL')
     .url('Website must be an http(s) URL')
+    // the shared allowlist: no control characters, no embedded credentials (see utils/safeUrl.ts)
+    .refine((value) => isSafeHttpUrl(value), { message: 'Website must be an http(s) URL' })
     .nullable()
     .optional()
 );

@@ -249,8 +249,9 @@ describe('verifyPayment (signed-in donor)', () => {
   it('marks FAILED and records nothing on an invalid signature', async () => {
     arrange();
     await expectAppError(donationService.verifyPayment(USER, 'order_1', 'pay_1', 'bad'), 400, 'INVALID_SIGNATURE');
-    expect(prismaMock.transaction.update).toHaveBeenCalledWith({
-      where: { id: 'txn-1' },
+    // Only a PENDING transaction may be marked FAILED (a forged signature must not rewrite a settled one)
+    expect(prismaMock.transaction.updateMany).toHaveBeenCalledWith({
+      where: { id: 'txn-1', status: 'PENDING' },
       data: { status: 'FAILED', gatewayPaymentId: 'pay_1' },
     });
     expect(prismaMock.donation.create).not.toHaveBeenCalled();
@@ -460,8 +461,9 @@ describe('verifyPayment (guest)', () => {
   it('marks the guest transaction FAILED on an invalid signature', async () => {
     arrange();
     await expectAppError(donationService.verifyPayment(null, 'order_1', 'pay_1', 'bad'), 400, 'INVALID_SIGNATURE');
-    expect(prismaMock.transaction.update).toHaveBeenCalledWith({
-      where: { id: 'txn-1' },
+    // Only a PENDING transaction may be marked FAILED (a forged signature must not rewrite a settled one)
+    expect(prismaMock.transaction.updateMany).toHaveBeenCalledWith({
+      where: { id: 'txn-1', status: 'PENDING' },
       data: { status: 'FAILED', gatewayPaymentId: 'pay_1' },
     });
     expect(prismaMock.donation.create).not.toHaveBeenCalled();

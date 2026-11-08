@@ -3,6 +3,7 @@ import { AppError } from '../middleware/errorHandler';
 import { paginationHelper, buildPaginationResponse, ilike } from '../utils/helpers';
 import { Actor, isAdminRole } from '../config/permissions';
 import { MarketplaceListingType, Prisma } from '@prisma/client';
+import { isSafeHttpUrl } from '../utils/safeUrl';
 
 interface CreateListingInput {
   type?: MarketplaceListingType;
@@ -47,7 +48,9 @@ const assertListingType = (type: unknown): MarketplaceListingType | undefined =>
 
 const assertWebsite = (website: unknown) => {
   if (website === undefined || website === null || website === '') return;
-  if (typeof website !== 'string' || !/^https?:\/\/[^\s]+$/i.test(website.trim())) {
+  // The shared allowlist (utils/safeUrl.ts): literal http(s), no control characters, no embedded credentials
+  // ("https://paypal.com@evil.com" renders as a link that looks like paypal.com)
+  if (!isSafeHttpUrl(website)) {
     throw new AppError('Website must be an http(s) URL', 400, 'VALIDATION_ERROR');
   }
 };

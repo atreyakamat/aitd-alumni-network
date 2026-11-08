@@ -135,56 +135,67 @@ export class NetworkService {
       throw new AppError('User not found', 404, 'NOT_FOUND');
     }
 
-    // Check if a connection already exists in either direction
-    const existingConnection = await prisma.connection.findFirst({
-      where: {
-        OR: [
-          { requesterId, addresseeId },
-          { requesterId: addresseeId, addresseeId: requesterId },
-        ],
-      },
+    // Look up / create the single row of this pair as one step per pair. The unique index is on the ORDERED pair, so
+    // without serialising, A->B and B->A sent at the same moment both find nothing and both insert (two PENDING rows).
+    const outcome = await prisma.$transaction(async (tx) => {
+      const pair = [requesterId, addresseeId].sort().join(':');
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`connection:${pair}`}))`;
+
+      // Check if a connection already exists in either direction
+      const existingConnection = await tx.connection.findFirst({
+        where: {
+          OR: [
+            { requesterId, addresseeId },
+            { requesterId: addresseeId, addresseeId: requesterId },
+          ],
+        },
+      });
+
+      if (existingConnection) {
+        if (existingConnection.status === 'ACCEPTED') {
+          throw new AppError('Already connected', 409, 'ALREADY_CONNECTED');
+        }
+        if (existingConnection.status === 'BLOCKED') {
+          throw new AppError('Cannot connect with this user', 403, 'BLOCKED');
+        }
+        if (existingConnection.status === 'PENDING') {
+          if (existingConnection.requesterId === requesterId) {
+            throw new AppError('Connection request already pending', 409, 'REQUEST_PENDING');
+          }
+          // The other user already asked us: sending a request back accepts theirs.
+          await tx.connection.update({
+            where: { id: existingConnection.id },
+            data: { status: 'ACCEPTED' },
+          });
+          return { accepted: true as const, connectionId: existingConnection.id };
+        }
+        // REJECTED: re-open the single row for this pair in the new direction
+        // (the pair is unique, so creating a second row would collide/duplicate).
+        const reopened = await tx.connection.update({
+          where: { id: existingConnection.id },
+          data: { requesterId, addresseeId, status: 'PENDING' },
+        });
+        return { accepted: false as const, connectionId: reopened.id };
+      }
+
+      const connection = await tx.connection.create({
+        data: {
+          requesterId,
+          addresseeId,
+          status: 'PENDING',
+        },
+      });
+      return { accepted: false as const, connectionId: connection.id };
     });
 
-    if (existingConnection) {
-      if (existingConnection.status === 'ACCEPTED') {
-        throw new AppError('Already connected', 409, 'ALREADY_CONNECTED');
-      }
-      if (existingConnection.status === 'BLOCKED') {
-        throw new AppError('Cannot connect with this user', 403, 'BLOCKED');
-      }
-      if (existingConnection.status === 'PENDING') {
-        if (existingConnection.requesterId === requesterId) {
-          throw new AppError('Connection request already pending', 409, 'REQUEST_PENDING');
-        }
-        // The other user already asked us: sending a request back accepts theirs.
-        await prisma.connection.update({
-          where: { id: existingConnection.id },
-          data: { status: 'ACCEPTED' },
-        });
-        await this.notify(requesterId, addresseeId, 'CONNECTION_ACCEPTED', existingConnection.id);
-        return { message: 'Connection accepted', connectionId: existingConnection.id, status: 'ACCEPTED' as ConnectionStatus };
-      }
-      // REJECTED: re-open the single row for this pair in the new direction
-      // (the pair is unique, so creating a second row would collide/duplicate).
-      const reopened = await prisma.connection.update({
-        where: { id: existingConnection.id },
-        data: { requesterId, addresseeId, status: 'PENDING' },
-      });
-      await this.notify(requesterId, addresseeId, 'CONNECTION_REQUEST', reopened.id);
-      return { message: 'Connection request sent', connectionId: reopened.id, status: 'PENDING' as ConnectionStatus };
+    if (outcome.accepted) {
+      await this.notify(requesterId, addresseeId, 'CONNECTION_ACCEPTED', outcome.connectionId);
+      return { message: 'Connection accepted', connectionId: outcome.connectionId, status: 'ACCEPTED' as ConnectionStatus };
     }
 
-    const connection = await prisma.connection.create({
-      data: {
-        requesterId,
-        addresseeId,
-        status: 'PENDING',
-      },
-    });
+    await this.notify(requesterId, addresseeId, 'CONNECTION_REQUEST', outcome.connectionId);
 
-    await this.notify(requesterId, addresseeId, 'CONNECTION_REQUEST', connection.id);
-
-    return { message: 'Connection request sent', connectionId: connection.id, status: 'PENDING' as ConnectionStatus };
+    return { message: 'Connection request sent', connectionId: outcome.connectionId, status: 'PENDING' as ConnectionStatus };
   }
 
   async respondToRequest(userId: string, connectionId: string, accept: boolean) {
@@ -208,10 +219,17 @@ export class NetworkService {
       throw new AppError('Request is no longer pending', 400, 'REQUEST_NOT_PENDING');
     }
 
-    const updatedConnection = await prisma.connection.update({
-      where: { id: connectionId },
-      data: { status: accept ? 'ACCEPTED' : 'REJECTED' },
+    const status: ConnectionStatus = accept ? 'ACCEPTED' : 'REJECTED';
+
+    // Conditional update: of several concurrent responses to the same request exactly one changes it
+    // (and therefore sends the notification); the rest find it no longer pending.
+    const changed = await prisma.connection.updateMany({
+      where: { id: connectionId, status: 'PENDING' },
+      data: { status },
     });
+    if (changed.count === 0) {
+      throw new AppError('Request is no longer pending', 400, 'REQUEST_NOT_PENDING');
+    }
 
     if (accept) {
       await this.notify(userId, connection.requesterId, 'CONNECTION_ACCEPTED', connection.id);
@@ -219,7 +237,7 @@ export class NetworkService {
 
     return {
       message: accept ? 'Connection accepted' : 'Connection declined',
-      status: updatedConnection.status,
+      status,
     };
   }
 

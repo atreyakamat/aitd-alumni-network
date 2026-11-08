@@ -253,7 +253,7 @@ describe('galleryService', () => {
     it("forbids adding to another batch's album", async () => {
       prismaMock.galleryAlbum.findUnique.mockResolvedValue(album());
       prismaMock.user.findUnique.mockResolvedValue({ batchYear: 2016 });
-      await expect(galleryService.addPhoto('al1', member, '/u.jpg')).rejects.toMatchObject({ statusCode: 403 });
+      await expect(galleryService.addPhoto('al1', member, '/uploads/u.jpg')).rejects.toMatchObject({ statusCode: 403 });
       expect(prismaMock.galleryPhoto.create).not.toHaveBeenCalled();
     });
 
@@ -296,18 +296,18 @@ describe('galleryService', () => {
     it('lets admins add to any album, including institutional', async () => {
       prismaMock.galleryAlbum.findUnique.mockResolvedValue(album({ albumType: 'INSTITUTIONAL' }));
       prismaMock.galleryPhoto.create.mockResolvedValue(photo({ uploadedById: 'a1' }));
-      await galleryService.addPhoto('al1', admin, '/u.jpg');
+      await galleryService.addPhoto('al1', admin, '/uploads/u.jpg');
       expect(prismaMock.user.findUnique).not.toHaveBeenCalled();
       expect(prismaMock.galleryPhoto.create.mock.calls[0][0].data.uploadedById).toBe('a1');
     });
 
     it('404s for unknown albums', async () => {
       prismaMock.galleryAlbum.findUnique.mockResolvedValue(null);
-      await expect(galleryService.addPhoto('x', admin, '/u.jpg')).rejects.toMatchObject({ statusCode: 404 });
+      await expect(galleryService.addPhoto('x', admin, '/uploads/u.jpg')).rejects.toMatchObject({ statusCode: 404 });
     });
 
     it('requires an album id and a url', async () => {
-      await expect(galleryService.addPhoto('', admin, '/u.jpg')).rejects.toMatchObject({ statusCode: 400 });
+      await expect(galleryService.addPhoto('', admin, '/uploads/u.jpg')).rejects.toMatchObject({ statusCode: 400 });
       await expect(galleryService.addPhoto('al1', admin, '')).rejects.toMatchObject({ statusCode: 400 });
       await expect(galleryService.addPhoto('al1', admin, undefined as any)).rejects.toMatchObject({ statusCode: 400 });
       expect(prismaMock.galleryAlbum.findUnique).not.toHaveBeenCalled();

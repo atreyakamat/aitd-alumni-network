@@ -1,3 +1,4 @@
+import { Prisma } from '@prisma/client';
 import prisma from '../config/database';
 import { AppError } from '../middleware/errorHandler';
 import { sendEmail } from '../utils/email';
@@ -20,10 +21,18 @@ interface BulkInviteResult {
 }
 
 export const MAX_BULK_INVITES = 50;
+/** Direct invite e-mails one member may trigger per rolling 24 hours (the platform sends them). */
+export const INVITE_DAILY_LIMIT = 100;
+export const MAX_INVITE_NAME_LENGTH = 100;
+export const MAX_INVITE_MESSAGE_LENGTH = 1000;
 const INVITE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 const LINK_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 const SHAREABLE_EMAIL = 'shareable-link';
-const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+// The WHATWG "valid e-mail address" grammar (ASCII). The previous /^[^\s@]+@[^\s@]+\.[^\s@]+$/ accepted anything with a
+// single "@", including "a@b.com,c.d" (two recipients to nodemailer's parser), "Victim<v@x.com>.a" (delivered to v@x.com
+// while the "already invited / already registered" checks looked at the whole odd string) and "a(x)@b.com".
+const EMAIL_RE =
+  /^[a-z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)+$/i;
 const TOKEN_RE = /^[a-f0-9]{64}$/i;
 
 export const normalizeEmail = (email: unknown): string | null => {
@@ -129,6 +138,37 @@ export class InviteService {
     `;
   }
 
+  /** Direct invites the member has created in the last 24 hours. */
+  private async invitesToday(inviterId: string, db: Pick<Prisma.TransactionClient, 'invite'> = prisma): Promise<number> {
+    const count = await db.invite.count({
+      where: { inviterId, isShareable: false, createdAt: { gte: new Date(Date.now() - 24 * 60 * 60 * 1000) } },
+    });
+    return count ?? 0;
+  }
+
+  private quotaError() {
+    return new AppError(
+      `You can send at most ${INVITE_DAILY_LIMIT} invitations per day. Try again later.`,
+      429,
+      'INVITE_LIMIT'
+    );
+  }
+
+  /** Free-text fields are interpolated into an e-mail sent from our address: keep them short. */
+  private fieldError(data: InviteInput): string | null {
+    if (data.name !== undefined && data.name !== null && (typeof data.name !== 'string' || data.name.length > MAX_INVITE_NAME_LENGTH)) {
+      return `Name must be at most ${MAX_INVITE_NAME_LENGTH} characters`;
+    }
+    if (
+      data.message !== undefined &&
+      data.message !== null &&
+      (typeof data.message !== 'string' || data.message.length > MAX_INVITE_MESSAGE_LENGTH)
+    ) {
+      return `Message must be at most ${MAX_INVITE_MESSAGE_LENGTH} characters`;
+    }
+    return null;
+  }
+
   // Send a single invite
   async sendInvite(
     inviterId: string,
@@ -137,6 +177,13 @@ export class InviteService {
     const email = normalizeEmail(data?.email);
     if (!email) {
       return { success: false, error: 'Invalid email address' };
+    }
+    const fieldError = this.fieldError(data);
+    if (fieldError) {
+      return { success: false, error: fieldError };
+    }
+    if ((await this.invitesToday(inviterId)) >= INVITE_DAILY_LIMIT) {
+      throw this.quotaError();
     }
 
     let createdInviteId: string | undefined;
@@ -164,40 +211,51 @@ export class InviteService {
         };
       }
 
-      // Check if invite was already sent recently
-      const existingInvite = await prisma.invite.findFirst({
-        where: {
-          email,
-          isShareable: false,
-          createdAt: { gte: new Date(Date.now() - INVITE_TTL_MS) }, // Last 7 days
-        },
+      // Generate token and create invite
+      const token = this.generateToken();
+      const expiresAt = new Date(Date.now() + INVITE_TTL_MS);
+
+      // The daily quota and the "already invited" rule are "check, then insert": run them as one step per inviter,
+      // otherwise a parallel burst reads the same low count (and finds no earlier invite) and every request passes.
+      const reserved = await prisma.$transaction(async (tx) => {
+        await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`invite:${inviterId}`}))`;
+
+        if ((await this.invitesToday(inviterId, tx)) >= INVITE_DAILY_LIMIT) return 'quota' as const;
+
+        // Check if invite was already sent recently (to this address, by anybody)
+        const existingInvite = await tx.invite.findFirst({
+          where: {
+            email,
+            isShareable: false,
+            createdAt: { gte: new Date(Date.now() - INVITE_TTL_MS) }, // Last 7 days
+          },
+        });
+        if (existingInvite) return 'duplicate' as const;
+
+        return tx.invite.create({
+          data: {
+            email,
+            name: data.name,
+            batchYear: data.batchYear,
+            token,
+            expiresAt,
+            inviterId,
+            metadata: {
+              batchYear: data.batchYear,
+              message: data.message,
+            },
+          },
+        });
       });
 
-      if (existingInvite) {
+      if (reserved === 'quota') throw this.quotaError();
+      if (reserved === 'duplicate') {
         return {
           success: false,
           error: 'An invitation was already sent to this email recently',
         };
       }
-
-      // Generate token and create invite
-      const token = this.generateToken();
-      const expiresAt = new Date(Date.now() + INVITE_TTL_MS);
-
-      const invite = await prisma.invite.create({
-        data: {
-          email,
-          name: data.name,
-          batchYear: data.batchYear,
-          token,
-          expiresAt,
-          inviterId,
-          metadata: {
-            batchYear: data.batchYear,
-            message: data.message,
-          },
-        },
-      });
+      const invite = reserved;
       createdInviteId = invite.id;
 
       // Send branded email
@@ -224,6 +282,8 @@ export class InviteService {
 
       return { success: true, invite: sent ?? { ...invite, status: 'SENT' } };
     } catch (error: any) {
+      // The quota is a rule of the request, not a failure of this one invitation
+      if (error instanceof AppError && error.code === 'INVITE_LIMIT') throw error;
       console.error('Failed to send invite:', error);
       // Don't leave an unsent invite behind: it would block a retry for 7 days
       if (createdInviteId) {
@@ -249,6 +309,11 @@ export class InviteService {
     }
     if (invites.length > MAX_BULK_INVITES) {
       throw new AppError(`Maximum ${MAX_BULK_INVITES} invites per batch`, 400, 'TOO_MANY_INVITES');
+    }
+
+    // Refuse the whole batch up front instead of half-sending it
+    if ((await this.invitesToday(inviterId)) + invites.length > INVITE_DAILY_LIMIT) {
+      throw this.quotaError();
     }
 
     const result: BulkInviteResult = {
@@ -283,7 +348,14 @@ export class InviteService {
       }
       first = false;
 
-      const sendResult = await this.sendInvite(inviterId, { ...invite, email });
+      let sendResult: Awaited<ReturnType<InviteService['sendInvite']>>;
+      try {
+        sendResult = await this.sendInvite(inviterId, { ...invite, email });
+      } catch (error) {
+        // A parallel request used up the quota meanwhile: report this invitation as not sent
+        if (!(error instanceof AppError && error.code === 'INVITE_LIMIT')) throw error;
+        sendResult = { success: false, error: error.message };
+      }
 
       if (sendResult.success) {
         result.sent++;
@@ -360,7 +432,8 @@ export class InviteService {
         where: { id: userId },
         select: { id: true, email: true },
       });
-      if (!user || normalizeEmail(user.email) !== normalizeEmail(invite.email)) {
+      const userEmail = user ? normalizeEmail(user.email) : null;
+      if (!userEmail || userEmail !== normalizeEmail(invite.email)) {
         throw new AppError('This invitation was sent to a different email address', 403, 'INVITE_EMAIL_MISMATCH');
       }
 

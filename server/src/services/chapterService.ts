@@ -3,6 +3,8 @@ import { AppError } from '../middleware/errorHandler';
 import { paginationHelper, buildPaginationResponse, ilike } from '../utils/helpers';
 import { Actor, isAdminRole } from '../config/permissions';
 import { Prisma } from '@prisma/client';
+import { normalizeUrlFields } from '../utils/safeUrl';
+import { idText, optionalText, requiredText } from '../utils/inputGuards';
 
 const EDITABLE_FIELDS = ['name', 'description', 'region', 'logoUrl'] as const;
 const MAX_SEARCH_LENGTH = 100;
@@ -129,13 +131,19 @@ export class ChapterService {
       throw new AppError('A chapter with this name already exists', 409, 'DUPLICATE_CHAPTER');
     }
 
+    const description = optionalText(data.description, 'description');
+    const adminUserId = data.adminUserId === undefined || data.adminUserId === null ? undefined : idText(data.adminUserId, 'adminUserId');
+
+    const links: Record<string, unknown> = { logoUrl: data.logoUrl };
+    normalizeUrlFields(links, { media: ['logoUrl'] });
+
     return prisma.chapter.create({
       data: {
         name,
-        description: data.description,
+        description,
         region: data.region.trim(),
-        adminUserId: data.adminUserId,
-        logoUrl: data.logoUrl,
+        adminUserId,
+        logoUrl: links.logoUrl as string | null | undefined,
       },
     });
   }
@@ -154,6 +162,11 @@ export class ChapterService {
     for (const field of EDITABLE_FIELDS) {
       if (data[field] !== undefined) (updates as any)[field] = data[field];
     }
+    // name and region are required columns: a blank or non-text value must not overwrite them
+    if ('name' in updates) (updates as Record<string, unknown>).name = requiredText(updates.name, 'name');
+    if ('region' in updates) (updates as Record<string, unknown>).region = requiredText(updates.region, 'region');
+    if ('description' in updates) (updates as Record<string, unknown>).description = optionalText(updates.description, 'description');
+    normalizeUrlFields(updates as Record<string, unknown>, { media: ['logoUrl'] });
 
     return prisma.chapter.update({
       where: { id },
@@ -291,7 +304,8 @@ export class ChapterService {
   }
 
   // Admin: Assign chapter admin (promotes plain members to CHAPTER_ADMIN)
-  async assignAdmin(chapterId: string, adminUserId: string) {
+  async assignAdmin(chapterId: string, adminUserIdInput: unknown) {
+    const adminUserId = idText(adminUserIdInput, 'userId');
     const chapter = await prisma.chapter.findUnique({ where: { id: chapterId } });
     if (!chapter || !chapter.isActive) {
       throw new AppError('Chapter not found', 404, 'NOT_FOUND');
