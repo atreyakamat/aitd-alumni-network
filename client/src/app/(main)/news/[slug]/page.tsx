@@ -8,6 +8,7 @@ import { AlertCircle, ChevronLeft, Clock, Eye, Newspaper } from 'lucide-react';
 import { getApiErrorMessage, newsApi } from '@/lib/api';
 import { NEWS_CATEGORY_COLORS, contentToParagraphs, newsCategoryLabel } from '@/lib/news';
 import { formatDate, getInitials } from '@/lib/utils';
+import { safeMediaSrc } from '@/lib/safe-url';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -157,9 +158,9 @@ export default function NewsArticlePage() {
             </div>
           </header>
 
-          {article.featuredImage && (
+          {safeMediaSrc(article.featuredImage) && (
             <div className="relative aspect-video overflow-hidden rounded-lg bg-muted">
-              <Image src={article.featuredImage} alt="" fill className="object-cover" unoptimized priority />
+              <Image src={safeMediaSrc(article.featuredImage) as string} alt="" fill className="object-cover" unoptimized priority />
             </div>
           )}
 

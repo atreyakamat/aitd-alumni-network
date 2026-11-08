@@ -1,5 +1,18 @@
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
+import { buildLoginHref } from '@/lib/public-paths';
+
+const linkClass = 'text-sm tracking-wide text-slate-500 transition-colors hover:text-blue-700 font-body';
+
+/** A link to a members-only page: goes through sign-in and says so. */
+function MemberLink({ path, children }: { path: string; children: React.ReactNode }) {
+  return (
+    <Link href={buildLoginHref(path)} className={linkClass}>
+      {children}
+      <span className="ml-1.5 text-[10px] font-label uppercase tracking-widest text-slate-400">Members</span>
+    </Link>
+  );
+}
 
 export function Footer() {
   return (
@@ -15,18 +28,15 @@ export function Footer() {
         <div className="grid grid-cols-2 gap-4">
           <div className="flex flex-col space-y-3">
             <span className="mb-2 text-xs font-bold uppercase tracking-widest text-primary font-label">Network</span>
-            <Link href="/directory" className="text-sm tracking-wide text-slate-500 transition-colors hover:text-blue-700 font-body">
-              Directory
-            </Link>
-            <Link href="/yearbook" className="text-sm tracking-wide text-slate-500 transition-colors hover:text-blue-700 font-body">
-              Yearbook
-            </Link>
-            <Link href="/jobs" className="text-sm tracking-wide text-slate-500 transition-colors hover:text-blue-700 font-body">
-              Jobs
-            </Link>
-            <Link href="/events" className="text-sm tracking-wide text-slate-500 transition-colors hover:text-blue-700 font-body">
+            <Link href="/events" className={linkClass}>
               Events
             </Link>
+            <Link href="/news" className={linkClass}>
+              News
+            </Link>
+            <MemberLink path="/directory">Directory</MemberLink>
+            <MemberLink path="/yearbook">Yearbook</MemberLink>
+            <MemberLink path="/jobs">Jobs</MemberLink>
           </div>
           <div className="flex flex-col space-y-3">
             <span className="mb-2 text-xs font-bold uppercase tracking-widest text-primary font-label">Legal</span>

@@ -3,6 +3,7 @@
 import * as React from 'react';
 import * as AvatarPrimitive from '@radix-ui/react-avatar';
 import { cn } from '@/lib/utils';
+import { safeMediaSrc } from '@/lib/safe-url';
 
 const Avatar = React.forwardRef<
   React.ElementRef<typeof AvatarPrimitive.Root>,
@@ -22,10 +23,13 @@ Avatar.displayName = AvatarPrimitive.Root.displayName;
 const AvatarImage = React.forwardRef<
   React.ElementRef<typeof AvatarPrimitive.Image>,
   React.ComponentPropsWithoutRef<typeof AvatarPrimitive.Image>
->(({ className, ...props }, ref) => (
+>(({ className, src, ...props }, ref) => (
   <AvatarPrimitive.Image
     ref={ref}
     className={cn('aspect-square h-full w-full', className)}
+    // Avatar URLs come from the API (user-controlled): only http(s) and /uploads paths render.
+    // blob: is allowed for the local preview of a file the member just picked.
+    src={src && /^blob:/i.test(src) ? src : safeMediaSrc(src)}
     {...props}
   />
 ));

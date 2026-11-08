@@ -106,3 +106,15 @@ describe('<RequireRole>', () => {
     expect(replace).not.toHaveBeenCalled();
   });
 });
+
+describe('<RequireRole redirectTo> rendering', () => {
+  it('renders nothing for denied users while redirecting', () => {
+    setAuth({ id: '1', role: 'MEMBER' });
+    const { container } = render(
+      <RequireRole min="ADMIN" redirectTo="/dashboard">
+        <p>secret admin content</p>
+      </RequireRole>
+    );
+    expect(container).toBeEmptyDOMElement();
+  });
+});

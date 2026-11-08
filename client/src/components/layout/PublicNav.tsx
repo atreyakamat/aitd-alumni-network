@@ -2,11 +2,11 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { usePathname, useRouter } from 'next/navigation';
-import { Menu, Search, X } from 'lucide-react';
+import { usePathname } from 'next/navigation';
+import { Menu, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
+import { HeaderSearch, MobileSearchLink } from '@/components/layout/HeaderSearch';
 import { PUBLIC_SECTIONS, buildLoginHref, buildRegisterHref, isPublicPath } from '@/lib/public-paths';
 
 const links = [{ href: '/', label: 'Home' }, ...PUBLIC_SECTIONS];
@@ -17,10 +17,13 @@ const isActive = (pathname: string | null, href: string) =>
 /**
  * Header for anonymous visitors: the landing page and the public sections
  * (events, gallery, news, donations). Sign-in and sign-up return to the current public page.
+ *
+ * It deliberately links ONLY to public pages (see PUBLIC_SECTIONS): members-only pages such as the
+ * directory or jobs are not advertised here. Search is: it answers visitors with the public content
+ * (events, news, chapters) and tells them that signing in unlocks people, jobs and posts.
  */
 export function PublicNav() {
   const pathname = usePathname();
-  const router = useRouter();
   const [mobileOpen, setMobileOpen] = useState(false);
   const returnPath = isPublicPath(pathname) ? pathname : null;
   const loginHref = buildLoginHref(returnPath);
@@ -51,25 +54,13 @@ export function PublicNav() {
           ))}
         </nav>
 
+        {/* Same search box as the member header; visitors get the public results and a note about the rest */}
+        <div className="hidden w-60 xl:block">
+          <HeaderSearch placeholder="Search events, news, chapters..." />
+        </div>
+
         <div className="flex items-center gap-2 md:gap-4">
-          <form
-            role="search"
-            className="relative hidden lg:block"
-            onSubmit={(e) => {
-              e.preventDefault();
-              const q = new FormData(e.currentTarget).get('q');
-              if (typeof q === 'string' && q.trim()) router.push(`/search?q=${encodeURIComponent(q.trim())}`);
-            }}
-          >
-            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-            <Input
-              name="q"
-              type="text"
-              placeholder="Search the network..."
-              aria-label="Search the network"
-              className="h-10 w-64 rounded-full border-none bg-slate-100 pl-10 pr-4 text-sm focus-visible:ring-2 focus-visible:ring-primary"
-            />
-          </form>
+          <MobileSearchLink hideFrom="xl" />
           <Button variant="ghost" className="font-label" asChild>
             <Link href={loginHref}>Sign In</Link>
           </Button>

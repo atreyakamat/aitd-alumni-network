@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { buildLoginHref } from '@/lib/public-paths';
 import Image from 'next/image';
 import { Button } from '@/components/ui/button';
 import { ArrowRight, BookOpen } from 'lucide-react';
@@ -39,13 +40,13 @@ export function HeroSection() {
                   <ArrowRight className="ml-2 h-4 w-4" />
                 </Button>
               </Link>
-              <Link href="/directory">
+              <Link href={buildLoginHref('/directory')}>
                 <Button
                   variant="secondary"
                   size="lg"
                   className="rounded-md bg-slate-200 px-8 py-4 tracking-wide text-primary hover:bg-slate-300 font-label"
                 >
-                  Explore Directory
+                  Sign in to explore the directory
                 </Button>
               </Link>
             </div>

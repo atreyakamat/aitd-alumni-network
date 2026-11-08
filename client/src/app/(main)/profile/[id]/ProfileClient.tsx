@@ -6,7 +6,8 @@ import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '@/context/auth-context';
 import { useToast } from '@/hooks/use-toast';
 import { getApiErrorMessage, networkApi, userApi } from '@/lib/api';
-import { formatMonth, isHttpUrl, profileQueryKey } from '@/lib/profile';
+import { formatMonth, profileQueryKey } from '@/lib/profile';
+import { externalLinkProps, safeHref, safeMediaSrc } from '@/lib/safe-url';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -66,7 +67,7 @@ export function ProfileClient({ profile: initialProfile, id }: { profile: any; i
     }
   };
 
-  const links = LINKS.filter(({ field }) => typeof profile[field] === 'string' && isHttpUrl(profile[field]));
+  const links = LINKS.map((l) => ({ ...l, href: safeHref(profile[l.field]) })).filter((l): l is typeof l & { href: string } => !!l.href && /^https?:/i.test(l.href));
   const phone = profile.phone || profile.phoneNumber;
   const skills: string[] = (profile.skills ?? [])
     .map((entry: any) => entry?.skill?.name)
@@ -81,7 +82,7 @@ export function ProfileClient({ profile: initialProfile, id }: { profile: any; i
         <div className="h-48 bg-gradient-to-r from-primary to-primary/60">
           {profile.coverPhotoUrl && (
             // eslint-disable-next-line @next/next/no-img-element -- user-uploaded covers come from arbitrary storage hosts
-            <img src={profile.coverPhotoUrl} alt="" className="h-full w-full object-cover" />
+            <img src={safeMediaSrc(profile.coverPhotoUrl)} alt="" className="h-full w-full object-cover" />
           )}
         </div>
         <CardContent className="relative pb-6">
@@ -181,10 +182,10 @@ export function ProfileClient({ profile: initialProfile, id }: { profile: any; i
                   <span className="text-sm">{phone}</span>
                 </div>
               )}
-              {links.map(({ field, label, Icon }) => (
+              {links.map(({ field, label, Icon, href }) => (
                 <div key={field} className="flex items-center gap-3">
                   <Icon className="h-4 w-4 text-muted-foreground" />
-                  <a href={profile[field]} target="_blank" rel="noopener noreferrer nofollow" className="text-sm hover:underline">
+                  <a href={href} {...externalLinkProps} className="text-sm hover:underline">
                     {label}
                   </a>
                 </div>

@@ -28,6 +28,7 @@ import { getInitials, formatDate } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 import { buildLoginHref } from '@/lib/public-paths';
 import { shareLinkWithToast } from '@/lib/share';
+import { openExternal, safeHref, safeMediaSrc } from '@/lib/safe-url';
 
 export default function EventDetailsPage() {
   const params = useParams();
@@ -117,7 +118,7 @@ export default function EventDetailsPage() {
   const capacity = getEventCapacity(event);
   const spotsTaken = typeof event.rsvpCount === 'number' ? event.rsvpCount : attendees.length;
   const isFull = capacity !== null && spotsTaken >= capacity;
-  const coverImage = event.bannerUrl || event.coverImageUrl;
+  const coverImage = safeMediaSrc(event.bannerUrl || event.coverImageUrl);
   const isVirtual = isVirtualEvent(event);
   const locationText = getEventLocation(event);
   const joinLink: string | undefined = event.joinLink || event.virtualLink;
@@ -212,14 +213,14 @@ export default function EventDetailsPage() {
                   </div>
                 </section>
 
-                {event.eventType !== 'OFFLINE' && joinLink && (
+                {event.eventType !== 'OFFLINE' && safeHref(joinLink) && (
                   <section className="p-4 bg-primary/5 rounded-lg border border-primary/10">
                     <h3 className="font-bold flex items-center gap-2 mb-2 text-primary">
                       <Globe className="h-4 w-4" />
                       Virtual Meeting Link
                     </h3>
                     <p className="text-sm mb-3">This is a virtual event. You can join using the link below.</p>
-                    <Button variant="outline" className="w-full sm:w-auto" onClick={() => window.open(joinLink, '_blank', 'noopener,noreferrer')}>
+                    <Button variant="outline" className="w-full sm:w-auto" onClick={() => openExternal(joinLink)}>
                       Join Meeting
                     </Button>
                   </section>

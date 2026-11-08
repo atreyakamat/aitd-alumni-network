@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useMemo } from 'react';
 import { cn } from '@/lib/utils';
+import { externalLinkProps, safeHref } from '@/lib/safe-url';
 import { tokenizeContent, type MentionRef } from '@/lib/social';
 
 /** Post/comment text with #hashtags, @mentions and URLs as links. Rendered as React nodes, never HTML. */
@@ -33,12 +34,15 @@ export function RichText({
                 {token.value}
               </Link>
             );
-          case 'url':
+          case 'url': {
+            const href = safeHref(token.href);
+            if (!href) return <span key={i}>{token.value}</span>;
             return (
-              <a key={i} href={token.href} target="_blank" rel="noopener noreferrer nofollow ugc" className="text-primary underline-offset-2 hover:underline break-all">
+              <a key={i} href={href} {...externalLinkProps} className="text-primary underline-offset-2 hover:underline break-all">
                 {token.value}
               </a>
             );
+          }
           default:
             return <span key={i}>{token.value}</span>;
         }

@@ -4,6 +4,7 @@ import * as React from 'react';
 import { useRouter } from 'next/navigation';
 import { authApi, isTwoFactorChallenge, type TwoFactorChallenge } from '@/lib/api';
 import { normalizeRole, type Role } from '@/lib/roles';
+import { clearSessionHint, setSessionHint } from '@/lib/session-hint';
 
 export interface User {
   id: string;
@@ -89,11 +90,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       const token = localStorage.getItem('accessToken');
       if (!token) {
+        clearSessionHint();
         setUser(null);
         return;
       }
       const response = await authApi.me();
       setUser(normalizeUser(response.data.data));
+      // Re-assert the middleware hint (covers sessions that predate it and cookie expiry).
+      setSessionHint();
     } catch (error) {
       // Only a server rejection ends the session. A network blip or 5xx keeps the
       // tokens, otherwise the storage event would sign out every other open tab too.
@@ -101,6 +105,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (status === 401 || status === 403) {
         localStorage.removeItem('accessToken');
         localStorage.removeItem('refreshToken');
+        clearSessionHint();
       }
       setUser(null);
     }
@@ -120,6 +125,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (e.key !== null && e.key !== 'accessToken') return;
       const token = localStorage.getItem('accessToken');
       if (!token) {
+        clearSessionHint();
         setUser(null);
         return;
       }
@@ -151,6 +157,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     localStorage.setItem('accessToken', accessToken);
     localStorage.setItem('refreshToken', refreshToken);
+    setSessionHint();
     setUser(normalizeUser(userData));
 
     router.push('/dashboard');
@@ -168,6 +175,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } finally {
       localStorage.removeItem('accessToken');
       localStorage.removeItem('refreshToken');
+      clearSessionHint();
       setUser(null);
       router.push('/login');
     }
@@ -176,6 +184,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const setAuthData = (data: { accessToken: string; refreshToken: string; user?: unknown }) => {
     localStorage.setItem('accessToken', data.accessToken);
     localStorage.setItem('refreshToken', data.refreshToken);
+    setSessionHint();
     if (data.user) {
       setUser(normalizeUser(data.user));
     }
@@ -184,6 +193,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const clearSession = React.useCallback(() => {
     localStorage.removeItem('accessToken');
     localStorage.removeItem('refreshToken');
+    clearSessionHint();
     setUser(null);
   }, []);
 
@@ -191,6 +201,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const setOAuthTokens = async (accessToken: string, refreshToken: string) => {
     localStorage.setItem('accessToken', accessToken);
     localStorage.setItem('refreshToken', refreshToken);
+    setSessionHint();
     await refreshUser();
   };
 

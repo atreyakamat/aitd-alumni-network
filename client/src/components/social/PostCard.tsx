@@ -46,6 +46,7 @@ import { useToast } from '@/hooks/use-toast';
 import { getApiErrorCode, getApiErrorMessage } from '@/lib/api';
 import { isAdmin } from '@/lib/roles';
 import { shareLinkWithToast } from '@/lib/share';
+import { externalLinkProps, safeHref } from '@/lib/safe-url';
 import {
   POST_CONTENT_MAX,
   activeMentionIds,
@@ -87,6 +88,8 @@ function AuthorAvatar({ author, size = 'md' }: { author: AuthorLite; size?: 'sm'
 }
 
 function PostBody({ post, compact = false }: { post: SocialPost; compact?: boolean }) {
+  // linkUrl is user-supplied and stored verbatim by the API: never render an unchecked scheme.
+  const linkHref = safeHref(post.linkUrl);
   return (
     <div className="space-y-3">
       {post.content && <RichText text={post.content} mentions={post.mentions} className={cn(compact && 'line-clamp-4')} />}
@@ -101,10 +104,10 @@ function PostBody({ post, compact = false }: { post: SocialPost; compact?: boole
       ) : (
         post.mediaUrls.length > 0 && <ImageGrid urls={post.mediaUrls} alt={`Image from ${post.user.fullName}'s post`} />
       )}
-      {post.linkUrl && (
-        <a href={post.linkUrl} target="_blank" rel="noopener noreferrer nofollow ugc" className="flex items-center gap-2 rounded-md border px-3 py-2 text-sm text-primary hover:bg-muted">
+      {linkHref && (
+        <a href={linkHref} {...externalLinkProps} className="flex items-center gap-2 rounded-md border px-3 py-2 text-sm text-primary hover:bg-muted">
           <Link2 className="h-4 w-4 shrink-0" aria-hidden="true" />
-          <span className="truncate">{post.linkUrl}</span>
+          <span className="truncate">{linkHref}</span>
         </a>
       )}
     </div>

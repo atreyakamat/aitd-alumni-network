@@ -14,6 +14,7 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import { api } from '@/lib/api';
+import { safeMediaSrc } from '@/lib/safe-url';
 
 // ---------------------------------------------------------------------------
 // Enums & metadata
@@ -619,10 +620,12 @@ export const commentIdFromHash = (hash: string | null | undefined): string | nul
 
 /** Resolve an API-relative media path (`/uploads/...`) against the API origin. */
 export function mediaSrc(url: string | null | undefined): string {
-  if (!url) return '';
-  if (/^(https?:|blob:|data:)/i.test(url)) return url;
+  // API data is user-controlled: only http(s) URLs and /uploads paths survive (no javascript:/data:/blob:).
+  const safe = safeMediaSrc(url);
+  if (!safe) return '';
+  if (/^https?:/i.test(safe)) return safe;
   const base = String(api.defaults.baseURL || '').replace(/\/api\/?$/, '');
-  return url.startsWith('/uploads') && base ? `${base}${url}` : url;
+  return base ? `${base}${safe}` : safe;
 }
 
 export function validateVideoFile(file: Pick<File, 'type' | 'size'>): string | null {

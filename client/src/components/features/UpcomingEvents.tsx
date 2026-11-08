@@ -1,5 +1,6 @@
 'use client';
 
+import { safeMediaSrc } from '@/lib/safe-url';
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
@@ -62,7 +63,7 @@ export function UpcomingEvents() {
               },
               location: event.location || (event.isVirtual ? 'Virtual' : 'TBD'),
               time: startDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false }),
-              image: event.coverImageUrl || FALLBACK_EVENTS[0].image,
+              image: safeMediaSrc(event.coverImageUrl) || FALLBACK_EVENTS[0].image,
             };
           });
           setEvents(formattedEvents);

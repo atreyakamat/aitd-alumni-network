@@ -32,7 +32,6 @@ import {
   Heart,
   MapPin,
   Store,
-  Search,
   Shield,
   UserCog,
   ClipboardCheck,
@@ -44,9 +43,10 @@ import {
 import { getInitials } from '@/lib/utils';
 import { isAdmin as hasAdminRole } from '@/lib/roles';
 import { NotificationBell } from '@/components/notifications/NotificationBell';
+import { HeaderSearch, MobileSearchLink } from '@/components/layout/HeaderSearch';
 import { useState } from 'react';
 
-const navItems = [
+export const navItems = [
   { href: '/dashboard', label: 'Home', icon: Home },
   { href: '/reels', label: 'Reels', icon: Clapperboard },
   { href: '/network', label: 'Network', icon: Users },
@@ -55,7 +55,7 @@ const navItems = [
   { href: '/messages', label: 'Messages', icon: MessageSquare },
 ];
 
-const moreItems = [
+export const moreItems = [
   { href: '/saved', label: 'Saved posts', icon: Bookmark },
   { href: '/directory', label: 'Directory', icon: Users },
   { href: '/yearbook', label: 'Yearbook', icon: GraduationCap },
@@ -94,25 +94,9 @@ export function MainNav() {
           <span className="text-xl font-bold text-primary hidden sm:inline">AITD Connection</span>
         </Link>
 
-        {/* Search Bar */}
-        <div className="hidden md:flex flex-1 max-w-md mx-8">
-          <form 
-            onSubmit={(e) => {
-              e.preventDefault();
-              const formData = new FormData(e.currentTarget);
-              const q = formData.get('q');
-              if (q) router.push(`/search?q=${encodeURIComponent(q as string)}`);
-            }}
-            className="relative w-full"
-          >
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <input
-              name="q"
-              type="text"
-              placeholder="Search alumni, jobs, events..."
-              className="w-full h-10 pl-10 pr-4 rounded-full bg-secondary border-0 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-            />
-          </form>
+        {/* The one search box (wide screens); narrow screens get the icon on the right */}
+        <div className="mx-8 hidden max-w-md flex-1 md:flex">
+          <HeaderSearch placeholder="Search people, jobs, events, news..." />
         </div>
 
         {/* Desktop Nav */}
@@ -180,6 +164,8 @@ export function MainNav() {
 
         {/* Right side */}
         <div className="flex items-center gap-2">
+          <MobileSearchLink />
+
           {/* Notifications */}
           <NotificationBell />
 

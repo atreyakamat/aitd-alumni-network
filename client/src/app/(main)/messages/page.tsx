@@ -175,7 +175,7 @@ function ChatContent() {
                     "text-xs truncate",
                     conv.unreadCount > 0 ? "font-bold text-foreground" : "text-muted-foreground"
                   )}>
-                    {conv.lastMessage?.senderId === currentUser?.id ? 'You: ' : ''}
+                    {(conv.lastMessage?.isSent ?? conv.lastMessage?.senderId === currentUser?.id) ? 'You: ' : ''}
                     {conv.lastMessage?.content || 'Started a conversation'}
                   </p>
                 </div>

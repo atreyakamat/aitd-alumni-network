@@ -30,6 +30,7 @@ import {
   AlertCircle,
 } from 'lucide-react';
 import { getInitials, formatDate, formatCurrency } from '@/lib/utils';
+import { externalLinkProps, safeHref, safeMediaSrc } from '@/lib/safe-url';
 import { LoadingSpinner } from '@/components/ui/loading';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
@@ -177,7 +178,7 @@ export default function JobsPage() {
                 <div className="flex flex-col md:flex-row md:items-start gap-4">
                   <div className="flex items-center justify-center h-16 w-16 bg-secondary rounded-lg flex-shrink-0">
                     {job.companyLogoUrl ? (
-                      <img src={job.companyLogoUrl} alt={job.company} className="h-10 w-10 object-contain" />
+                      <img src={safeMediaSrc(job.companyLogoUrl)} alt={job.company} className="h-10 w-10 object-contain" />
                     ) : (
                       <Building className="h-8 w-8 text-muted-foreground" />
                     )}
@@ -246,9 +247,9 @@ export default function JobsPage() {
                             View Details
                           </Button>
                         </Link>
-                        {(job.applicationLink || job.applicationUrl) ? (
+                        {safeHref(job.applicationLink || job.applicationUrl) ? (
                           <Button size="sm" className="flex-1 sm:flex-initial" asChild>
-                            <a href={job.applicationLink || job.applicationUrl} target="_blank" rel="noopener noreferrer">
+                            <a href={safeHref(job.applicationLink || job.applicationUrl)} {...externalLinkProps}>
                               Apply Now
                               <ExternalLink className="ml-2 h-4 w-4" />
                             </a>

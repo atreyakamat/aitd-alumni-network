@@ -9,7 +9,8 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { getApiErrorMessage, marketplaceApi } from '@/lib/api';
-import { isSafeHttpUrl, listingTypeLabel } from '@/lib/marketplace';
+import { listingTypeLabel } from '@/lib/marketplace';
+import { externalLinkProps, safeHref } from '@/lib/safe-url';
 import { formatDate, getInitials } from '@/lib/utils';
 import type { MarketplaceListing } from '@/types';
 
@@ -146,9 +147,9 @@ export function ListingDetailDialog({
                   </Link>
                 </Button>
               )}
-              {isSafeHttpUrl(listing.website) && (
+              {safeHref(listing.website) && (
                 <Button variant="outline" asChild>
-                  <a href={listing.website.trim()} target="_blank" rel="noopener noreferrer nofollow">
+                  <a href={safeHref(listing.website)} {...externalLinkProps}>
                     <ExternalLink className="h-4 w-4 mr-2" aria-hidden="true" />
                     Visit website
                   </a>

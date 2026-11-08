@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { networkApi } from '@/lib/api';
+import { batchLine, readConnections, readRequests, type ConnectionEntry, type RequestEntry } from '@/lib/people';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
@@ -22,8 +23,8 @@ import { getInitials } from '@/lib/utils';
 import { useRouter } from 'next/navigation';
 
 export default function NetworkPage() {
-  const [connections, setConnections] = useState<any[]>([]);
-  const [requests, setRequests] = useState<any[]>([]);
+  const [connections, setConnections] = useState<ConnectionEntry[]>([]);
+  const [requests, setRequests] = useState<RequestEntry[]>([]);
   const [suggestions, setSuggestions] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
@@ -41,8 +42,9 @@ export default function NetworkPage() {
         networkApi.getPendingRequests(),
         networkApi.getSuggestions(12)
       ]);
-      setConnections(connRes.data.data || []);
-      setRequests(reqRes.data.data || []);
+      // /network/connections is { data: [...], pagination }; /network/requests is { data: { received, sent } }
+      setConnections(readConnections(connRes.data));
+      setRequests(readRequests(reqRes.data).received);
       setSuggestions(sugRes.data.data || []);
     } catch (error) {
       console.error('Failed to fetch network data:', error);
@@ -131,17 +133,17 @@ export default function NetworkPage() {
           {connections.length > 0 ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
               {connections.map((conn) => {
-                const partner = conn.requesterId === conn.userId ? conn.addressee : conn.requester;
+                const partner = conn.partner;
                 return (
                   <Card key={conn.id} className="hover:shadow-md transition-shadow">
                     <CardContent className="pt-6 text-center">
                       <Avatar className="h-20 w-20 mx-auto mb-4 cursor-pointer" onClick={() => router.push(`/profile/${partner.id}`)}>
-                        <AvatarImage src={partner.profilePhotoUrl} />
+                        <AvatarImage src={partner.avatarUrl ?? undefined} />
                         <AvatarFallback className="text-xl">{getInitials(partner.fullName)}</AvatarFallback>
                       </Avatar>
                       <h3 className="font-bold text-lg truncate">{partner.fullName}</h3>
-                      <p className="text-sm text-primary font-medium truncate">{partner.currentDesignation || 'Alumnus'}</p>
-                      <p className="text-xs text-muted-foreground mt-1">Class of {partner.batchYear} • {partner.department}</p>
+                      <p className="text-sm text-primary font-medium truncate">{partner.headline || 'Alumnus'}</p>
+                      <p className="text-xs text-muted-foreground mt-1">{batchLine(partner) || partner.locationCity}</p>
                       
                       <div className="flex gap-2 mt-4">
                         <Button variant="outline" size="sm" className="flex-1" onClick={() => router.push(`/messages?u=${partner.id}`)}>
@@ -170,14 +172,14 @@ export default function NetworkPage() {
               {requests.map((req) => (
                 <Card key={req.id}>
                   <CardContent className="p-4 flex items-center justify-between">
-                    <div className="flex items-center gap-4 cursor-pointer" onClick={() => router.push(`/profile/${req.requester.id}`)}>
+                    <div className="flex items-center gap-4 cursor-pointer" onClick={() => router.push(`/profile/${req.person.id}`)}>
                       <Avatar className="h-12 w-12">
-                        <AvatarImage src={req.requester.profilePhotoUrl} />
-                        <AvatarFallback>{getInitials(req.requester.fullName)}</AvatarFallback>
+                        <AvatarImage src={req.person.avatarUrl ?? undefined} />
+                        <AvatarFallback>{getInitials(req.person.fullName)}</AvatarFallback>
                       </Avatar>
                       <div>
-                        <h4 className="font-bold">{req.requester.fullName}</h4>
-                        <p className="text-sm text-muted-foreground">{req.requester.currentDesignation || 'Alumnus'} • Class of {req.requester.batchYear}</p>
+                        <h4 className="font-bold">{req.person.fullName}</h4>
+                        <p className="text-sm text-muted-foreground">{[req.person.headline || 'Alumnus', req.person.batchYear ? `Class of ${req.person.batchYear}` : null].filter(Boolean).join(' • ')}</p>
                       </div>
                     </div>
                     <div className="flex gap-2">

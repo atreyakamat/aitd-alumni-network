@@ -11,7 +11,8 @@ async function getProfile(id: string) {
   try {
     // In a real server component, you'd fetch from your API
     // For now, we simulate or use a server-side axios instance if configured
-    const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/users/${id}`, {
+    // Next hands over the DECODED segment ("..%2F..%2Fadmin" arrives as "../../admin"): keep it one path segment
+    const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/users/${encodeURIComponent(id)}`, {
       next: { revalidate: 3600 } // Cache for 1 hour
     });
     const data = await response.json();

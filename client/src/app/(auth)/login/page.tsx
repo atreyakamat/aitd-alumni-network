@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import Image from 'next/image';
-import { useState, useEffect, Suspense } from 'react';
+import { useState, useEffect, useRef, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -34,7 +34,7 @@ function LoginContent() {
   const [twoFactorToken, setTwoFactorToken] = useState<string | null>(null);
   const [otpCode, setOtpCode] = useState('');
   const [isVerifying2FA, setIsVerifying2FA] = useState(false);
-  const { setAuthData } = useAuth();
+  const { setAuthData, isAuthenticated } = useAuth();
   const { toast } = useToast();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -82,46 +82,60 @@ function LoginContent() {
     };
   }, []);
 
-  // Handle OAuth callback tokens
+  // OAuth hand-off: the API redirects here with a ONE-TIME code (not tokens) in the query string.
+  // Capture it on first render, scrub it from the address bar/history immediately (before any
+  // network call), then exchange it exactly once. The route is served with Referrer-Policy:
+  // no-referrer (next.config.js), so the code is not leaked to third parties either.
+  const oauthHandoff = useRef({ code, provider: oauthProvider, isNewUser });
+  const exchangeStarted = useRef(false);
+  const errorToastShown = useRef(false);
+
   useEffect(() => {
-    const handleOAuthCallback = async () => {
-      if (code) {
+    const { code: oauthCode, provider, isNewUser: newUser } = oauthHandoff.current;
+    if (oauthCode) {
+      const url = new URL(window.location.href);
+      if (['code', 'oauth', 'newUser'].some((k) => url.searchParams.has(k))) {
+        ['code', 'oauth', 'newUser'].forEach((k) => url.searchParams.delete(k));
+        window.history.replaceState(window.history.state, '', `${url.pathname}${url.search}${url.hash}`);
+      }
+      if (exchangeStarted.current) return;
+      exchangeStarted.current = true;
+
+      const exchange = async () => {
         try {
-          // OAuth login successful - exchange code for tokens
-          const response = await api.post('/auth/oauth/exchange', { code });
-          const result = response.data.data;
-          
-          setAuthData(result);
-          
-          const message = isNewUser === 'true' 
-            ? `Account created with ${oauthProvider || 'OAuth'}! Please complete your profile.`
-            : `Welcome back! Logged in via ${oauthProvider || 'OAuth'}.`;
-          
-          toast({
-            title: isNewUser === 'true' ? 'Welcome!' : 'Welcome back!',
-            description: message,
-          });
-          
-          // Remove OAuth params from URL and redirect
+          const response = await api.post('/auth/oauth/exchange', { code: oauthCode });
+          setAuthData(response.data.data);
+
+          const message =
+            newUser === 'true'
+              ? `Account created with ${provider || 'OAuth'}! Please complete your profile.`
+              : `Welcome back! Logged in via ${provider || 'OAuth'}.`;
+          toast({ title: newUser === 'true' ? 'Welcome!' : 'Welcome back!', description: message });
           router.replace(afterLoginPath);
-        } catch (error) {
+        } catch {
           toast({
             variant: 'destructive',
             title: 'Login Failed',
             description: 'Unable to complete authentication. Please try again.',
           });
         }
-      } else if (oauthError) {
-        toast({
-          variant: 'destructive',
-          title: 'OAuth Login Failed',
-          description: 'Unable to authenticate with the selected provider. Please try again.',
-        });
-      }
-    };
-    
-    handleOAuthCallback();
-    }, [code, oauthProvider, isNewUser, oauthError, setAuthData, toast, router, afterLoginPath]);
+      };
+      void exchange();
+    } else if (oauthError && !errorToastShown.current) {
+      errorToastShown.current = true;
+      toast({
+        variant: 'destructive',
+        title: 'OAuth Login Failed',
+        description: 'Unable to authenticate with the selected provider. Please try again.',
+      });
+    }
+  }, [oauthError, setAuthData, toast, router, afterLoginPath]);
+
+  // A visitor who is already signed in (e.g. redirected here by the edge gate because the session
+  // hint cookie expired) goes straight on to where they were headed.
+  useEffect(() => {
+    if (isAuthenticated && !oauthHandoff.current.code) router.replace(afterLoginPath);
+  }, [isAuthenticated, router, afterLoginPath]);
 
 
   const {

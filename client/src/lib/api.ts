@@ -1,6 +1,7 @@
 import axios from 'axios';
 import type { Role } from '@/lib/roles';
 import { buildLoginHref, isPublicPath } from '@/lib/public-paths';
+import { clearSessionHint, setSessionHint } from '@/lib/session-hint';
 import type { Notification as AppNotification } from '@/types';
 import type { EducationInput, ProfileUpdatePayload, WorkExperienceInput } from '@/lib/profile';
 
@@ -136,6 +137,8 @@ export function refreshAccessToken(): Promise<string> {
       const { accessToken, refreshToken: newRefreshToken } = response.data.data;
       localStorage.setItem('accessToken', accessToken);
       if (newRefreshToken) localStorage.setItem('refreshToken', newRefreshToken);
+      // Slide the middleware session hint along with the rotated refresh token.
+      setSessionHint();
       return accessToken as string;
     })().finally(() => {
       refreshPromise = null;
@@ -239,6 +242,7 @@ api.interceptors.response.use(
           // Refresh failed: the session is gone. Clear tokens and send to login.
           localStorage.removeItem('accessToken');
           localStorage.removeItem('refreshToken');
+          clearSessionHint();
           window.dispatchEvent(new CustomEvent('api:session_expired', {
             detail: { message: 'Your session has expired. Please log in again.' }
           }));
@@ -869,8 +873,8 @@ export const inviteApi = {
     api.post('/invites/send', data),
   sendBulkInvites: (data: { invites: Array<{ email: string; name?: string; batchYear?: number }>; message?: string }) =>
     api.post('/invites/bulk', data),
-  generateShareableLink: (batchYear?: number) =>
-    api.post('/invites/generate-link', { batchYear }),
+  /** One reusable link per member; the server takes no body (it returns `{ link, expiresAt }`). */
+  generateShareableLink: () => api.post('/invites/generate-link'),
   getSentInvites: (page?: number, limit?: number) =>
     api.get('/invites/sent', { params: { page, limit } }),
   getStats: () => api.get('/invites/stats'),
@@ -897,7 +901,8 @@ export const twoFactorApi = {
   resend2FA: (twoFactorToken: string) =>
     api.post('/auth/resend-2fa', { twoFactorToken }),
   enable2FA: () => api.post('/auth/2fa/enable'),
-  disable2FA: () => api.post('/auth/2fa/disable'),
+  /** The server requires the account password to switch 2FA off (a stolen session must not be enough). */
+  disable2FA: (password?: string) => api.post('/auth/2fa/disable', password ? { password } : undefined),
 };
 
 // Mentorship API
@@ -935,10 +940,14 @@ export const mentorshipApi = {
 
 // Search API
 export interface GlobalSearchResults {
+  /** `public` for visitors without an account (events, news, chapters only), `member` when signed in */
+  scope?: 'public' | 'member';
   users: any[];
   jobs: any[];
   events: any[];
   posts: any[];
+  news?: any[];
+  chapters?: any[];
 }
 
 export const searchApi = {

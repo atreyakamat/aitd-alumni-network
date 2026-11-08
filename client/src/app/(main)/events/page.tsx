@@ -21,6 +21,7 @@ import {
 import { formatDate } from '@/lib/utils';
 import { useAuth } from '@/context/auth-context';
 import { isChapterAdminOrAbove } from '@/lib/roles';
+import { safeMediaSrc } from '@/lib/safe-url';
 import { CreateEventDialog } from '@/components/events/CreateEventDialog';
 import Link from 'next/link';
 import { LoadingSpinner } from '@/components/ui/loading';
@@ -83,7 +84,7 @@ export default function EventsPage() {
     <Card className="overflow-hidden hover:shadow-md transition-shadow">
       <div className="aspect-video bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center relative">
         {event.bannerUrl ? (
-          <img src={event.bannerUrl} alt={event.title} className="w-full h-full object-cover" />
+          <img src={safeMediaSrc(event.bannerUrl)} alt={event.title} className="w-full h-full object-cover" />
         ) : (
           <Calendar className="h-12 w-12 text-primary/50" />
         )}

@@ -18,6 +18,7 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import { adminApi, getApiErrorMessage, jobApi, type PendingJob } from '@/lib/api';
 import { formatDate } from '@/lib/utils';
+import { safeHref } from '@/lib/safe-url';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -157,7 +158,7 @@ export default function AdminModerationPage() {
             const company = (job.company as string) || (job.companyName as string) || 'Company not specified';
             const jobType = humanize(job.jobType ?? job.type);
             const workplace = humanize(job.workplaceType);
-            const link = typeof job.applicationLink === 'string' ? job.applicationLink : null;
+            const link = safeHref(job.applicationLink) ?? null;
             const acting = actingId === job.id;
             return (
               <Card key={job.id}>
@@ -205,7 +206,7 @@ export default function AdminModerationPage() {
                         <a
                           href={link}
                           target="_blank"
-                          rel="noopener noreferrer nofollow"
+                          rel="noopener noreferrer nofollow ugc"
                           className="ml-3 inline-flex items-center gap-1 text-primary hover:underline"
                         >
                           Application link <ExternalLink className="h-3 w-3" />

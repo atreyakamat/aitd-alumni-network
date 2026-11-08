@@ -2,7 +2,6 @@
 
 import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
-import { Bookmark, Briefcase, CalendarDays, Clapperboard, Users } from 'lucide-react';
 import { useAuth } from '@/context/auth-context';
 import { eventApi } from '@/lib/api';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -43,60 +42,9 @@ export default function DashboardPage() {
   }, []);
 
   return (
-    <div className="grid gap-6 lg:grid-cols-4">
-      {/* Left sidebar: profile card + shortcuts */}
-      <aside className="hidden space-y-6 lg:col-span-1 lg:block" aria-label="Your profile">
-        <Card>
-          <div className="h-16 rounded-t-lg bg-gradient-to-r from-primary to-primary/80" />
-          <CardContent className="-mt-8 pt-0">
-            <div className="flex flex-col items-center text-center">
-              <Avatar className="h-16 w-16 border-4 border-background">
-                <AvatarImage src={mediaSrc(currentUser?.avatarUrl) || undefined} alt="" />
-                <AvatarFallback className="text-lg">{currentUser?.fullName ? getInitials(currentUser.fullName) : 'U'}</AvatarFallback>
-              </Avatar>
-              <h2 className="mt-2 font-semibold">{currentUser?.fullName}</h2>
-              <p className="text-sm text-muted-foreground">
-                {currentUser?.department} · Batch {currentUser?.batchYear}
-              </p>
-            </div>
-            <div className="mt-4 space-y-2 border-t pt-4">
-              <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground">Profile completeness</span>
-                <span className="font-medium">{currentUser?.profileCompleteness || 0}%</span>
-              </div>
-              <div className="h-2 overflow-hidden rounded-full bg-secondary" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={currentUser?.profileCompleteness || 0} aria-label="Profile completeness">
-                <div className="h-full rounded-full bg-primary transition-all" style={{ width: `${currentUser?.profileCompleteness || 0}%` }} />
-              </div>
-              <Button asChild variant="outline" size="sm" className="mt-2 w-full">
-                <Link href={currentUser ? `/profile/${encodeURIComponent(currentUser.id)}` : '/profile/edit'}>View profile</Link>
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base">Shortcuts</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-1">
-            {[
-              { href: '/reels', label: 'Reels', icon: Clapperboard },
-              { href: '/saved', label: 'Saved posts', icon: Bookmark },
-              { href: '/network', label: 'My connections', icon: Users },
-              { href: '/jobs', label: 'Job board', icon: Briefcase },
-              { href: '/events', label: 'Events', icon: CalendarDays },
-            ].map(({ href, label, icon: Icon }) => (
-              <Link key={href} href={href} className="flex items-center gap-3 rounded-lg p-2 transition-colors hover:bg-secondary">
-                <Icon className="h-4 w-4 text-primary" aria-hidden="true" />
-                <span className="text-sm">{label}</span>
-              </Link>
-            ))}
-          </CardContent>
-        </Card>
-      </aside>
-
+    <div className="mx-auto grid max-w-5xl gap-6 lg:grid-cols-[minmax(0,1fr)_20rem]">
       {/* Centre: composer + feed */}
-      <div className="min-w-0 space-y-4 lg:col-span-2">
+      <div className="min-w-0 space-y-4">
         <h1 className="sr-only">Home feed</h1>
         <PostComposer onCreated={(post) => feedRef.current?.prepend(post)} />
         <Feed
@@ -109,8 +57,39 @@ export default function DashboardPage() {
         />
       </div>
 
-      {/* Right sidebar */}
-      <aside className="space-y-6 lg:col-span-1" aria-label="Discover">
+      {/* Right sidebar: profile summary + discovery */}
+      <aside className="space-y-6" aria-label="Discover">
+        {/* Profile card: not reachable from the header as a summary, so it stays (desktop only). The
+            former "Shortcuts" card duplicated the header nav (Reels, Saved, Network, Jobs, Events) and is gone. */}
+        <section className="hidden lg:block" aria-label="Your profile">
+          <Card>
+            <div className="h-16 rounded-t-lg bg-gradient-to-r from-primary to-primary/80" />
+            <CardContent className="-mt-8 pt-0">
+              <div className="flex flex-col items-center text-center">
+                <Avatar className="h-16 w-16 border-4 border-background">
+                  <AvatarImage src={mediaSrc(currentUser?.avatarUrl) || undefined} alt="" />
+                  <AvatarFallback className="text-lg">{currentUser?.fullName ? getInitials(currentUser.fullName) : 'U'}</AvatarFallback>
+                </Avatar>
+                <h2 className="mt-2 font-semibold">{currentUser?.fullName}</h2>
+                <p className="text-sm text-muted-foreground">
+                  {currentUser?.department} · Batch {currentUser?.batchYear}
+                </p>
+              </div>
+              <div className="mt-4 space-y-2 border-t pt-4">
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">Profile completeness</span>
+                  <span className="font-medium">{currentUser?.profileCompleteness || 0}%</span>
+                </div>
+                <div className="h-2 overflow-hidden rounded-full bg-secondary" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={currentUser?.profileCompleteness || 0} aria-label="Profile completeness">
+                  <div className="h-full rounded-full bg-primary transition-all" style={{ width: `${currentUser?.profileCompleteness || 0}%` }} />
+                </div>
+                <Button asChild variant="outline" size="sm" className="mt-2 w-full">
+                  <Link href={currentUser ? `/profile/${encodeURIComponent(currentUser.id)}` : '/profile/edit'}>View profile</Link>
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </section>
         <TrendingHashtags />
         <WhoToFollow />
         {upcomingEvents.length > 0 && (

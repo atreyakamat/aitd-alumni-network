@@ -4,7 +4,7 @@ import { afterEach } from 'vitest';
 
 afterEach(() => {
   cleanup();
-  window.localStorage.clear();
+  if (typeof window !== 'undefined') window.localStorage.clear();
 });
 
 // jsdom lacks a few browser APIs that Radix primitives rely on.

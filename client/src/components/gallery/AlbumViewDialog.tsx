@@ -5,6 +5,7 @@ import { useQuery } from '@tanstack/react-query';
 import { AlertCircle, Image as ImageIcon, Loader2 } from 'lucide-react';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { galleryApi, getApiErrorMessage } from '@/lib/api';
+import { EXTERNAL_LINK_REL, safeMediaSrc } from '@/lib/safe-url';
 
 interface AlbumPhoto {
   id: string;
@@ -58,10 +59,10 @@ export function AlbumViewDialog({ album, onClose }: AlbumViewDialogProps) {
           </div>
         ) : (
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-            {photos.map((photo) => (
-              <a key={photo.id} href={photo.url} target="_blank" rel="noopener noreferrer" className="block">
+            {photos.filter((p) => safeMediaSrc(p.url)).map((photo) => (
+              <a key={photo.id} href={safeMediaSrc(photo.url)} target="_blank" rel={EXTERNAL_LINK_REL} className="block">
                 <Image
-                  src={photo.thumbnailUrl || photo.url}
+                  src={safeMediaSrc(photo.thumbnailUrl) || safeMediaSrc(photo.url) as string}
                   alt={photo.caption || 'Album photo'}
                   width={400}
                   height={300}

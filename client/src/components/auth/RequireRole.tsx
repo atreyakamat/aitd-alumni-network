@@ -16,7 +16,10 @@ interface RequireRoleProps {
   children: React.ReactNode;
   /** Rendered instead of the default access-denied card. */
   fallback?: React.ReactNode;
-  /** When set, unauthorized users are redirected here (replace) as well. */
+  /**
+   * When set, unauthorized users are redirected here (replace) and NOTHING is rendered for them
+   * meanwhile (no access-denied flash, no privileged markup) unless `fallback` is given.
+   */
   redirectTo?: string;
 }
 
@@ -46,6 +49,7 @@ export function RequireRole({ min, children, fallback, redirectTo }: RequireRole
 
   if (!allowed) {
     if (fallback !== undefined) return <>{fallback}</>;
+    if (redirectTo) return null;
     return <AccessDenied min={min} />;
   }
 

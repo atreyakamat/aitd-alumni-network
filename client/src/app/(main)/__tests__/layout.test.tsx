@@ -7,6 +7,7 @@ let pathname = '/events';
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ push, replace }),
   usePathname: () => pathname,
+  useSearchParams: () => new URLSearchParams(),
 }));
 
 const authState: { user: any; isLoading: boolean; isAuthenticated: boolean } = {

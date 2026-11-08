@@ -239,8 +239,8 @@ function ReelItem({
     <div className="relative flex h-full w-full items-center justify-center">
       <video
         ref={video}
-        src={mediaSrc(post.videoUrl)}
-        poster={post.thumbnailUrl ? mediaSrc(post.thumbnailUrl) : undefined}
+        src={mediaSrc(post.videoUrl) || undefined}
+        poster={mediaSrc(post.thumbnailUrl) || undefined}
         muted={muted}
         loop
         playsInline

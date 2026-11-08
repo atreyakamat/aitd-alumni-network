@@ -5,6 +5,7 @@ let pathname = '/';
 vi.mock('next/navigation', () => ({
   usePathname: () => pathname,
   useRouter: () => ({ push: vi.fn() }),
+  useSearchParams: () => new URLSearchParams(),
 }));
 
 import { PublicNav } from '@/components/layout/PublicNav';

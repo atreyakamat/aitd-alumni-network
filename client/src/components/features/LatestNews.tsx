@@ -1,5 +1,6 @@
 'use client';
 
+import { safeMediaSrc } from '@/lib/safe-url';
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
@@ -44,7 +45,7 @@ export function LatestNews() {
             excerpt: article.summary || article.content.substring(0, 150) + '...',
             cta: 'Read More',
             href: article.slug ? `/news/${encodeURIComponent(article.slug)}` : '/news',
-            image: article.coverImageUrl || (article.id === data[0].id ? FALLBACK_STORIES[0].image : FALLBACK_STORIES[1].image),
+            image: safeMediaSrc(article.coverImageUrl) || (article.id === data[0].id ? FALLBACK_STORIES[0].image : FALLBACK_STORIES[1].image),
           }));
           setStories(formattedStories);
         }

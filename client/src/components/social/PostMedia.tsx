@@ -67,8 +67,8 @@ export function AutoplayVideo({
     <div className={cn('relative overflow-hidden rounded-lg bg-black', className)}>
       <video
         ref={ref}
-        src={mediaSrc(src)}
-        poster={poster ? mediaSrc(poster) : undefined}
+        src={mediaSrc(src) || undefined}
+        poster={mediaSrc(poster) || undefined}
         muted={muted}
         loop={loop}
         playsInline
@@ -114,7 +114,7 @@ export function ImageGrid({ urls, alt = 'Post image' }: { urls: string[]; alt?: 
             className={cn('relative block overflow-hidden bg-muted', shown.length === 1 ? 'max-h-[520px]' : 'aspect-square')}
           >
             {/* eslint-disable-next-line @next/next/no-img-element -- user uploads from the API origin */}
-            <img src={mediaSrc(url)} alt={`${alt} ${i + 1}`} loading="lazy" className="h-full w-full object-cover" />
+            <img src={mediaSrc(url) || undefined} alt={`${alt} ${i + 1}`} loading="lazy" className="h-full w-full object-cover" />
             {i === 3 && extra > 0 && (
               <span className="absolute inset-0 flex items-center justify-center bg-black/50 text-2xl font-semibold text-white">+{extra}</span>
             )}
@@ -148,7 +148,7 @@ function Lightbox({ urls, index, onIndexChange, alt }: { urls: string[]; index: 
         {index !== null && (
           <div className="relative flex items-center justify-center">
             {/* eslint-disable-next-line @next/next/no-img-element -- user uploads from the API origin */}
-            <img src={mediaSrc(urls.at(index))} alt={`${alt} ${index + 1}`} className="max-h-[80vh] w-auto object-contain" />
+            <img src={mediaSrc(urls.at(index)) || undefined} alt={`${alt} ${index + 1}`} className="max-h-[80vh] w-auto object-contain" />
             {urls.length > 1 && (
               <>
                 <button type="button" onClick={() => go(-1)} aria-label="Previous image" className="absolute left-1 rounded-full bg-white/20 p-2 text-white hover:bg-white/40">

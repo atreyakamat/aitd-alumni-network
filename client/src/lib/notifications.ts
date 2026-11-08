@@ -1,5 +1,6 @@
 import { formatDistanceToNow } from 'date-fns';
 import type { Notification } from '@/types';
+import { safeInternalPath } from '@/lib/safe-url';
 
 /** Window event re-dispatched by useSocket for the server's `new_notification` emit. */
 export const NEW_NOTIFICATION_EVENT = 'socket:new_notification';
@@ -39,7 +40,9 @@ export function getNotificationHref(
   const raw = (notification.link ?? notification.linkUrl ?? '').trim();
   if (!raw) return null;
   if (raw.startsWith('/')) {
-    return raw.startsWith('//') || raw.includes('\\') ? null : mapLegacyNotificationPath(raw);
+    // safeInternalPath also rejects tab/newline smuggling ("/<tab>/evil.com" -> "//evil.com").
+    const internal = safeInternalPath(raw);
+    return internal ? mapLegacyNotificationPath(internal) : null;
   }
   if (!origin) return null;
   try {

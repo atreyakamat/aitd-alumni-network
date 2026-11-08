@@ -1,28 +1,30 @@
 import Link from 'next/link';
 import { Card, CardContent } from '@/components/ui/card';
 import { Users, Briefcase, BookOpen, CalendarDays, ArrowRight } from 'lucide-react';
+import { buildLoginHref } from '@/lib/public-paths';
 
+// Members-only features send visitors to sign in first (and back afterwards); public ones link directly.
 const features = [
   {
     icon: Users,
     title: 'Directory',
     description: 'Locate peers across generations and geographies through our verified global database.',
-    href: '/directory',
-    cta: 'Search Members',
+    href: buildLoginHref('/directory'),
+    cta: 'Sign in to search members',
   },
   {
     icon: Briefcase,
     title: 'Job Board',
     description: 'Exclusive access to high-tier professional opportunities from alumni and partner organizations.',
-    href: '/jobs',
-    cta: 'View Openings',
+    href: buildLoginHref('/jobs'),
+    cta: 'Sign in to view openings',
   },
   {
     icon: BookOpen,
     title: 'Mentorship',
     description: 'Bridge the gap between experience and ambition through structured guidance programs.',
-    href: '/jobs',
-    cta: 'Find a Mentor',
+    href: buildLoginHref('/mentorship'),
+    cta: 'Sign in to find a mentor',
   },
   {
     icon: CalendarDays,

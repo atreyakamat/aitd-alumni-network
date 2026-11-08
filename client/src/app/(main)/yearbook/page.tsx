@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { userApi, getApiErrorMessage } from '@/lib/api';
+import { readYearbook } from '@/lib/people';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -52,7 +53,7 @@ export default function YearbookPage() {
     },
   });
 
-  const alumni = data?.data?.alumni || data?.data || [];
+  const alumni = readYearbook(data);
 
   return (
     <div className="space-y-6">

@@ -12,9 +12,11 @@ export const PUBLIC_SECTIONS = [
 
 /**
  * Shareable post links (`/posts/<id>`) open for anonymous visitors too; the API decides what they
- * may see (public posts only). Not a nav section, so it is not in PUBLIC_SECTIONS.
+ * may see (public posts only). So does `/search`: the API answers visitors with public content only
+ * (events, news, chapters) and the page tells them to sign in for the rest. Neither is a nav section,
+ * so they are not in PUBLIC_SECTIONS.
  */
-export const PUBLIC_DEEP_LINK_PREFIXES = ['/posts'] as const;
+export const PUBLIC_DEEP_LINK_PREFIXES = ['/posts', '/search'] as const;
 
 export const PUBLIC_PATH_PREFIXES: readonly string[] = [...PUBLIC_SECTIONS.map((s) => s.href), ...PUBLIC_DEEP_LINK_PREFIXES];
 
@@ -37,6 +39,14 @@ export function getSafeNextPath(raw: string | null | undefined): string | null {
   // eslint-disable-next-line no-control-regex
   if (/[\\\u0000-\u001f\u007f]/.test(value)) return null;
   if (/^\/(login|register)(?:[/?#]|$)/.test(value)) return null;
+  // Dot segments are collapsed by the URL parser: "/.//evil.example" resolves to the PATH "//evil.example", which the
+  // router then hands to history.pushState as a protocol-relative (cross-origin) URL. Only accept what stays put.
+  try {
+    const resolved = new URL(value, 'http://aitd.invalid');
+    if (resolved.origin !== 'http://aitd.invalid' || resolved.pathname.startsWith('//')) return null;
+  } catch {
+    return null;
+  }
   return value;
 }
 
@@ -55,4 +65,41 @@ export function buildLoginHref(nextPath?: string | null, extra?: Record<string, 
 /** `/register?next=<path>` for a safe path, otherwise plain `/register`. */
 export function buildRegisterHref(nextPath?: string | null): string {
   return buildAuthHref('/register', nextPath);
+}
+
+/**
+ * Pages that live OUTSIDE the (main) route group and are open to everyone: the landing page,
+ * the auth screens (they must be reachable without a session) and the legal pages.
+ * Keep in sync with `src/app/(auth)`, `src/app/(legal)` and `src/app/page.tsx`;
+ * `route-access.test.ts` scans the app directory and fails if a route is missing here.
+ */
+export const OPEN_PATH_PREFIXES: readonly string[] = [
+  '/login',
+  '/register',
+  '/forgot-password',
+  '/reset-password',
+  '/privacy',
+  '/terms',
+  '/contact',
+  '/cookies',
+];
+
+const normalizePath = (pathname: string) => pathname.split(/[?#]/)[0].replace(/\/+$/, '') || '/';
+
+const matchesPrefix = (path: string, prefixes: readonly string[]) =>
+  prefixes.some((prefix) => path === prefix || path.startsWith(`${prefix}/`));
+
+/**
+ * True for every page that needs a session: i.e. anything that is not the landing page, not an
+ * auth/legal page and not a PUBLIC_PATH_PREFIXES section. Fail-closed: an unknown path counts as
+ * member-only, so a new (main) route is protected by default. Static assets never reach this
+ * (the middleware matcher skips them).
+ */
+export function isMemberOnlyPath(pathname: string | null | undefined): boolean {
+  if (!pathname) return false;
+  const path = normalizePath(pathname);
+  if (path === '/') return false;
+  if (isPublicPath(path)) return false;
+  if (matchesPrefix(path, OPEN_PATH_PREFIXES)) return false;
+  return true;
 }

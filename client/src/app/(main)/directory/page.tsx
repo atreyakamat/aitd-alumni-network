@@ -1,8 +1,9 @@
 'use client';
 
-import { useState, useCallback, useEffect } from 'react';
+import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { userApi, networkApi, getApiErrorMessage } from '@/lib/api';
+import { readConnections, readDirectory, readRequests } from '@/lib/people';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -54,7 +55,8 @@ export default function DirectoryPage() {
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [page, setPage] = useState(1);
   const [connectingId, setConnectingId] = useState<string | null>(null);
-  const [connectionStatuses, setConnectionStatuses] = useState<Record<string, string>>({});
+  // Requests sent from this page, shown as Pending before the lists below refetch
+  const [requested, setRequested] = useState<Record<string, string>>({});
 
   const { data, isLoading, isError, error, refetch } = useQuery({
     queryKey: ['directory', searchQuery, selectedDepartment, selectedYear, page],
@@ -81,19 +83,23 @@ export default function DirectoryPage() {
     enabled: !!user,
   });
 
-  const alumni = data?.items || [];
-  const pagination = data || { total: 0, pages: 0, page: 1 };
-  const connections = connectionsData?.items || [];
+  const { data: requestsData } = useQuery({
+    queryKey: ['connection-requests'],
+    queryFn: async () => (await networkApi.getPendingRequests()).data,
+    enabled: !!user,
+  });
 
-  useEffect(() => {
-    if (!user || !connections.length) return;
+  const directory = useMemo(() => readDirectory(data), [data]);
+  const alumni = directory.people;
+  const pagination = { total: directory.total, pages: directory.totalPages, page: directory.page };
+
+  const connectionStatuses = useMemo(() => {
     const statuses: Record<string, string> = {};
-    connections.forEach((conn: any) => {
-      const otherUserId = conn.requesterId === user.id ? conn.addresseeId : conn.requesterId;
-      statuses[otherUserId] = conn.status;
-    });
-    setConnectionStatuses(statuses);
-  }, [user, connections]);
+    for (const entry of readConnections(connectionsData)) statuses[entry.partner.id] = 'CONNECTED';
+    const { received, sent } = readRequests(requestsData);
+    for (const entry of [...received, ...sent]) statuses[entry.person.id] = 'PENDING';
+    return { ...statuses, ...requested };
+  }, [connectionsData, requestsData, requested]);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -106,7 +112,7 @@ export default function DirectoryPage() {
     setConnectingId(targetUserId);
     try {
       await networkApi.sendRequest(targetUserId);
-      setConnectionStatuses(prev => ({ ...prev, [targetUserId]: 'PENDING' }));
+      setRequested((prev) => ({ ...prev, [targetUserId]: 'PENDING' }));
     } catch (error) {
       console.error('Error sending connection request:', error);
     } finally {
@@ -230,7 +236,7 @@ export default function DirectoryPage() {
         <>
           {viewMode === 'grid' ? (
             <div className="grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-              {alumni.map((person: any) => (
+              {alumni.map((person) => (
                 <Card key={person.id} className="hover:shadow-md transition-shadow">
                   <CardContent className="pt-6">
                     <div className="flex flex-col items-center text-center">
@@ -257,14 +263,14 @@ export default function DirectoryPage() {
                         </div>
                       )}
                       <div className="flex flex-wrap gap-1 mt-3 justify-center">
-                        {(person.skills || []).slice(0, 2).map((skill: string) => (
+                        {person.skills.slice(0, 2).map((skill) => (
                           <Badge key={skill} variant="secondary" className="text-xs">
                             {skill}
                           </Badge>
                         ))}
-                        {(person.skills || []).length > 2 && (
+                        {person.skills.length > 2 && (
                           <Badge variant="secondary" className="text-xs">
-                            +{(person.skills || []).length - 2}
+                            +{person.skills.length - 2}
                           </Badge>
                         )}
                       </div>
@@ -295,7 +301,7 @@ export default function DirectoryPage() {
             </div>
           ) : (
             <div className="space-y-4">
-              {alumni.map((person: any) => (
+              {alumni.map((person) => (
                 <Card key={person.id} className="hover:shadow-md transition-shadow">
                   <CardContent className="py-4">
                     <div className="flex flex-col sm:flex-row items-center sm:items-start gap-4 text-center sm:text-left">
@@ -323,7 +329,7 @@ export default function DirectoryPage() {
                           )}
                         </div>
                         <div className="flex flex-wrap gap-1 mt-2 justify-center sm:justify-start">
-                          {(person.skills || []).map((skill: string) => (
+                          {person.skills.map((skill) => (
                             <Badge key={skill} variant="secondary" className="text-xs">
                               {skill}
                             </Badge>

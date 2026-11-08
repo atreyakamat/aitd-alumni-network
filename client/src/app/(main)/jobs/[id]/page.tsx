@@ -22,6 +22,7 @@ import {
   AlertCircle
 } from 'lucide-react';
 import { getInitials, formatDate, formatCurrency } from '@/lib/utils';
+import { externalLinkProps, safeHref } from '@/lib/safe-url';
 import { useToast } from '@/hooks/use-toast';
 import { shareLinkWithToast } from '@/lib/share';
 
@@ -130,9 +131,9 @@ export default function JobDetailsPage() {
               </div>
 
               <div className="flex flex-wrap gap-3 mb-8">
-                {job.applicationLink || job.applicationUrl ? (
+                {safeHref(job.applicationLink || job.applicationUrl) ? (
                   <Button className="flex-1 sm:flex-none" asChild>
-                    <a href={job.applicationLink || job.applicationUrl} target="_blank" rel="noopener noreferrer nofollow">
+                    <a href={safeHref(job.applicationLink || job.applicationUrl)} {...externalLinkProps}>
                       Apply Now
                       <ExternalLink className="h-4 w-4 ml-2" />
                     </a>

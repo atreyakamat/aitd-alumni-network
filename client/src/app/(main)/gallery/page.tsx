@@ -9,6 +9,7 @@ import { useDebouncedValue } from '@/hooks/use-debounced-value';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useAuth } from '@/context/auth-context';
 import { buildLoginHref } from '@/lib/public-paths';
+import { safeMediaSrc } from '@/lib/safe-url';
 import { isAdmin } from '@/lib/roles';
 import { useToast } from '@/hooks/use-toast';
 import { CreateAlbumDialog } from '@/components/gallery/CreateAlbumDialog';
@@ -145,9 +146,9 @@ export default function GalleryPage() {
                 onClick={() => setOpenAlbum(album)}
               >
                 <div className="aspect-[4/3] relative overflow-hidden bg-muted">
-                  {album.coverPhotoUrl || album.coverImageUrl ? (
+                  {safeMediaSrc(album.coverPhotoUrl || album.coverImageUrl) ? (
                     <Image 
-                      src={album.coverPhotoUrl || album.coverImageUrl} 
+                      src={safeMediaSrc(album.coverPhotoUrl || album.coverImageUrl) as string} 
                       alt={album.title} 
                       fill
                       className="object-cover group-hover:scale-110 transition-transform duration-500"
@@ -221,12 +222,12 @@ export default function GalleryPage() {
 
         <TabsContent value="recent">
           <div className="columns-1 sm:columns-2 md:columns-3 lg:columns-4 gap-4 space-y-4">
-            {recentPhotos.map((photo) => (
+            {recentPhotos.filter((p) => safeMediaSrc(p.url)).map((photo) => (
               <Dialog key={photo.id}>
                 <DialogTrigger asChild>
                   <div className="relative group cursor-zoom-in break-inside-avoid">
                     <Image 
-                      src={photo.url} 
+                      src={safeMediaSrc(photo.url) as string} 
                       alt={photo.caption || 'Gallery photo'} 
                       width={500}
                       height={500}
@@ -242,7 +243,7 @@ export default function GalleryPage() {
                   <div className="flex flex-col md:flex-row h-full max-h-[90vh]">
                     <div className="flex-1 flex items-center justify-center bg-black relative min-h-[300px]">
                       <Image 
-                        src={photo.url} 
+                        src={safeMediaSrc(photo.url) as string} 
                         alt={photo.caption || 'Gallery photo'} 
                         fill
                         className="object-contain"

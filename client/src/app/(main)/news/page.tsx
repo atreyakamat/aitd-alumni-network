@@ -9,6 +9,7 @@ import { getApiErrorMessage, newsApi, readPaginated } from '@/lib/api';
 import { NEWS_CATEGORIES, NEWS_CATEGORY_COLORS, newsCategoryLabel, newsExcerpt } from '@/lib/news';
 import { useDebouncedValue } from '@/hooks/use-debounced-value';
 import { formatDate } from '@/lib/utils';
+import { safeMediaSrc } from '@/lib/safe-url';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -25,10 +26,11 @@ const SEARCH_DEBOUNCE_MS = 300;
 const articleHref = (article: Pick<NewsArticle, 'slug' | 'id'>) => `/news/${encodeURIComponent(article.slug || article.id)}`;
 
 function Cover({ article, large }: { article: NewsArticle; large?: boolean }) {
-  if (article.featuredImage) {
+  const cover = safeMediaSrc(article.featuredImage);
+  if (cover) {
     return (
       <div className={`relative ${large ? 'aspect-video md:aspect-auto md:min-h-[280px]' : 'aspect-video'} bg-muted`}>
-        <Image src={article.featuredImage} alt="" fill className="object-cover" unoptimized />
+        <Image src={cover} alt="" fill className="object-cover" unoptimized />
       </div>
     );
   }

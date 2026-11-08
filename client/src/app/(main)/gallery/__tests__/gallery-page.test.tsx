@@ -38,7 +38,7 @@ const ALBUM = {
   title: 'Convocation 2025',
   description: 'Caps in the air',
   albumType: 'INSTITUTIONAL',
-  coverPhotoUrl: '/cover.jpg',
+  coverPhotoUrl: '/uploads/cover.jpg',
   photoCount: 7,
   createdAt: '2025-06-01T00:00:00.000Z',
 };
@@ -72,7 +72,7 @@ describe('Gallery page', () => {
   it('shows album cover and photo count from the API fields', async () => {
     renderPage();
     expect(await screen.findByText('Convocation 2025')).toBeInTheDocument();
-    expect(screen.getByAltText('Convocation 2025')).toHaveAttribute('src', '/cover.jpg');
+    expect(screen.getByAltText('Convocation 2025')).toHaveAttribute('src', '/uploads/cover.jpg');
     expect(screen.getByText('7 Photos')).toBeInTheDocument();
   });
 
@@ -152,12 +152,12 @@ describe('Gallery page', () => {
 
   it('opens an album and shows its photos', async () => {
     galleryApi.getAlbum.mockImplementation(() =>
-      ok({ success: true, data: { ...ALBUM, photos: [{ id: 'p1', url: '/p1.jpg', caption: 'Stage', createdAt: '2025-06-01' }] } })
+      ok({ success: true, data: { ...ALBUM, photos: [{ id: 'p1', url: '/uploads/p1.jpg', caption: 'Stage', createdAt: '2025-06-01' }] } })
     );
     renderPage();
     await userEvent.click(await screen.findByRole('button', { name: 'View album: Convocation 2025' }));
     const dialog = await screen.findByRole('dialog');
-    expect(await within(dialog).findByAltText('Stage')).toHaveAttribute('src', '/p1.jpg');
+    expect(await within(dialog).findByAltText('Stage')).toHaveAttribute('src', '/uploads/p1.jpg');
     expect(galleryApi.getAlbum).toHaveBeenCalledWith('al1');
   });
 
