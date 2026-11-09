@@ -183,7 +183,7 @@ export class TwoFactorService {
   /**
    * Disable 2FA. A bearer token alone is not enough (a stolen access token would otherwise
    * strip the second factor): accounts with a password must re-enter it, under the
-   * per-account guess budget. Password-less (OAuth-only) accounts never use the 2FA login
+   * per-account guess budget. Accounts without a password (created earlier through a former provider sign-in) never use the 2FA login
    * step, so there is nothing to re-check for them.
    */
   async disable2FA(userId: string, password?: unknown): Promise<{ message: string }> {

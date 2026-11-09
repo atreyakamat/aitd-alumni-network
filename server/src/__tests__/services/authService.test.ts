@@ -16,8 +16,11 @@ import {
   sendPasswordChangedEmail,
   sendPasswordResetEmail,
   sendVerificationEmail,
-  sendApplicationReceivedEmail,
 } from '../../utils/email';
+import { publishNotificationEvent } from '../../services/notificationBus';
+
+// The registration e-mails are events on the notification bus (Kafka); their delivery is tested with the handlers
+jest.mock('../../services/notificationBus', () => ({ publishNotificationEvent: jest.fn().mockResolvedValue(undefined) }));
 
 const PASSWORD = 'Correct#Pass1';
 let passwordHash: string;
@@ -198,7 +201,7 @@ describe('authService', () => {
       spy.mockRestore();
     });
 
-    it('rejects password-less (OAuth-only) accounts as invalid credentials', async () => {
+    it('rejects accounts without a password as invalid credentials (the same answer as for an unknown address)', async () => {
       prismaMock.user.findUnique.mockResolvedValue(dbUser({ passwordHash: '' }));
       await expect(authService.login({ email: 'alum@aitd.edu', password: '' })).rejects.toMatchObject({
         code: 'INVALID_CREDENTIALS',
@@ -265,7 +268,7 @@ describe('authService', () => {
         where: { id: 'u1' },
         data: { emailVerifiedAt: expect.any(Date) },
       });
-      expect(sendApplicationReceivedEmail).toHaveBeenCalledWith('alum@aitd.edu', 'Ada Alum');
+      expect(publishNotificationEvent).toHaveBeenCalledWith('registration.received', { userId: 'u1' });
     });
 
     it('rejects unknown/expired/wrong-type tokens with 400 INVALID_TOKEN', async () => {
@@ -292,7 +295,7 @@ describe('authService', () => {
 
     it('tolerates a failing notification email', async () => {
       arrangeOneTimeToken(dbUser({ approvalStatus: 'PENDING' }));
-      (sendApplicationReceivedEmail as jest.Mock).mockRejectedValueOnce(new Error('smtp'));
+      (publishNotificationEvent as jest.Mock).mockRejectedValueOnce(new Error('kafka and the fallback are down'));
       await expect(authService.verifyEmail('raw')).resolves.toBeDefined();
     });
   });
@@ -331,6 +334,23 @@ describe('authService', () => {
       expect(sendPasswordResetEmail).not.toHaveBeenCalled();
     });
 
+    // Members who signed up through the former Google / LinkedIn sign-in have an empty or null password hash. The reset e-mail
+    // is how they get a password and keep their account, so it must be sent to them exactly like to anybody else.
+    it.each([
+      ['an empty password hash', ''],
+      ['a null password hash', null],
+    ])('sends the reset link to an account with %s, with the identical response', async (_name, hash) => {
+      prismaMock.user.findUnique.mockResolvedValue(dbUser({ passwordHash: hash, isVerified: false, emailVerifiedAt: new Date() }));
+
+      await expect(authService.forgotPassword('alum@aitd.edu')).resolves.toEqual(GENERIC);
+
+      const data = prismaMock.verificationToken.create.mock.calls[0][0].data;
+      expect(data.type).toBe(TOKEN_TYPES.PASSWORD_RESET);
+      const raw = (sendPasswordResetEmail as jest.Mock).mock.calls[0][2];
+      expect(sendPasswordResetEmail).toHaveBeenCalledWith('alum@aitd.edu', 'Ada Alum', raw);
+      expect(data.token).toBe(hashToken(raw));
+    });
+
     it('does not fail (or leak) when the email provider errors', async () => {
       prismaMock.user.findUnique.mockResolvedValue(dbUser());
       (sendPasswordResetEmail as jest.Mock).mockRejectedValueOnce(new Error('smtp'));
@@ -363,6 +383,27 @@ describe('authService', () => {
       expect(prismaMock.$transaction).toHaveBeenCalled();
       // Live sockets opened with the old tokens are closed too
       expect(disconnect).toHaveBeenCalledWith('u1');
+    });
+
+    it.each([
+      ['an empty password hash', ''],
+      ['a null password hash', null],
+    ])('lets an account with %s (created through the former Google / LinkedIn sign-in) set a password and sign in with it', async (_name, hash) => {
+      const legacy = dbUser({ passwordHash: hash, isVerified: false, emailVerifiedAt: new Date() });
+      arrangeOneTimeToken(legacy);
+      jest.spyOn(socketUtil, 'disconnectUser').mockImplementation(() => undefined);
+
+      await expect(authService.resetPassword('raw', 'New#Password1')).resolves.toEqual({ message: 'Password reset successful' });
+
+      const update = prismaMock.user.update.mock.calls[0][0];
+      expect(update.where).toEqual({ id: 'u1' });
+      await expect(comparePassword('New#Password1', update.data.passwordHash)).resolves.toBe(true);
+
+      // ...and the normal password sign-in now works for that account
+      prismaMock.user.findUnique.mockResolvedValue({ ...legacy, passwordHash: update.data.passwordHash, tokenVersion: 1 });
+      prismaMock.user.update.mockResolvedValue({} as any);
+      const session: any = await authService.login({ email: 'alum@aitd.edu', password: 'New#Password1' });
+      expect(verifyAccessToken(session.accessToken).userId).toBe('u1');
     });
 
     it('rejects invalid, expired or already-used tokens with 400 INVALID_TOKEN', async () => {
@@ -456,11 +497,12 @@ describe('authService', () => {
       expect(prismaMock.user.update).not.toHaveBeenCalled();
     });
 
-    it('tells OAuth-only accounts (no password) to use password reset', async () => {
+    it('tells accounts without a password to use password reset (and never mentions a sign-in provider)', async () => {
       arrangeUser({ passwordHash: null });
       const error = await authService.changePassword('u1', 'anything', NEW).catch((e) => e);
       expect(error).toMatchObject({ statusCode: 400, code: 'PASSWORD_NOT_SET' });
       expect(error.message).toMatch(/reset/i);
+      expect(error.message).not.toMatch(/google|linkedin|oauth/i);
       expect(prismaMock.user.update).not.toHaveBeenCalled();
     });
 
@@ -731,49 +773,6 @@ describe('authService', () => {
     it('rejects a user deactivated mid-login', async () => {
       prismaMock.user.findUnique.mockResolvedValue(dbUser({ isActive: false }));
       await expect(authService.completeLoginAfter2FA('u1')).rejects.toMatchObject({ code: 'ACCOUNT_DEACTIVATED' });
-      expect(prismaMock.refreshToken.create).not.toHaveBeenCalled();
-    });
-  });
-
-  describe('OAuth exchange codes', () => {
-    it('creates a 5-minute hashed OAUTH_EXCHANGE code and returns the raw value', async () => {
-      const code = await authService.createOAuthExchangeCode('u1');
-      const data = prismaMock.verificationToken.create.mock.calls[0][0].data;
-      expect(code).toMatch(/^[a-f0-9]{64}$/);
-      expect(data).toMatchObject({ userId: 'u1', type: TOKEN_TYPES.OAUTH_EXCHANGE, token: hashToken(code) });
-      expect(data.expiresAt.getTime()).toBeLessThanOrEqual(Date.now() + 5 * 60_000);
-    });
-
-    it('exchanges a valid code exactly once for a session', async () => {
-      arrangeOneTimeToken(dbUser());
-      // (the result is a session, or a 2FA challenge for members who have the second factor on)
-      const result: any = await authService.exchangeOAuthCode('code');
-      expect(prismaMock.verificationToken.findFirst.mock.calls[0][0].where).toMatchObject({
-        token: hashToken('code'),
-        type: TOKEN_TYPES.OAUTH_EXCHANGE,
-        isUsed: false,
-      });
-      expect(prismaMock.verificationToken.updateMany).toHaveBeenCalledWith({
-        where: { id: 'vt1', isUsed: false },
-        data: { isUsed: true },
-      });
-      expect(verifyAccessToken(result.accessToken).userId).toBe('u1');
-    });
-
-    it('rejects a replayed / concurrently redeemed code', async () => {
-      arrangeOneTimeToken(dbUser(), 0);
-      await expect(authService.exchangeOAuthCode('code')).rejects.toMatchObject({ statusCode: 400, code: 'INVALID_CODE' });
-      expect(prismaMock.refreshToken.create).not.toHaveBeenCalled();
-    });
-
-    it('rejects unknown or expired codes', async () => {
-      arrangeOneTimeToken(null);
-      await expect(authService.exchangeOAuthCode('code')).rejects.toMatchObject({ statusCode: 400, code: 'INVALID_CODE' });
-    });
-
-    it('rejects deactivated users', async () => {
-      arrangeOneTimeToken(dbUser({ isActive: false }));
-      await expect(authService.exchangeOAuthCode('code')).rejects.toMatchObject({ statusCode: 401, code: 'ACCOUNT_DEACTIVATED' });
       expect(prismaMock.refreshToken.create).not.toHaveBeenCalled();
     });
   });

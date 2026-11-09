@@ -354,27 +354,44 @@ describe('payment routes', () => {
     expect(prismaMock.transaction.create).not.toHaveBeenCalled();
   });
 
-  it('POST /api/donations/order returns 503 when Razorpay keys are missing', async () => {
+  it('POST /api/donations/order returns 503 for guests without Razorpay keys', async () => {
     config.razorpay.keyId = '';
     config.razorpay.keySecret = '';
-    const { header } = authAs('MEMBER');
-    const res = await api().post('/api/donations/order').set('Authorization', header).send({ amount: 100 });
+    const res = await api().post('/api/donations/order').send({ amount: 100 });
     expect(res.status).toBe(503);
     expect(res.body.error.code).toBe('PAYMENT_NOT_CONFIGURED');
   });
 
   it('POST /api/donations/order validates the amount before touching Razorpay', async () => {
-    const { header } = authAs('MEMBER');
-    const res = await api().post('/api/donations/order').set('Authorization', header).send({ amount: 0 });
+    const res = await api().post('/api/donations/order').send({ amount: 0 });
     expect(res.status).toBe(400);
     expect(res.body.error.code).toBe('VALIDATION_ERROR');
   });
 
-  it('donating needs an approved member account (no anonymous payment endpoint on a private platform)', async () => {
-    await api().post('/api/donations/order').send({ amount: 100 }).expect(401);
-    await api().post('/api/donations/verify').send({}).expect(401);
+  it('POST /api/donations/verify is open to guests: an empty body is a validation error, not a 401', async () => {
+    const res = await api().post('/api/donations/verify').send({});
+    expect(res.status).toBe(400);
+    expect(res.body.error.code).toBe('VALIDATION_ERROR');
+  });
+
+  it('guest donations are the only open donation endpoints: every other donation read is 401 for visitors', async () => {
+    // The platform is private; only ordering and verifying a payment (alumni donate without an account) stay open.
+    for (const path of ['wall', 'featured', 'chapters', 'stats', 'leaderboard', 'my']) {
+      const res = await api().get(`/api/donations/${path}`);
+      expect({ path, status: res.status }).toEqual({ path, status: 401 });
+    }
+  });
+
+  it('an unapproved account is treated as a guest on the donation routes, not blocked or attributed', async () => {
+    config.razorpay.keyId = '';
+    config.razorpay.keySecret = '';
     const { header } = authAs('MEMBER', { approvalStatus: 'PENDING' });
-    await api().post('/api/donations/order').set('Authorization', header).send({ amount: 100 }).expect(403);
+    // optionalAuth ignores a registration that is not approved yet: the donation proceeds as a guest (here 503: no keys)
+    const res = await api().post('/api/donations/order').set('Authorization', header).send({ amount: 100 });
+    expect(res.status).toBe(503);
+    expect(res.body.error.code).toBe('PAYMENT_NOT_CONFIGURED');
+    // ... while the member-only read is still refused for it
+    await api().get('/api/donations/my').set('Authorization', header).expect(403);
   });
 
   it('POST /api/memberships/verify requires authentication', async () => {

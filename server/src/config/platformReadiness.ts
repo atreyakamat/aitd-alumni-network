@@ -75,7 +75,6 @@ const definitions: ModuleDefinition[] = [
     features: [
       { key: 'password-auth', name: 'Email + Password Auth', status: 'IMPLEMENTED', priority: 'P0', notes: 'Registration/login with hashed passwords.' },
       { key: 'two-factor', name: '2FA (Email OTP)', status: 'IMPLEMENTED', priority: 'P1', notes: 'Enable/disable/verify flows available.' },
-      { key: 'oauth', name: 'OAuth Providers', status: 'IMPLEMENTED', priority: 'P2', notes: 'Google and LinkedIn with configuration gates.' },
       { key: 'privacy-rights', name: 'Privacy Export & Account Deletion', status: 'IMPLEMENTED', priority: 'P1', notes: 'Self-service data export (GET /users/me/export) and account deletion (DELETE /users/me), audited.', backlogRef: 'PRD §8.5' },
     ],
   },

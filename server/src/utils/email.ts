@@ -225,6 +225,36 @@ export const sendApplicationReceivedEmail = async (email: string, name: string):
   });
 };
 
+/** Sent to the college administrator when a registration is ready for review. Everything about the applicant was typed by a stranger. */
+export const sendNewRegistrationEmail = async (
+  to: string,
+  applicant: { fullName: string; batchYear: number; department: string }
+): Promise<void> => {
+  await sendEmail({
+    to,
+    subject: `New registration to review: ${headerSafe(applicant.fullName)}`,
+    html: `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <h1 style="color: #0B2A5B;">A registration is waiting for your review</h1>
+        <p><strong>${escapeEmailHtml(applicant.fullName)}</strong> has asked to join AIEM Connection.</p>
+        <ul>
+          <li>Batch: ${escapeEmailHtml(String(applicant.batchYear))}</li>
+          <li>Department: ${escapeEmailHtml(applicant.department)}</li>
+        </ul>
+        <p>Please check that the person is an alumnus of the college, then approve or reject the registration.
+        Nobody can sign in before an administrator has approved it.</p>
+        <a href="${config.frontendUrl}/admin/approvals"
+           style="display: inline-block; background-color: #0B2A5B; color: white; padding: 12px 24px;
+                  text-decoration: none; border-radius: 6px; margin: 20px 0;">
+          Review registrations
+        </a>
+        <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;" />
+        <p style="color: #999; font-size: 12px;">© AIEM Connection. All rights reserved.</p>
+      </div>
+    `,
+  });
+};
+
 /** Sent when an administrator did not approve the registration. The reason is the administrator's own words, so it is escaped. */
 export const sendRejectionEmail = async (email: string, name: string, reason: string): Promise<void> => {
   await sendEmail({

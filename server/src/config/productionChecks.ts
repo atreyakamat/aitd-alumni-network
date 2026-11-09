@@ -15,6 +15,7 @@
  */
 
 import { log as logger } from '../utils/logger';
+import { readKafkaSettings } from './kafka';
 
 export interface ConfigFinding {
   code: string;
@@ -123,7 +124,7 @@ export const findProductionProblems = (env: NodeJS.ProcessEnv): ConfigFinding[] 
       'Set CORS_ORIGINS to the exact https:// origin(s) of the web app, e.g. https://alumni.example.edu');
   }
   if (!present(env.FRONTEND_URL) || originProblems(env.FRONTEND_URL).length > 0) {
-    error('FRONTEND_URL_INSECURE', true, 'FRONTEND_URL is unset, uses http or points at localhost: e-mail links and OAuth redirects would be wrong.',
+    error('FRONTEND_URL_INSECURE', true, 'FRONTEND_URL is unset, uses http or points at localhost: e-mail links would be wrong.',
       'Set FRONTEND_URL to the public https:// address of the web app.');
   }
 
@@ -160,6 +161,21 @@ export const findProductionProblems = (env: NodeJS.ProcessEnv): ConfigFinding[] 
     warning('REDIS_MISSING', 'Redis is not configured: rate limits are per process, the response cache is off and background jobs (notification broadcasts, the weekly digest) do not run.',
       'Set REDIS_URL (docker-compose does this). Required before running more than one API instance.');
   }
+  if (!present(env.KAFKA_BROKERS)) {
+    warning('KAFKA_MISSING', 'Kafka is not configured: notifications and the e-mails to the college administrator and to applicants are delivered in-process. They still work, but nothing is queued across restarts and a slow mail server holds the API.',
+      'Set KAFKA_BROKERS (docker-compose does this). See docs/KAFKA.md.');
+  } else {
+    const kafka = readKafkaSettings(env);
+    if (kafka.problems.length > 0) {
+      error('KAFKA_CONFIG_INVALID', false, `The Kafka settings are wrong: ${kafka.problems.join('; ')}.`, 'Fix the KAFKA_* settings (docs/KAFKA.md).');
+    }
+  }
+  const notifyAddresses = (env.APPROVAL_NOTIFY_EMAIL ?? '').split(',').map((a) => a.trim()).filter(Boolean);
+  const notMailboxes = notifyAddresses.filter((a) => !/^[^\s@,;<>()]+@[^\s@,;<>()]+\.[^\s@,;<>()]+$/.test(a));
+  if (notMailboxes.length > 0) {
+    warning('APPROVAL_NOTIFY_EMAIL_INVALID', `APPROVAL_NOTIFY_EMAIL contains something that is not an e-mail address: ${notMailboxes.join(', ')}. The college office would not hear about waiting registrations.`,
+      'Use plain addresses separated by commas (alumni-office@college.edu).');
+  }
   if (!present(env.AWS_S3_BUCKET)) {
     warning('UPLOADS_ON_LOCAL_DISK', 'Uploads are stored on local disk.', 'Mount a persistent volume and back it up, or set AWS_S3_BUCKET (+ AWS credentials).');
   }
@@ -172,15 +188,6 @@ export const findProductionProblems = (env: NodeJS.ProcessEnv): ConfigFinding[] 
     if (!(seconds <= 3600)) {
       warning('JWT_EXPIRES_TOO_LONG', `JWT_EXPIRES_IN=${env.JWT_EXPIRES_IN}: a stolen access token stays valid that long.`,
         'Use 15m (the default in production); the refresh token keeps members signed in.');
-    }
-  }
-  for (const [name, id, secret, callback] of [
-    ['Google', env.GOOGLE_CLIENT_ID, env.GOOGLE_CLIENT_SECRET, env.GOOGLE_CALLBACK_URL],
-    ['LinkedIn', env.LINKEDIN_CLIENT_ID, env.LINKEDIN_CLIENT_SECRET, env.LINKEDIN_CALLBACK_URL],
-  ] as const) {
-    if (present(id) && present(secret) && (!present(callback) || LOCAL_HOST.test(callback as string))) {
-      warning('OAUTH_CALLBACK_LOCAL', `${name} sign-in is configured but its callback URL is unset or points at localhost.`,
-        `Set ${name.toUpperCase()}_CALLBACK_URL to https://<api-host>/api/auth/${name.toLowerCase()}/callback and register the same URL with ${name}.`);
     }
   }
 

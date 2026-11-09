@@ -5,7 +5,7 @@ import { AppError } from '../middleware/errorHandler';
 import { Actor } from '../config/permissions';
 import { buildPaginationResponse, paginationHelper, ilike } from '../utils/helpers';
 import { logAuditAction } from './auditService';
-import { sendWelcomeEmail, sendRejectionEmail } from '../utils/email';
+import { publishNotificationEvent } from './notificationBus';
 import { log } from '../utils/logger';
 
 /**
@@ -55,10 +55,14 @@ const APPLICATION_SELECT = {
 
 const trimmed = (value: unknown): string => (typeof value === 'string' ? value.trim() : '');
 
-const inBackground = (what: string, send: () => Promise<void>) => {
-  void Promise.resolve()
-    .then(send)
-    .catch((error: unknown) => log.error(`Failed to send the ${what} email`, { err: error }));
+/**
+ * The applicant's e-mail is an event on the notification bus (Kafka). The decision never waits for it and never fails
+ * because of it: if the event cannot be published (and the in-process fallback fails too) it is logged.
+ */
+const announce = (type: 'registration.approved' | 'registration.rejected', data: { userId: string; reason?: string }) => {
+  void publishNotificationEvent(type, data as never).catch((error: unknown) =>
+    log.error(`Could not publish the ${type} event`, { userId: data.userId, err: error })
+  );
 };
 
 class MemberApprovalService {
@@ -146,7 +150,7 @@ class MemberApprovalService {
       ...meta,
     });
 
-    inBackground('approval', () => sendWelcomeEmail(target.email, target.fullName));
+    announce('registration.approved', { userId: targetId });
 
     return prisma.user.findUnique({ where: { id: targetId }, select: APPLICATION_SELECT });
   }
@@ -191,7 +195,7 @@ class MemberApprovalService {
       ...meta,
     });
 
-    inBackground('rejection', () => sendRejectionEmail(target.email, target.fullName, reasonText));
+    announce('registration.rejected', { userId: targetId, reason: reasonText });
 
     return prisma.user.findUnique({ where: { id: targetId }, select: APPLICATION_SELECT });
   }

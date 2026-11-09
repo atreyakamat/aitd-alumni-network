@@ -118,24 +118,13 @@ describe('aitd_session hint cookie follows the session', () => {
     expect(cookieSet()).toBe(false);
   });
 
-  it('is set by setAuthData (OAuth exchange / password change) and cleared by clearSession', async () => {
+  it('is set by setAuthData (2FA completion / password change) and cleared by clearSession', async () => {
     mount();
     await screen.findByText('anonymous');
     act(() => ctx.setAuthData({ accessToken: tokenFor('u2'), refreshToken: 'r2' }));
     expect(cookieSet()).toBe(true);
     act(() => ctx.clearSession());
     expect(cookieSet()).toBe(false);
-  });
-
-  it('is set by setOAuthTokens once /auth/me confirms the user', async () => {
-    mount();
-    await screen.findByText('anonymous');
-    me.mockResolvedValue(profile('u3'));
-    await act(async () => {
-      await ctx.setOAuthTokens(tokenFor('u3'), 'r3');
-    });
-    await waitFor(() => expect(screen.getByTestId('state')).toHaveTextContent('u3@aitd.test'));
-    expect(cookieSet()).toBe(true);
   });
 
   it('is cleared when another tab logs out', async () => {

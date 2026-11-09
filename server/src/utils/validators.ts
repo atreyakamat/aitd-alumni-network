@@ -106,12 +106,6 @@ export const resend2FASchema = z.object({
   }),
 });
 
-export const oauthExchangeSchema = z.object({
-  body: z.object({
-    code: z.string().min(1, 'Exchange code is required').max(256),
-  }),
-});
-
 // ============== Profile schemas (PRD 6.3) ==============
 
 /** MySQL `String` columns are VARCHAR(191). */

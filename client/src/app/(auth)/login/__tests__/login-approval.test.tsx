@@ -22,12 +22,10 @@ vi.mock('@/hooks/use-toast', () => ({ useToast: () => ({ toast }) }));
 
 const login = vi.fn();
 const verify2FA = vi.fn();
-const post = vi.fn();
 vi.mock('@/lib/api', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/lib/api')>();
   return {
     ...actual,
-    api: { get: vi.fn().mockResolvedValue({ data: { data: { google: true, linkedin: true } } }), post: (...a: unknown[]) => post(...a) },
     authApi: { ...actual.authApi, login: (...args: unknown[]) => login(...args) },
     twoFactorApi: { ...actual.twoFactorApi, verify2FA: (...args: unknown[]) => verify2FA(...args) },
   };
@@ -68,12 +66,11 @@ beforeEach(() => {
   toast.mockReset();
   login.mockReset();
   verify2FA.mockReset();
-  post.mockReset();
   search = new URLSearchParams();
   window.history.replaceState({}, '', '/login');
 });
 
-/** Renders and lets the page's own start-up request (the OAuth provider list) settle, so no update lands outside act(). */
+/** Renders inside act(), so effects and updates caused by the first render settle before the assertions. */
 const renderSettled = async () => {
   await act(async () => {
     render(<LoginPage />);
@@ -151,42 +148,6 @@ describe('the two-factor step', () => {
     expect(screen.queryByLabelText(/verification code/i)).not.toBeInTheDocument();
     expectNoErrorToast();
     expect(setAuthData).not.toHaveBeenCalled();
-  });
-});
-
-describe('OAuth sign-in (the one-time code on /login)', () => {
-  it('shows the notice instead of "Login Failed" when the provider account is not approved', async () => {
-    search = new URLSearchParams('code=ONE-TIME&oauth=google');
-    window.history.replaceState({}, '', '/login?code=ONE-TIME&oauth=google');
-    post.mockRejectedValue(pending);
-
-    render(<LoginPage />);
-
-    expect(await screen.findByRole('status')).toHaveTextContent(/waiting for approval/i);
-    expectNoErrorToast();
-    expect(setAuthData).not.toHaveBeenCalled();
-    expect(replace).not.toHaveBeenCalled();
-  });
-
-  it('says so for a rejected registration too', async () => {
-    search = new URLSearchParams('code=ONE-TIME&oauth=linkedin');
-    window.history.replaceState({}, '', '/login?code=ONE-TIME&oauth=linkedin');
-    post.mockRejectedValue(rejected);
-
-    render(<LoginPage />);
-
-    expect(await screen.findByRole('status')).toHaveTextContent(/not approved/i);
-  });
-
-  it('still reports any other exchange failure as an error', async () => {
-    search = new URLSearchParams('code=ONE-TIME&oauth=google');
-    window.history.replaceState({}, '', '/login?code=ONE-TIME&oauth=google');
-    post.mockRejectedValue({ response: { status: 400, data: { success: false, error: { code: 'INVALID_OAUTH_CODE', message: 'Expired' } } } });
-
-    render(<LoginPage />);
-
-    await waitFor(() => expect(toast).toHaveBeenCalledWith(expect.objectContaining({ variant: 'destructive', title: 'Login Failed' })));
-    expect(screen.queryByRole('status')).not.toBeInTheDocument();
   });
 });
 

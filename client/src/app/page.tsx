@@ -27,7 +27,7 @@ export default function HomePage() {
             <p className="mx-auto mb-8 max-w-2xl text-lg text-white/80 font-body">
               Connect with thousands of fellow alumni, discover opportunities, and be part of a thriving community.
             </p>
-            <div className="flex justify-center gap-4">
+            <div className="flex flex-wrap justify-center gap-4">
               <Link href="/register">
                 <Button size="lg" variant="secondary" className="font-label">
                   Get Started
@@ -36,6 +36,12 @@ export default function HomePage() {
               <Link href="/login">
                 <Button size="lg" variant="outline" className="border-white text-white hover:bg-white/10 font-label">
                   Sign In
+                </Button>
+              </Link>
+              {/* Alumni can donate without an account: the one page of the platform that is open to visitors */}
+              <Link href="/donations">
+                <Button size="lg" variant="ghost" className="text-white hover:bg-white/10 hover:text-white font-label">
+                  Donate
                 </Button>
               </Link>
             </div>

@@ -6,7 +6,7 @@ Release gate (PRD §10.3): **releasable, no P0/P1 blockers in Must Have domains.
 | Domain | Status | Evidence |
 |---|---|---|
 | Platform foundations (auth guards, role normalisation, error shape) | IMPLEMENTED | `config/permissions.ts`, route RBAC matrix test, client `lib/roles.ts` |
-| Authentication & security (JWT + rotating refresh families with reuse detection, token-version revocation, verified e-mail before a session in production with a password-confirmed link, reset, change password, 2FA OTP for password **and** OAuth sign-ins, Google/LinkedIn) | IMPLEMENTED | auth unit suites, `authService.verification.test.ts`, `tests/security/auth/`, `tests/integration/auth-lifecycle.int.test.ts`; see [AUTHENTICATION.md](AUTHENTICATION.md) |
+| Authentication & security (JWT + rotating refresh families with reuse detection, token-version revocation, verified e-mail before a session in production with a password-confirmed link, reset, change password, 2FA OTP; Google/LinkedIn sign-in was removed: the registration form is the only way in) | IMPLEMENTED | auth unit suites, `authService.verification.test.ts`, `tests/security/auth/`, `tests/integration/auth-lifecycle.int.test.ts`; see [AUTHENTICATION.md](AUTHENTICATION.md) |
 | Discovery (directory, yearbook, alumni map: viewport + "Near me" radius search, filters, place search, ~1 km location privacy) | IMPLEMENTED | userService + geocodingService suites, `tests/integration/geo-search.int.test.ts`, alumni-nearby page and `lib/geo` tests |
 | Profile & identity (profile editor: basics, photos, links, privacy/location, work, education, skills, completeness) | IMPLEMENTED | profile validator + route suites, `/profile/edit` component tests |
 | Social (ranked feed, six reactions, threaded comments, reposts and quote posts, posts with images or video, visibility public/connections, hashtags and mentions, follows, saved posts, reports with admin moderation, connections, messaging, notification bell + page) | IMPLEMENTED | post/reaction/repost/network/message suites, `tests/integration/social*.int.test.ts`, `clientLinks` contract test; contract in [SOCIAL_API.md](SOCIAL_API.md) |
@@ -16,7 +16,7 @@ Release gate (PRD §10.3): **releasable, no P0/P1 blockers in Must Have domains.
 | Careers (jobs + admin review queue) | IMPLEMENTED | jobService suite, `/admin/moderation` |
 | Mentorship (profiles, requests, sessions, admin overview) | IMPLEMENTED | mentorshipService suite, `/api/admin/mentorship/overview` |
 | Events, gallery, news (members only, article pages) | IMPLEMENTED | event/gallery/news suites, `tests/integration/alumni-approval.int.test.ts` (visitors get 401), news page tests |
-| Revenue (memberships, member donations (guest donations were closed when the platform became private), verified payments, Razorpay webhook, mismatch alerts, receipts, history) | IMPLEMENTED | membership/donation/webhook suites, `tests/integration/payments.int.test.ts` |
+| Revenue (memberships, member and guest donations (alumni donate without an account; the form is the one public page), verified payments, Razorpay webhook, mismatch alerts, receipts, history) | IMPLEMENTED | membership/donation/webhook suites, `tests/integration/payments.int.test.ts` |
 | Community (chapters pages with chapter-admin scope and server-side search, marketplace listing lifecycle with admin moderation, invites) | IMPLEMENTED | chapter scope tests, chapters/marketplace page tests, marketplace/invite suites |
 | Admin & governance (real-data analytics, audit log page with security/payment alerts, user management, CSV exports, readiness) | IMPLEMENTED | adminController/adminService/audit suites, analytics + audit page tests, audit filter contract test, `tests/integration/admin-rbac.int.test.ts` |
 | Privacy (data export covering reactions, reports, uploads and audit entries; account deletion that also clears request metadata from earlier audit entries) | IMPLEMENTED | privacyService suite, `tests/security/auth/account-deletion.sec.test.ts`, integration test |
@@ -79,7 +79,7 @@ the leftover Reels flag was removed in this merge. What was found and fixed whil
 - **Security audit, two rounds** ([SECURITY_AUDIT.md](SECURITY_AUDIT.md)): authorization and integrity, input handling (URL
   allowlists, a linear-time sanitizer, image re-encoding), races made atomic, auth and payments hardened, a client/server
   contract sweep that fixed broken endpoints, and Next.js 14.2.35 (closes a middleware bypass).
-- **Verified e-mail before a session** in production, with the verification page that was missing, resend, and the OAuth 2FA fix.
+- **Verified e-mail before a session** in production, with the verification page that was missing and resend.
 - **Production tooling:** the API refuses to start on an unsafe production configuration; `npm run preflight`, `npm run secrets`
   and `npm run verify:deploy`; rate limits shared through Redis; 15-minute access tokens; a PostgreSQL `backup-db.sh` (the old
   one was for MySQL); nginx request limits.

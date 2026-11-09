@@ -12,6 +12,7 @@ import { registerProcessHandlers } from './utils/processHandlers';
 import { log } from './utils/logger';
 import { startNotificationWorker } from './workers/notificationWorker';
 import { startDigestWorker } from './workers/digestWorker';
+import { startNotificationConsumer } from './workers/notificationConsumer';
 
 const PORT = process.env.PORT || 5000;
 const DATABASE_URL = process.env.DATABASE_URL || '';
@@ -39,6 +40,9 @@ const io = initSocket(server);
 // Background workers (no-op without Redis): broadcast notifications + weekly digest tick
 const notificationWorker = startNotificationWorker();
 const digestWorker = startDigestWorker();
+// Notification events (in-app notifications, e-mail to the college administrator and to applicants): Kafka consumer.
+// Starts in the background and never blocks the API; null without KAFKA_BROKERS (events are then handled in-process).
+const notificationConsumer = startNotificationConsumer();
 
 const shutdown = createShutdown({
   server,
@@ -54,6 +58,7 @@ const stop = async (signal: string, failed = false) => {
   await Promise.all([
     notificationWorker?.close().catch(() => undefined),
     digestWorker?.close().catch(() => undefined),
+    notificationConsumer?.stop().catch(() => undefined),
   ]);
   await shutdown(signal, failed);
 };

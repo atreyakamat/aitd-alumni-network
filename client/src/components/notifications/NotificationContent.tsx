@@ -15,6 +15,7 @@ import {
   ThumbsUp,
   UserCheck,
   UserPlus,
+  UserSearch,
   Wallet,
   type LucideIcon,
 } from 'lucide-react';
@@ -41,6 +42,7 @@ const VISUALS: Record<string, Visual> = {
   POST_REPOSTED: { icon: Repeat2, className: 'bg-green-100 text-green-600' },
   MENTION: { icon: AtSign, className: 'bg-purple-100 text-purple-600' },
   CONTENT_REPORTED: { icon: Flag, className: 'bg-red-100 text-red-600' },
+  REGISTRATION_PENDING: { icon: UserSearch, className: 'bg-amber-100 text-amber-600' },
   EVENT_RSVP: { icon: CalendarDays, className: 'bg-orange-100 text-orange-600' },
   MEMBERSHIP_EXPIRY: { icon: Wallet, className: 'bg-amber-100 text-amber-600' },
   JOB_MATCH: { icon: Briefcase, className: 'bg-teal-100 text-teal-600' },

@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import Image from 'next/image';
-import { useState, useEffect, useRef, Suspense } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -14,7 +14,7 @@ import { Label } from '@/components/ui/label';
 import { useAuth } from '@/context/auth-context';
 import { useToast } from '@/hooks/use-toast';
 import { Eye, EyeOff, Loader2, ShieldCheck } from 'lucide-react';
-import { api, authApi, twoFactorApi, isTwoFactorChallenge, getApiErrorCode, getApiErrorMessage, getApprovalState, type ApprovalState } from '@/lib/api';
+import { authApi, twoFactorApi, isTwoFactorChallenge, getApiErrorCode, getApiErrorMessage, getApprovalState, type ApprovalState } from '@/lib/api';
 import { getAuthErrorMessage, shouldRestart2FA } from '@/lib/auth';
 import { buildRegisterHref, getSafeNextPath } from '@/lib/public-paths';
 import { parseApprovalParam } from '@/lib/approval';
@@ -30,8 +30,6 @@ type LoginFormData = z.infer<typeof loginSchema>;
 function LoginContent() {
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const [isOAuthProvidersLoading, setIsOAuthProvidersLoading] = useState(true);
-  const [oauthProviders, setOAuthProviders] = useState({ google: true, linkedin: true });
   const [requires2FA, setRequires2FA] = useState(false);
   const [twoFactorToken, setTwoFactorToken] = useState<string | null>(null);
   const [otpCode, setOtpCode] = useState('');
@@ -46,124 +44,16 @@ function LoginContent() {
   const searchParams = useSearchParams();
   
   const registered = searchParams?.get('registered');
-  const oauthError = searchParams?.get('error');
-  const code = searchParams?.get('code');
-  const oauthProvider = searchParams?.get('oauth');
-  const isNewUser = searchParams?.get('newUser');
   // Why the platform will not let this person in: an administrator has not approved the registration (yet), or has not approved
   // it at all. Set by a refused sign-in below, or by ?approval= when a running session was ended because the approval was taken back.
   const [approvalNotice, setApprovalNotice] = useState<ApprovalState | null>(() => parseApprovalParam(searchParams?.get('approval')));
   // Where to go after signing in; only same-origin relative paths are honoured (handles both ?next= and ?redirect=).
   const afterLoginPath = getSafeNextPath(searchParams?.get('next') ?? searchParams?.get('redirect')) ?? '/dashboard';
 
-  useEffect(() => {
-    let isMounted = true;
-
-    const fetchOAuthProviders = async () => {
-      try {
-        const response = await api.get('/auth/oauth/providers');
-        const providers = response?.data?.data;
-
-        if (
-          isMounted &&
-          providers &&
-          typeof providers.google === 'boolean' &&
-          typeof providers.linkedin === 'boolean'
-        ) {
-          setOAuthProviders({
-            google: providers.google,
-            linkedin: providers.linkedin,
-          });
-        }
-      } catch {
-        // Keep defaults if the status endpoint is unavailable.
-      } finally {
-        if (isMounted) {
-          setIsOAuthProvidersLoading(false);
-        }
-      }
-    };
-
-    void fetchOAuthProviders();
-
-    return () => {
-      isMounted = false;
-    };
-  }, []);
-
-  // OAuth hand-off: the API redirects here with a ONE-TIME code (not tokens) in the query string.
-  // Capture it on first render, scrub it from the address bar/history immediately (before any
-  // network call), then exchange it exactly once. The route is served with Referrer-Policy:
-  // no-referrer (next.config.js), so the code is not leaked to third parties either.
-  const oauthHandoff = useRef({ code, provider: oauthProvider, isNewUser });
-  const exchangeStarted = useRef(false);
-  const errorToastShown = useRef(false);
-
-  useEffect(() => {
-    const { code: oauthCode, provider, isNewUser: newUser } = oauthHandoff.current;
-    if (oauthCode) {
-      const url = new URL(window.location.href);
-      if (['code', 'oauth', 'newUser'].some((k) => url.searchParams.has(k))) {
-        ['code', 'oauth', 'newUser'].forEach((k) => url.searchParams.delete(k));
-        window.history.replaceState(window.history.state, '', `${url.pathname}${url.search}${url.hash}`);
-      }
-      if (exchangeStarted.current) return;
-      exchangeStarted.current = true;
-
-      const exchange = async () => {
-        try {
-          const response = await api.post('/auth/oauth/exchange', { code: oauthCode });
-          const result = response.data.data;
-
-          // A provider proves the mailbox, not the second factor: members who have it on still enter the code
-          if (isTwoFactorChallenge(result)) {
-            setRequires2FA(true);
-            setOtpCode('');
-            setTwoFactorToken(result.twoFactorToken);
-            toast({
-              title: 'Verification Required',
-              description: 'A verification code has been sent to your email.',
-            });
-            return;
-          }
-
-          setAuthData(result);
-
-          const message =
-            newUser === 'true'
-              ? `Account created with ${provider || 'OAuth'}! Please complete your profile.`
-              : `Welcome back! Logged in via ${provider || 'OAuth'}.`;
-          toast({ title: newUser === 'true' ? 'Welcome!' : 'Welcome back!', description: message });
-          router.replace(afterLoginPath);
-        } catch (error) {
-          const approval = getApprovalState(error);
-          if (approval) {
-            // The provider proved the mailbox, not that the person is an alumnus: show the notice, not an error
-            setApprovalNotice(approval);
-            return;
-          }
-          toast({
-            variant: 'destructive',
-            title: 'Login Failed',
-            description: 'Unable to complete authentication. Please try again.',
-          });
-        }
-      };
-      void exchange();
-    } else if (oauthError && !errorToastShown.current) {
-      errorToastShown.current = true;
-      toast({
-        variant: 'destructive',
-        title: 'OAuth Login Failed',
-        description: 'Unable to authenticate with the selected provider. Please try again.',
-      });
-    }
-  }, [oauthError, setAuthData, toast, router, afterLoginPath]);
-
   // A visitor who is already signed in (e.g. redirected here by the edge gate because the session
   // hint cookie expired) goes straight on to where they were headed.
   useEffect(() => {
-    if (isAuthenticated && !oauthHandoff.current.code) router.replace(afterLoginPath);
+    if (isAuthenticated) router.replace(afterLoginPath);
   }, [isAuthenticated, router, afterLoginPath]);
 
 
@@ -309,16 +199,6 @@ function LoginContent() {
         setOtpCode('');
       }
     }
-  };
-
-  const redirectToOAuth = (provider: 'google' | 'linkedin') => {
-    toast({
-      title: 'OAuth Coming Soon',
-      description: `${provider.charAt(0).toUpperCase() + provider.slice(1)} login is currently disabled for this test version. Please use your email and password to sign in.`,
-    });
-    // const baseUrl =
-    //   api.defaults.baseURL || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
-    // window.location.href = `${baseUrl}/auth/${provider}`;
   };
 
   // 2FA Verification UI
@@ -553,59 +433,6 @@ function LoginContent() {
                 )}
               </Button>
             </form>
-
-            <div className="relative my-6">
-              <div className="absolute inset-0 flex items-center">
-                <div className="w-full border-t border-muted"></div>
-              </div>
-              <div className="relative flex justify-center text-sm">
-                <span className="px-2 bg-card text-muted-foreground">Or continue with</span>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <Button 
-                variant="outline" 
-                disabled={isLoading || isOAuthProvidersLoading || !oauthProviders.google}
-                onClick={() => redirectToOAuth('google')}
-              >
-                <svg className="mr-2 h-4 w-4" viewBox="0 0 24 24">
-                  <path
-                    fill="currentColor"
-                    d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
-                  />
-                  <path
-                    fill="currentColor"
-                    d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
-                  />
-                  <path
-                    fill="currentColor"
-                    d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"
-                  />
-                  <path
-                    fill="currentColor"
-                    d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
-                  />
-                </svg>
-                Google
-              </Button>
-              <Button 
-                variant="outline" 
-                disabled={isLoading || isOAuthProvidersLoading || !oauthProviders.linkedin}
-                onClick={() => redirectToOAuth('linkedin')}
-              >
-                <svg className="mr-2 h-4 w-4" viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433c-1.144 0-2.063-.926-2.063-2.065 0-1.138.92-2.063 2.063-2.063 1.14 0 2.064.925 2.064 2.063 0 1.139-.925 2.065-2.064 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z" />
-                </svg>
-                LinkedIn
-              </Button>
-            </div>
-
-            {(!oauthProviders.google || !oauthProviders.linkedin) && (
-              <p className="mt-3 text-center text-xs text-muted-foreground">
-                One or more social providers are unavailable until server OAuth credentials are configured.
-              </p>
-            )}
 
             <p className="mt-6 text-center text-sm text-muted-foreground">
               Don't have an account?{' '}

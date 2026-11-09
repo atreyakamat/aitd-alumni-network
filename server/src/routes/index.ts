@@ -1,5 +1,4 @@
 import { Router } from 'express';
-import passport from '../config/passport';
 import { authController } from '../controllers/authController';
 import { userController } from '../controllers/userController';
 import { searchController } from '../controllers/searchController';
@@ -23,7 +22,6 @@ import { collegeVideoController, collegeMagazineController } from '../controller
 import { requirementController, referralController, digestController, landingController } from '../controllers/engagementController';
 import { authenticate, optionalAuth, isAdmin, isSuperAdmin, isChapterAdmin } from '../middleware/auth';
 import { validate } from '../middleware/validate';
-import { issueOAuthState, verifyOAuthState } from '../middleware/oauthState';
 import { cacheMiddleware } from '../middleware/cache';
 import { sanitizeInput } from '../middleware/sanitizeInput';
 import { upload, videoUpload, documentUpload } from '../utils/storage';
@@ -48,7 +46,6 @@ import {
   createEventSchema,
   verify2FASchema,
   resend2FASchema,
-  oauthExchangeSchema,
   resendVerificationSchema,
   updateCommentSchema,
   createMarketplaceListingSchema,
@@ -68,56 +65,12 @@ router.post('/auth/change-password', authenticate, validate(changePasswordSchema
 router.post('/auth/refresh-token', validate(refreshTokenSchema), authController.refreshToken);
 router.post('/auth/logout', authenticate, authController.logout);
 router.get('/auth/me', authenticate, authController.me);
-router.get('/auth/oauth/providers', authController.getOAuthProviders);
 
 // 2FA Routes
 router.post('/auth/verify-2fa', validate(verify2FASchema), authController.verify2FA);
 router.post('/auth/resend-2fa', validate(resend2FASchema), authController.resend2FA);
 router.post('/auth/2fa/enable', authenticate, authController.enable2FA);
 router.post('/auth/2fa/disable', authenticate, authController.disable2FA);
-
-// OAuth Routes
-router.post('/auth/oauth/exchange', validate(oauthExchangeSchema), authController.exchangeOAuthCode);
-const isGoogleOAuthConfigured = Boolean(config.google.clientId && config.google.clientSecret);
-const isLinkedInOAuthConfigured = Boolean(config.linkedin.clientId && config.linkedin.clientSecret);
-
-if (isGoogleOAuthConfigured) {
-  router.get('/auth/google', (req, res, next) =>
-    passport.authenticate('google', { scope: ['profile', 'email'], session: false, state: issueOAuthState(res) })(req, res, next)
-  );
-  router.get(
-    '/auth/google/callback',
-    verifyOAuthState,
-    passport.authenticate('google', { session: false, failureRedirect: `${config.frontendUrl}/login?error=oauth_failed` }),
-    authController.googleCallback
-  );
-} else {
-  router.get('/auth/google', (_req, res) => {
-    res.status(503).json({ success: false, error: 'Google OAuth is not configured' });
-  });
-  router.get('/auth/google/callback', (_req, res) => {
-    res.status(503).json({ success: false, error: 'Google OAuth is not configured' });
-  });
-}
-
-if (isLinkedInOAuthConfigured) {
-  router.get('/auth/linkedin', (req, res, next) =>
-    passport.authenticate('linkedin', { session: false, state: issueOAuthState(res) })(req, res, next)
-  );
-  router.get(
-    '/auth/linkedin/callback',
-    verifyOAuthState,
-    passport.authenticate('linkedin', { session: false, failureRedirect: `${config.frontendUrl}/login?error=oauth_failed` }),
-    authController.linkedinCallback
-  );
-} else {
-  router.get('/auth/linkedin', (_req, res) => {
-    res.status(503).json({ success: false, error: 'LinkedIn OAuth is not configured' });
-  });
-  router.get('/auth/linkedin/callback', (_req, res) => {
-    res.status(503).json({ success: false, error: 'LinkedIn OAuth is not configured' });
-  });
-}
 
 // ============== SEARCH ROUTES ==============
 router.get('/search', authenticate, searchController.globalSearch);
@@ -362,8 +315,9 @@ router.get('/donations/chapters', authenticate, donationController.getChapterDon
 router.get('/donations/stats', authenticate, donationController.getStats);
 router.get('/donations/leaderboard', authenticate, donationController.getLeaderboard);
 router.get('/donations/my', authenticate, donationController.getMyDonations);
-router.post('/donations/order', authenticate, donationController.createOrder);
-router.post('/donations/verify', authenticate, donationController.verifyPayment);
+// Guest donations are the ONE open write: alumni donate without an account (no token = guest, a presented token must be valid).
+router.post('/donations/order', optionalAuth, donationController.createOrder);
+router.post('/donations/verify', optionalAuth, donationController.verifyPayment);
 
 // ============== TRANSACTION ROUTES ==============
 router.get('/transactions/my', authenticate, accountController.getMyTransactions);

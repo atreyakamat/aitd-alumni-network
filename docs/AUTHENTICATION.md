@@ -2,15 +2,15 @@
 
 How a person proves who they are in AITD Connection, what the server refuses, and which settings change that. The code
 lives in `server/src/services/authService.ts` (rules), `controllers/authController.ts` (HTTP), `middleware/auth.ts`
-(guards) and `config/passport.ts` (Google/LinkedIn); the client side is `client/src/context/auth-context.tsx`,
+(guards); the client side is `client/src/context/auth-context.tsx`,
 `src/lib/api.ts` and `src/middleware.ts`.
 
 ## At a glance
 
 | Question | Answer |
 |---|---|
-| Ways to sign in | E-mail + password, or Google / LinkedIn (when configured) |
-| Second factor | Optional, an e-mailed 6-digit code; applies to password **and** OAuth sign-ins |
+| Ways to sign in | E-mail + password only. Every account starts as a registration request that a college administrator approves (Google/LinkedIn sign-in was removed) |
+| Second factor | Optional, an e-mailed 6-digit code |
 | Session | Short-lived access token (JWT) + rotating refresh token |
 | Verified e-mail required? | Yes in production (`REQUIRE_EMAIL_VERIFICATION`), off in development and tests |
 | Who is admitted? | Only people an **administrator has approved** after checking that they are alumni of the college (see [Alumni approval](#alumni-approval)). No session by any route before that |
@@ -43,8 +43,8 @@ register ──► account created (unverified) ──► e-mail with link /veri
 5. `POST /api/auth/resend-verification` sends a new link. It answers identically for every address (unknown, verified,
    deactivated), sends at most one mail per account per minute, and is rate limited per address.
 
-Provider sign-ups (Google/LinkedIn) are verified by the provider: their `emailVerifiedAt` is set and the policy lets them in
-as far as the **e-mail** goes. They still wait for approval (below).
+Members who signed up through Google or LinkedIn before that sign-in was removed have no password: they use "Forgot password" to set one
+(their address was already verified by the provider, so the e-mail check passes).
 
 ## Alumni approval
 
@@ -58,12 +58,12 @@ register -> PENDING -> (verify e-mail) -> administrator reviews -+-> APPROVED ->
 
 * **State** lives on the user: `approvalStatus` (`PENDING` | `APPROVED` | `REJECTED`), who decided (`approvalReviewedById`),
   when, and the note or reason (`approvalNote`). New registrations are `PENDING` by the database default; nothing in the
-  registration or OAuth code can set anything else (the register validator drops unknown fields, tests assert it).
+  registration code can set anything else (the register validator drops unknown fields, tests assert it).
 * **What the applicant gives the reviewer:** the existing batch year, department and degree, plus two optional fields on the
   form: an enrolment / roll number (`enrollmentNumber`) and a free note (`verificationNote`). Both are personal data: only
-  administrators see them, they are part of the member's data export, and account deletion wipes them. A Google/LinkedIn
-  sign-up has no form, so the reviewer works from the name, the e-mail and the LinkedIn address, and contacts the person.
-* **No session until approved, by any route.** `login`, the 2FA step, the OAuth code exchange and the refresh-token call all
+  administrators see them, they are part of the member's data export, and account deletion wipes them. The reviewer can also contact
+  the person at the verified address.
+* **No session until approved, by any route.** `login`, the 2FA step and the refresh-token call all
   answer `403 ACCOUNT_PENDING_APPROVAL` (or `403 ACCOUNT_REJECTED`) and issue nothing. The check sits in one helper
   (`src/utils/approval.ts`) used by `issueSession`, those routes, the `authenticate` middleware and the socket handshake, and it
   **fails closed**: a row without a status counts as not approved. Because `authenticate` checks it on every request, rejecting
@@ -82,7 +82,7 @@ register -> PENDING -> (verify e-mail) -> administrator reviews -+-> APPROVED ->
 * **E-mails:** after the address is verified, "we received your registration"; on approval, "you can sign in"; on rejection, the
   reason (escaped). A failing mail server never blocks a decision.
 * **Existing members are not locked out.** The migration (`20261108020000_alumni_approval`) marks every account that exists as
-  `APPROVED` and `isVerified` (including Google/LinkedIn members who were invisible before), except an account that never verified,
+  `APPROVED` and `isVerified` (including members who had signed up through Google/LinkedIn and were invisible before), except an account that never verified,
   never signed in and holds no role: that goes to the queue.
 * **The first administrator** (`SEED_ADMIN_*`) is created `APPROVED`; everybody after is approved by an administrator.
 
@@ -98,11 +98,6 @@ login ─► password ok? ─► active? ─► verified? ─► 2FA on? ─┬�
 * A deactivated account gets `401 ACCOUNT_DEACTIVATED`, again only after the password is proven.
 * **Two-factor:** a signed challenge token (10 minutes) is bound to the user. The 6-digit code expires after 10 minutes, allows
   5 wrong guesses and then locks for 15 minutes, and can be re-sent every 30 seconds.
-* **OAuth:** the provider redirects the browser to the API callback, which redirects to `/login?code=…` with a
-  **one-time code** (5 minutes, single use), never with tokens. The login page scrubs the code from the address bar and
-  exchanges it at `POST /api/auth/oauth/exchange`. If the member has 2FA on, the exchange returns the same challenge as a
-  password sign-in instead of a session. Linking by e-mail only happens for provider-verified addresses, and a link drops the
-  password and sessions of an account that was never verified (a second pre-hijacking defence).
 
 ## Sessions
 
@@ -112,7 +107,6 @@ login ─► password ok? ─► active? ─► verified? ─► 2FA on? ─┬�
 | Refresh token | 7 days (`JWT_REFRESH_EXPIRES_IN`) | Stored hashed, rotated on every use, grouped in a *family* per sign-in |
 | E-mail verification link | 24 hours | Single use, hashed at rest |
 | Password reset link | 1 hour | Single use; only the newest link works |
-| OAuth exchange code | 5 minutes | Single use |
 | 2FA challenge / code | 10 minutes / 10 minutes | See above |
 
 * Replaying an already-rotated refresh token revokes the whole family (`REFRESH_TOKEN_REUSED`) and writes a `SECURITY_ALERT`
@@ -146,8 +140,6 @@ login ─► password ok? ─► active? ─► verified? ─► 2FA on? ─┬�
 | `POST /auth/forgot-password`, `/reset-password` | reset by e-mail (identical answer for every address) | 10 / 15 min |
 | `POST /auth/change-password` | signed in; revokes the other sessions | 10 / 15 min |
 | `POST /auth/2fa/enable`, `/2fa/disable` | manage the second factor | 10 / 15 min |
-| `GET /auth/google`, `/auth/linkedin` (+ `/callback`) | start / finish OAuth | |
-| `POST /auth/oauth/exchange` | one-time code → session or 2FA challenge | 10 / 15 min |
 
 Full request/response shapes: [API_REFERENCE.md](API_REFERENCE.md).
 
@@ -191,7 +183,6 @@ Full request/response shapes: [API_REFERENCE.md](API_REFERENCE.md).
 | `JWT_SECRET`, `JWT_REFRESH_SECRET` | signing secrets; production refuses weak, short or identical ones |
 | `JWT_EXPIRES_IN`, `JWT_REFRESH_EXPIRES_IN` | token lifetimes |
 | `SENDGRID_API_KEY` or `SMTP_*`, `EMAIL_FROM` | outbound mail (required in production while verification is on) |
-| `GOOGLE_*`, `LINKEDIN_*` | OAuth clients and callback URLs |
 | `TRUST_PROXY` | proxies in front of the API, so limits key on the real client address |
 | `REDIS_URL` | shares the rate-limit counters between API processes |
 
@@ -201,5 +192,5 @@ attacks it answers are in [SECURITY_AUDIT.md](SECURITY_AUDIT.md).
 ## Tests
 
 `server/src/__tests__/services/authService*.test.ts` (rules), `server/tests/security/auth/` (the attacks, against a real
-PostgreSQL: pre-hijacking, OAuth linking, token races, 2FA, password budgets), `server/tests/integration/auth-lifecycle.int.test.ts`
+PostgreSQL: pre-hijacking, token races, 2FA, password budgets), `server/tests/integration/auth-lifecycle.int.test.ts`
 (end-to-end happy path), `client/src/app/(auth)/**/__tests__` (pages) and `client/src/__security__/` (gate and links).

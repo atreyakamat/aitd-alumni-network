@@ -1,11 +1,9 @@
 /**
- * ROUND 2 - account lifecycle: deletion completeness against the whole schema, data export completeness, and OAuth
- * linking edge cases.
+ * ROUND 2 - account lifecycle: deletion completeness against the whole schema and data export completeness.
  */
 import fs from 'fs';
 import path from 'path';
 import { createUser, http, prisma, PASSWORD } from '../../integration/helpers';
-import { resolveOAuthUser } from '../../../src/config/passport';
 
 afterAll(async () => {
   await prisma.$disconnect();
@@ -137,69 +135,5 @@ describe('R2-19 the data export covers what the service holds about the member',
     expect(dump).not.toMatch(/passwordHash|gatewaySignature|"token"/);
     // other people's content is not exported
     expect(dump).not.toContain('exportable r2 post');
-  });
-});
-
-describe('OAuth linking edge cases', () => {
-  const profile = (email: string, verified?: boolean | string) => ({
-    id: 'p1',
-    displayName: 'Provider Name',
-    photos: [],
-    emails: [{ value: email, ...(verified === undefined ? {} : { verified }) }],
-  });
-
-  it('matches the existing account regardless of the provider\'s letter case, but never across plus-tags or dots', async () => {
-    const owner = await createUser('MEMBER');
-    const upper = await resolveOAuthUser('google', profile(owner.user.email.toUpperCase(), true) as never);
-    expect(upper.id).toBe(owner.user.id);
-    expect(upper.isNewUser).toBe(false);
-
-    const [local, domain] = owner.user.email.split('@');
-    const plus = await resolveOAuthUser('google', profile(`${local}+evil@${domain}`, true) as never);
-    expect(plus.id).not.toBe(owner.user.id);
-    const dotted = await resolveOAuthUser('google', profile(`${local.replace('.', '..')}@${domain}`, true) as never);
-    expect(dotted.id).not.toBe(owner.user.id);
-  });
-
-  it('refuses a provider e-mail that the provider has not verified and never touches the account', async () => {
-    const owner = await createUser('MEMBER', { emailVerifiedAt: null, isVerified: false });
-    const before = await prisma.user.findUniqueOrThrow({ where: { id: owner.user.id } });
-    for (const verified of [false, 'false'] as const) {
-      await expect(resolveOAuthUser('google', profile(owner.user.email, verified) as never)).rejects.toThrow(/not verified/);
-    }
-    const after = await prisma.user.findUniqueOrThrow({ where: { id: owner.user.id } });
-    expect(after.passwordHash).toBe(before.passwordHash);
-    expect(after.tokenVersion).toBe(before.tokenVersion);
-  });
-
-  it('cannot log in through an OAuth exchange code once the account is deactivated', async () => {
-    const owner = await createUser('MEMBER');
-    const resolved = await resolveOAuthUser('google', profile(owner.user.email, true) as never);
-    const { authService } = await import('../../../src/services/authService');
-    const code = await authService.createOAuthExchangeCode(resolved.id);
-    await prisma.user.update({ where: { id: owner.user.id }, data: { isActive: false } });
-    const res = await http().post('/api/auth/oauth/exchange').send({ code });
-    expect(res.status).toBe(401);
-  });
-
-  it('an exchange code works once', async () => {
-    const owner = await createUser('MEMBER');
-    const { authService } = await import('../../../src/services/authService');
-    const code = await authService.createOAuthExchangeCode(owner.user.id);
-    const results = await Promise.all(Array.from({ length: 5 }, () => http().post('/api/auth/oauth/exchange').send({ code })));
-    expect(results.filter((r) => r.status === 200)).toHaveLength(1);
-  });
-
-  it('R2-20 strips markup from a provider display name before it becomes the stored full name', async () => {
-    const email = `oauth.${Date.now()}@aitd.test`;
-    const created = await resolveOAuthUser('google', {
-      ...profile(email, true),
-      displayName: '<img src=x onerror=alert(1)>Mallory',
-    } as never);
-    const row = await prisma.user.findUniqueOrThrow({ where: { id: created.id } });
-    expect(row.fullName).not.toMatch(/[<>]|onerror/i);
-    expect(row.fullName).toContain('Mallory');
-    const long = await resolveOAuthUser('google', { ...profile(`long.${Date.now()}@aitd.test`, true), displayName: 'N'.repeat(5000) } as never);
-    expect((await prisma.user.findUniqueOrThrow({ where: { id: long.id } })).fullName.length).toBeLessThanOrEqual(100);
   });
 });

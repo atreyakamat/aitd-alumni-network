@@ -47,7 +47,7 @@ proxy on port 80: `docker compose --profile proxy up -d --build`.
 
 ### Security Features
 - **Verified e-mail before a session** (production) - confirmed with the registration password, which closes account pre-hijacking
-- **Two-Factor Authentication (2FA)** - Email-based OTP verification, also for Google/LinkedIn sign-ins
+- **Two-Factor Authentication (2FA)** - Email-based OTP verification
 - **JWT Authentication** - 15-minute access tokens, rotating refresh tokens with reuse detection
 - **Members-only pages** redirect visitors to sign-in at the edge; the API stays the authority
 - **Hardened inputs and uploads** - allowlisted URLs, linear-time sanitizer, re-encoded images, bounded request bodies
@@ -188,7 +188,7 @@ See `server/.env.example` (local) and `.env.docker.example` (docker-compose) for
 - `RAZORPAY_KEY_ID` / `RAZORPAY_KEY_SECRET` - Payment gateway
 - `AWS_*` - S3 bucket configuration
 - `SMTP_*` - Email configuration
-- `GOOGLE_*` / `LINKEDIN_*` - OAuth (optional)
+- `KAFKA_BROKERS` - notification events (optional; docker-compose runs a broker), `APPROVAL_NOTIFY_EMAIL` - the alumni office mailbox told about waiting registrations
 - `GEOCODER_*` - Place search for the map (OpenStreetMap Nominatim by default; `GEOCODER_URL=off` disables it)
 - `FEED_CACHE_TTL_SECONDS` - Public feed cache TTL in seconds
 - `IMAGE_*` - Upload image compression and resize configuration
@@ -282,7 +282,7 @@ After `npm run db:seed` (or `cd server && npx prisma db seed`):
 - `POST /api/auth/verify-email` - Verify email
 - `POST /api/auth/forgot-password` - Request password reset
 - `POST /api/auth/reset-password` - Reset password
-- `GET /api/auth/oauth/providers` - Check configured OAuth providers
+- `GET /api/admin/approvals` - The college administrator's review queue of registrations (`POST /api/admin/approvals/:id/approve|reject`)
 
 ### Users
 - `GET /api/users/directory` - Search alumni directory

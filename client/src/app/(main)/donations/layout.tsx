@@ -2,10 +2,10 @@ import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
   title: 'Give Back | AIEM Connection',
-  description: 'Support scholarships, campus initiatives and alumni chapters. See the donor wall and campaign progress.',
+  description: 'Support scholarships, campus initiatives and alumni chapters. Donate as a guest, no account needed.',
   openGraph: {
     title: 'Give Back | AIEM Connection',
-    description: 'Support scholarships, campus initiatives and alumni chapters. See the donor wall and campaign progress.',
+    description: 'Support scholarships, campus initiatives and alumni chapters. Donate as a guest, no account needed.',
     type: 'website',
   },
 };

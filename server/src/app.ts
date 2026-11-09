@@ -2,7 +2,6 @@ import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import path from 'path';
-import passport from 'passport';
 import { rateLimit } from 'express-rate-limit';
 import routes from './routes';
 import prisma from './config/database';
@@ -14,7 +13,7 @@ import { notFoundHandler } from './middleware/notFoundHandler';
 import { requestContext } from './middleware/requestContext';
 import { sanitizeInput } from './middleware/sanitizeInput';
 import { captureRawBody, isWebhookRequest, WEBHOOK_PATH_PREFIX } from './middleware/rawBody';
-import './config/passport'; // Initialize passport strategies
+import { kafkaStatus } from './config/kafka';
 
 export interface AppOptions {
   /** Disable rate limiting (used by the test suite). */
@@ -96,9 +95,6 @@ export const createApp = (options: AppOptions = {}) => {
     exposedHeaders: ['Content-Disposition', 'X-Export-Truncated', 'X-Request-Id'],
   }));
 
-  // Initialize Passport
-  app.use(passport.initialize());
-
   if (rateLimitEnabled) {
     // With REDIS_URL set, every limiter counts in Redis so the budget is shared by all API processes/containers
     // (in memory it would be multiplied by their number). Without Redis, or while it is down, each process counts
@@ -131,7 +127,6 @@ export const createApp = (options: AppOptions = {}) => {
       '/api/auth/resend-2fa',
       '/api/auth/verify-email',
       '/api/auth/resend-verification',
-      '/api/auth/oauth/exchange',
     ];
     for (const path of strictAuthPaths) {
       app.use(path, authLimiter(path, 10));
@@ -224,6 +219,8 @@ export const createApp = (options: AppOptions = {}) => {
         databaseStatus: 'up',
         // Informational: the API keeps working without Redis (per-process limits, no cache, no background jobs)
         redisStatus: redis ? (redis.status === 'ready' ? 'up' : 'down') : 'disabled',
+        // Informational like Redis: without a broker (or when it is down) notifications are delivered in-process
+        kafkaStatus: kafkaStatus(),
         timestamp: new Date().toISOString(),
       });
     } catch {

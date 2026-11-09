@@ -204,11 +204,6 @@ describe('authController', () => {
     });
   });
 
-  it('getOAuthProviders reports unconfigured providers as false', async () => {
-    const { res } = await run('getOAuthProviders');
-    expect(res.json).toHaveBeenCalledWith({ success: true, data: { google: false, linkedin: false } });
-  });
-
   describe('verifyEmail / resendVerification', () => {
     it('hands the registration password to the service along with the token', async () => {
       const spy = jest.spyOn(authService, 'verifyEmail').mockResolvedValue({ message: 'ok' });
@@ -222,83 +217,6 @@ describe('authController', () => {
       const { res } = await run('resendVerification', { body: { email: 'a@b.io' } });
       expect(spy).toHaveBeenCalledWith('a@b.io');
       expect(res.json).toHaveBeenCalledWith({ success: true, data: { message: 'generic' } });
-    });
-  });
-
-  describe('exchangeOAuthCode', () => {
-    it('exchanges a code for a session', async () => {
-      const spy = jest.spyOn(authService, 'exchangeOAuthCode').mockResolvedValue(session as any);
-      const { res } = await run('exchangeOAuthCode', { body: { code: 'abc' } });
-      expect(spy).toHaveBeenCalledWith('abc');
-      expect(res.json).toHaveBeenCalledWith({ success: true, data: session });
-    });
-
-    it('sends an OTP and returns a challenge (never session tokens) when the member has 2FA on', async () => {
-      jest.spyOn(authService, 'exchangeOAuthCode').mockResolvedValue({
-        requires2FA: true,
-        twoFactorToken: 'challenge',
-        user: { id: 'u1', email: 'u1@x.io', fullName: 'U', twoFactorEnabled: true },
-      });
-      const send = jest.spyOn(twoFactorService, 'sendOTP').mockResolvedValue({ message: '' });
-
-      const { res } = await run('exchangeOAuthCode', { body: { code: 'abc' } });
-
-      expect(send).toHaveBeenCalledWith('u1', 'u1@x.io');
-      const body = res.json.mock.calls[0][0];
-      expect(body).toEqual({
-        success: true,
-        data: { requires2FA: true, userId: 'u1', twoFactorToken: 'challenge', message: expect.any(String) },
-      });
-      expect(body.data.accessToken).toBeUndefined();
-      expect(body.data.refreshToken).toBeUndefined();
-    });
-
-    it.each([[{}], [{ code: '' }], [{ code: { $ne: null } }]])('rejects a missing/non-string code %j', async (body) => {
-      const spy = jest.spyOn(authService, 'exchangeOAuthCode');
-      const { error } = await run('exchangeOAuthCode', { body });
-      expect(error).toMatchObject({ statusCode: 400, code: 'VALIDATION_ERROR' });
-      expect(spy).not.toHaveBeenCalled();
-    });
-
-    it('forwards service errors', async () => {
-      const boom = new AppError('used', 400, 'INVALID_CODE');
-      jest.spyOn(authService, 'exchangeOAuthCode').mockRejectedValue(boom);
-      const { error } = await run('exchangeOAuthCode', { body: { code: 'abc' } });
-      expect(error).toBe(boom);
-    });
-  });
-
-  describe.each([
-    ['googleCallback', 'google'],
-    ['linkedinCallback', 'linkedin'],
-  ] as const)('%s', (handler, provider) => {
-    it('redirects with a one-time code (never JWTs) in the URL', async () => {
-      jest.spyOn(authService, 'createOAuthExchangeCode').mockResolvedValue('one-time');
-      const { res } = await run(handler, { user: { id: 'u1', email: 'e', fullName: 'f', isNewUser: false } });
-      const url = new URL(res.redirect.mock.calls[0][0]);
-      expect(url.origin + url.pathname).toBe('http://localhost:3000/login');
-      expect(url.searchParams.get('code')).toBe('one-time');
-      expect(url.searchParams.get('oauth')).toBe(provider);
-      expect(url.searchParams.has('newUser')).toBe(false);
-      expect(url.search).not.toMatch(/accessToken|refreshToken/);
-    });
-
-    it('flags new users', async () => {
-      jest.spyOn(authService, 'createOAuthExchangeCode').mockResolvedValue('c');
-      const { res } = await run(handler, { user: { id: 'u1', isNewUser: true } });
-      expect(new URL(res.redirect.mock.calls[0][0]).searchParams.get('newUser')).toBe('true');
-    });
-
-    it('redirects to an error when no OAuth user is present', async () => {
-      const { res } = await run(handler, {});
-      expect(res.redirect).toHaveBeenCalledWith('http://localhost:3000/login?error=oauth_failed');
-    });
-
-    it('redirects to an error when code creation fails', async () => {
-      jest.spyOn(authService, 'createOAuthExchangeCode').mockRejectedValue(new Error('db'));
-      const { res, next } = await run(handler, { user: { id: 'u1' } });
-      expect(res.redirect).toHaveBeenCalledWith('http://localhost:3000/login?error=oauth_failed');
-      expect(next).not.toHaveBeenCalled();
     });
   });
 });

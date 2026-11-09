@@ -45,9 +45,9 @@ describe('<DeleteAccountDialog>', () => {
     expect(onConfirm).toHaveBeenCalledWith({ password: 'secret-pw' });
   });
 
-  it('supports OAuth accounts by typing DELETE', async () => {
+  it('supports accounts without a password by typing DELETE', async () => {
     const { onConfirm } = renderDialog();
-    await userEvent.click(screen.getByRole('radio', { name: /google or linkedin/i }));
+    await userEvent.click(screen.getByRole('radio', { name: /no password yet/i }));
     expect(screen.queryByLabelText(/current password/i)).not.toBeInTheDocument();
 
     const confirmInput = screen.getByLabelText(/type delete to confirm/i);

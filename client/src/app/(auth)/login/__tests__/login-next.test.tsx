@@ -24,7 +24,6 @@ vi.mock('@/lib/api', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/lib/api')>();
   return {
     ...actual,
-    api: { get: vi.fn().mockResolvedValue({ data: { data: { google: true, linkedin: true } } }), post: vi.fn() },
     authApi: { ...actual.authApi, login: (...args: unknown[]) => login(...args) },
   };
 });

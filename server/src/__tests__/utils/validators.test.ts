@@ -1,7 +1,6 @@
 import {
   forgotPasswordSchema,
   loginSchema,
-  oauthExchangeSchema,
   refreshTokenSchema,
   registerSchema,
   resend2FASchema,
@@ -128,8 +127,6 @@ describe('auth validators', () => {
     expect(verifyEmailSchema.safeParse({ body: { token: '' } }).success).toBe(false);
     expect(refreshTokenSchema.safeParse({ body: { refreshToken: 'abc' } }).success).toBe(true);
     expect(refreshTokenSchema.safeParse({ body: {} }).success).toBe(false);
-    expect(oauthExchangeSchema.safeParse({ body: { code: 'abc' } }).success).toBe(true);
-    expect(oauthExchangeSchema.safeParse({ body: { code: 'x'.repeat(257) } }).success).toBe(false);
     expect(resend2FASchema.safeParse({ body: { twoFactorToken: 'abc' } }).success).toBe(true);
     expect(resend2FASchema.safeParse({ body: { userId: 'abc' } }).success).toBe(false);
   });

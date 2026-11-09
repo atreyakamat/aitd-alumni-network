@@ -11,10 +11,10 @@
  *  - the real owner is never locked out of their own address: registering again replaces the pending registration
  *  - a verified account cannot be taken over by registering again
  *  - "resend" does not reveal which addresses exist and cannot flood an inbox
- *  - signing in with Google/LinkedIn does not skip the second factor
+ *  - a member without a password (created earlier through the former Google/LinkedIn sign-in) cannot be taken over by
+ *    registering their address, and gets a password through the normal "Forgot password" e-mail
  */
 import { config } from '../../../src/config';
-import { authService } from '../../../src/services/authService';
 import { createUser, http, prisma, uniqueEmail, PASSWORD } from '../../integration/helpers';
 
 jest.mock('../../../src/utils/email', () => {
@@ -27,7 +27,7 @@ jest.mock('../../../src/utils/email', () => {
 });
 
 // eslint-disable-next-line @typescript-eslint/no-var-requires
-const email = require('../../../src/utils/email') as { sendVerificationEmail: jest.Mock };
+const email = require('../../../src/utils/email') as { sendVerificationEmail: jest.Mock; sendPasswordResetEmail: jest.Mock };
 
 const ATTACKER_PASSWORD = 'Attacker!Pass99x';
 const VICTIM_PASSWORD = 'Victim!Passw0rd77';
@@ -41,7 +41,10 @@ afterAll(async () => {
   await prisma.$disconnect();
 });
 
-beforeEach(() => email.sendVerificationEmail.mockClear());
+beforeEach(() => {
+  email.sendVerificationEmail.mockClear();
+  email.sendPasswordResetEmail.mockClear();
+});
 
 const register = (address: string, password: string, fullName = 'Someone') =>
   http().post('/api/auth/register').send({
@@ -219,26 +222,34 @@ describe('resend verification', () => {
   });
 });
 
-describe('signing in with a provider does not skip the second factor', () => {
-  it('exchanges the code for a 2FA challenge, not for tokens', async () => {
-    const { user } = await createUser('MEMBER', { twoFactorEnabled: true });
-    const code = await authService.createOAuthExchangeCode(user.id);
+describe('members who have no password (created earlier through the former Google / LinkedIn sign-in)', () => {
+  it('a stranger registering their address never replaces the account; the reset e-mail is how the member gets a password', async () => {
+    const { user } = await createUser('MEMBER', { passwordHash: '', isVerified: false });
 
-    const res = await http().post('/api/auth/oauth/exchange').send({ code });
+    // pre-hijacking: the stranger registers the member's address with a password of their own
+    const attempt = await register(user.email, ATTACKER_PASSWORD, 'Stranger');
+    expect(attempt.status).toBe(409);
+    expect(attempt.body.error.code).toBe('EMAIL_EXISTS');
+    expect(email.sendVerificationEmail).not.toHaveBeenCalled();
+    const untouched = await prisma.user.findUnique({ where: { id: user.id } });
+    expect(untouched?.fullName).toBe(user.fullName);
+    expect(untouched?.passwordHash ?? '').toBe('');
+    expect((await login(user.email, ATTACKER_PASSWORD)).status).toBe(401);
 
-    expect(res.status).toBe(200);
-    expect(res.body.data.requires2FA).toBe(true);
-    expect(res.body.data.twoFactorToken).toEqual(expect.any(String));
-    expect(res.body.data.accessToken).toBeUndefined();
-    expect(res.body.data.refreshToken).toBeUndefined();
+    // the member asks for a reset link ("Forgot password"): the answer is the same as for any other address...
+    const forgot = await http().post('/api/auth/forgot-password').send({ email: user.email });
+    expect(forgot.status).toBe(200);
+    await new Promise((resolve) => setTimeout(resolve, 200)); // the mail is sent after the response
+    expect(email.sendPasswordResetEmail).toHaveBeenCalledTimes(1);
+    expect(email.sendPasswordResetEmail.mock.calls[0][0]).toBe(user.email);
+    const resetToken = email.sendPasswordResetEmail.mock.calls[0][2];
 
-    // the challenge alone opens nothing
-    const guess = await http().post('/api/auth/verify-2fa').send({ twoFactorToken: res.body.data.twoFactorToken, otp: '000000' });
-    expect(guess.status).toBe(400);
-    expect(guess.body.data?.accessToken).toBeUndefined();
-
-    // and the single-use code cannot be replayed
-    const replay = await http().post('/api/auth/oauth/exchange').send({ code });
-    expect(replay.status).toBe(400);
+    // ...and the link sets the password, after which the normal sign-in works
+    const reset = await http().post('/api/auth/reset-password').send({ token: resetToken, password: VICTIM_PASSWORD });
+    expect(reset.status).toBe(200);
+    const session = await login(user.email, VICTIM_PASSWORD);
+    expect(session.status).toBe(200);
+    expect(session.body.data.accessToken).toEqual(expect.any(String));
+    expect((await login(user.email, ATTACKER_PASSWORD)).status).toBe(401);
   });
 });

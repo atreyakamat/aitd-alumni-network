@@ -31,17 +31,11 @@ const MATRIX: Record<string, Level> = {
   'post /auth/refresh-token': 'public',
   'post /auth/logout': 'auth',
   'get /auth/me': 'auth',
-  'get /auth/oauth/providers': 'public',
   'post /auth/verify-2fa': 'public',
   'post /auth/resend-2fa': 'public',
   'post /auth/2fa/enable': 'auth',
   'post /auth/2fa/disable': 'auth',
   'post /auth/change-password': 'auth',
-  'post /auth/oauth/exchange': 'public',
-  'get /auth/google': 'public',
-  'get /auth/google/callback': 'public',
-  'get /auth/linkedin': 'public',
-  'get /auth/linkedin/callback': 'public',
 
   // Search
   'get /search': 'auth',
@@ -262,8 +256,8 @@ const MATRIX: Record<string, Level> = {
   'get /donations/stats': 'auth',
   'get /donations/leaderboard': 'auth',
   'get /donations/my': 'auth',
-  'post /donations/order': 'auth',
-  'post /donations/verify': 'auth',
+  'post /donations/order': 'optional',
+  'post /donations/verify': 'optional',
 
   // Transactions
   'get /transactions/my': 'auth',

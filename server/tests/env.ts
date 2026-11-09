@@ -7,5 +7,3 @@ process.env.DISABLE_RATE_LIMIT = 'true';
 delete process.env.REDIS_URL;
 delete process.env.SMTP_USER;
 delete process.env.SMTP_PASS;
-delete process.env.GOOGLE_CLIENT_ID;
-delete process.env.LINKEDIN_CLIENT_ID;

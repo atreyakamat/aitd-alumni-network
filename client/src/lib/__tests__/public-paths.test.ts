@@ -9,12 +9,17 @@ import {
   isPublicPath,
 } from '@/lib/public-paths';
 
-describe('isPublicPath: the platform is private, so nothing in the (main) app is open to visitors', () => {
-  it('has no public sections and no public deep links', () => {
-    expect(PUBLIC_SECTIONS).toHaveLength(0);
+describe('isPublicPath: the platform is private, the donation form is the one (main) page open to visitors', () => {
+  it('has exactly one public section, /donations, and no public deep links', () => {
+    expect(PUBLIC_SECTIONS).toEqual([{ href: '/donations', label: 'Donate' }]);
     expect(PUBLIC_DEEP_LINK_PREFIXES).toHaveLength(0);
-    expect(PUBLIC_PATH_PREFIXES).toHaveLength(0);
+    expect(PUBLIC_PATH_PREFIXES).toEqual(['/donations']);
   });
+
+  it.each(['/donations', '/donations/', '/donations/thanks', '/donations/a/b', '/donations?amount=500', '/donations#form', '/donations/?x=1'])(
+    'allows %s',
+    (p) => expect(isPublicPath(p)).toBe(true)
+  );
 
   it.each([
     '/events',
@@ -22,7 +27,9 @@ describe('isPublicPath: the platform is private, so nothing in the (main) app is
     '/gallery',
     '/news',
     '/news/some-slug',
-    '/donations',
+    '/donationsx',
+    '/donations-archive',
+    '/admin/donations',
     '/events/',
     '/chapters',
     '/chapters/c1',

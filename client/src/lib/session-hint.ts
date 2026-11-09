@@ -11,7 +11,7 @@
  *   Forging this cookie therefore gains an attacker nothing but the empty shell.
  * - The tokens themselves stay in localStorage; the cookie is never read for auth.
  *
- * Lifecycle (kept in sync by `auth-context.tsx` and `api.ts`): set on login / OAuth login /
+ * Lifecycle (kept in sync by `auth-context.tsx` and `api.ts`): set on login /
  * token refresh / successful `/auth/me` on load; cleared on logout, failed refresh, a 401/403
  * from `/auth/me`, and cross-tab logout.
  */

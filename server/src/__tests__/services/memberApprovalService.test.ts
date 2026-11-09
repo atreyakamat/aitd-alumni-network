@@ -2,9 +2,12 @@ import { memberApprovalService } from '../../services/memberApprovalService';
 import { config } from '../../config';
 import { prismaMock } from '../../../tests/helpers';
 import { logAuditAction } from '../../services/auditService';
-import { sendWelcomeEmail, sendRejectionEmail } from '../../utils/email';
+import { publishNotificationEvent } from '../../services/notificationBus';
+import { log } from '../../utils/logger';
 
 jest.mock('../../services/auditService', () => ({ logAuditAction: jest.fn().mockResolvedValue(undefined) }));
+// The e-mails are events on the notification bus (Kafka); what they do is tested with the handlers
+jest.mock('../../services/notificationBus', () => ({ publishNotificationEvent: jest.fn().mockResolvedValue(undefined) }));
 
 const ADMIN = { id: 'admin-1', userRole: 'ADMIN' as const };
 const META = { ipAddress: '10.0.0.1', userAgent: 'jest' };
@@ -133,16 +136,20 @@ describe('approving', () => {
     );
   });
 
-  it('tells the person they can sign in', async () => {
+  it('tells the person they can sign in: publishes registration.approved for the notification consumer', async () => {
     arrange();
     await memberApprovalService.approve(ADMIN, 'u1', undefined, META);
-    expect(sendWelcomeEmail).toHaveBeenCalledWith('ada@aitd.edu', 'Ada Alum');
+    expect(publishNotificationEvent).toHaveBeenCalledTimes(1);
+    expect(publishNotificationEvent).toHaveBeenCalledWith('registration.approved', { userId: 'u1' });
   });
 
-  it('does not fail the approval when the mail server is down', async () => {
+  it('does not fail (or wait for) the approval when the event cannot be published', async () => {
     arrange();
-    (sendWelcomeEmail as jest.Mock).mockRejectedValueOnce(new Error('smtp down'));
+    jest.spyOn(log, 'error').mockImplementation(() => undefined);
+    (publishNotificationEvent as jest.Mock).mockRejectedValueOnce(new Error('kafka and the fallback are both down'));
     await expect(memberApprovalService.approve(ADMIN, 'u1', undefined, META)).resolves.toBeDefined();
+    await new Promise((resolve) => setImmediate(resolve));
+    expect(log.error).toHaveBeenCalledWith(expect.stringMatching(/registration.approved/), expect.any(Object));
   });
 
   it('can approve a registration that was rejected earlier', async () => {
@@ -159,14 +166,14 @@ describe('approving', () => {
   it('answers 409 when the person is already approved, and sends nothing', async () => {
     arrange(applicant({ approvalStatus: 'APPROVED' }));
     await expect(memberApprovalService.approve(ADMIN, 'u1', undefined, META)).rejects.toMatchObject({ statusCode: 409, code: 'ALREADY_APPROVED' });
-    expect(sendWelcomeEmail).not.toHaveBeenCalled();
+    expect(publishNotificationEvent).not.toHaveBeenCalled();
     expect(logAuditAction).not.toHaveBeenCalled();
   });
 
   it('of two administrators who approve at the same moment only one wins and only one mail goes out', async () => {
     arrange(applicant(), 0);
     await expect(memberApprovalService.approve(ADMIN, 'u1', undefined, META)).rejects.toMatchObject({ statusCode: 409, code: 'ALREADY_APPROVED' });
-    expect(sendWelcomeEmail).not.toHaveBeenCalled();
+    expect(publishNotificationEvent).not.toHaveBeenCalled();
     expect(logAuditAction).not.toHaveBeenCalled();
   });
 
@@ -217,11 +224,11 @@ describe('rejecting', () => {
     });
   });
 
-  it('audits the decision and mails the reason', async () => {
+  it('audits the decision and publishes the reason for the e-mail to the applicant', async () => {
     arrange();
     await memberApprovalService.reject(ADMIN, 'u1', 'Not on our rolls', META);
     expect(logAuditAction).toHaveBeenCalledWith(expect.objectContaining({ action: 'REJECT', entityType: 'USER', entityId: 'u1' }));
-    expect(sendRejectionEmail).toHaveBeenCalledWith('ada@aitd.edu', 'Ada Alum', 'Not on our rolls');
+    expect(publishNotificationEvent).toHaveBeenCalledWith('registration.rejected', { userId: 'u1', reason: 'Not on our rolls' });
   });
 
   it('only a registration that is waiting can be rejected (a member is deactivated instead)', async () => {
@@ -233,13 +240,13 @@ describe('rejecting', () => {
   it('a second rejection answers 409 and sends no second mail', async () => {
     arrange(applicant({ approvalStatus: 'REJECTED' }));
     await expect(memberApprovalService.reject(ADMIN, 'u1', 'Again', META)).rejects.toMatchObject({ statusCode: 409 });
-    expect(sendRejectionEmail).not.toHaveBeenCalled();
+    expect(publishNotificationEvent).not.toHaveBeenCalled();
   });
 
   it('loses a race cleanly', async () => {
     arrange(applicant(), 0);
     await expect(memberApprovalService.reject(ADMIN, 'u1', 'Not on our rolls', META)).rejects.toMatchObject({ statusCode: 409 });
-    expect(sendRejectionEmail).not.toHaveBeenCalled();
+    expect(publishNotificationEvent).not.toHaveBeenCalled();
   });
 
   it('answers 404 for a person who does not exist', async () => {

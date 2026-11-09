@@ -69,7 +69,7 @@ export const verifyTwoFactorToken = (token: string): { userId: string } => {
   return { userId: decoded.userId };
 };
 
-/** One-way hash for opaque tokens persisted in the database (refresh, reset, verification, OAuth codes). */
+/** One-way hash for opaque tokens persisted in the database (refresh, reset, verification). */
 export const hashToken = (token: string): string => {
   return crypto.createHash('sha256').update(token).digest('hex');
 };

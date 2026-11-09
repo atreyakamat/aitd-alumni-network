@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { render, screen } from '@testing-library/react';
-import { Bell, HandHeart, Repeat2, UserPlus } from 'lucide-react';
+import { Bell, HandHeart, Repeat2, UserPlus, UserSearch } from 'lucide-react';
 import { NotificationContent, notificationVisual } from '@/components/notifications/NotificationContent';
 import type { Notification } from '@/types';
 
@@ -23,6 +23,11 @@ describe('notificationVisual', () => {
   it('maps the new social types', () => {
     expect(notificationVisual({ type: 'POST_REPOSTED' }).icon).toBe(Repeat2);
     expect(notificationVisual({ type: 'NEW_FOLLOWER' }).icon).toBe(UserPlus);
+  });
+
+  it('shows the college administrator a registration waiting for review with its own icon', () => {
+    expect(notificationVisual({ type: 'REGISTRATION_PENDING' }).icon).toBe(UserSearch);
+    expect(notificationVisual({ type: 'REGISTRATION_PENDING' }).icon).not.toBe(Bell);
   });
 
   it('falls back to a bell for unknown types', () => {

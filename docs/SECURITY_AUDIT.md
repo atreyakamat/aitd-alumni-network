@@ -17,6 +17,10 @@ abuse by a signed-in member or a latent takeover, **Medium** = integrity/availab
 
 ## Round 1 findings
 
+> **Note (2026-11-09):** Google and LinkedIn sign-in were removed from the platform. Findings below that concern OAuth
+> (the state cookie, account linking, the OAuth second factor, LinkedIn scopes, the callback URLs) describe a feature that no longer exists;
+> they stay as the record of what was found and fixed.
+
 ### Authorization and integrity
 
 | ID | Sev | Finding | Root cause | Fix | Status |
@@ -270,7 +274,7 @@ before they are admitted. The change was built test-first; the findings below ar
 |---|---|---|---|---|
 | P-01 | **High** | API surface | 42 routes answered visitors: events, news, gallery, chapters, jobs, search, profiles by id, posts and comments, hashtags, videos, the magazine, requirements, the marketplace, membership tiers and the donor wall (names of donors). The new college pages were *members only in the UI but open on the API* | All 42 now need an approved member; the RBAC matrix, the contract smoke table, the generated API reference and `verify:deploy` assert it. Left open on purpose: sign-in routes, `GET /landing`, `GET /users/stats` (aggregate counts), the invitation check, the payment webhook |
 | P-02 | **High** | `getProfile` | The profile endpoint spreads the whole user row and then deletes a list of owner-only fields, so the new columns (enrolment number, the applicant's note, the reviewer's notes) **would have been shown to every member** viewing a profile (and so would `tokenVersion`) | The new fields are on the owner-only list; `tokenVersion` is never exposed; a test sets all of them on a profile and checks none is returned |
-| P-03 | Medium | registration, OAuth | Nothing separated "has an account" from "is an alumnus": any registration or Google/LinkedIn sign-in became a member | `approvalStatus` (default `PENDING`). One helper (`utils/approval.ts`) gates `issueSession`, login, the 2FA step, the OAuth exchange, token refresh, `authenticate`, `optionalAuth` and the socket handshake, and **fails closed** (a row without a status is not approved). A rejection of somebody who is signed in takes effect on their next request |
+| P-03 | Medium | registration | Nothing separated "has an account" from "is an alumnus": any registration became a member | `approvalStatus` (default `PENDING`). One helper (`utils/approval.ts`) gates `issueSession`, login, the 2FA step, token refresh, `authenticate`, `optionalAuth` and the socket handshake, and **fails closed** (a row without a status is not approved). A rejection of somebody who is signed in takes effect on their next request |
 | P-04 | Medium | `verifyEmail` | Verifying the e-mail set `isVerified`, the flag the directory, search and digests use for visibility, so the moment an applicant clicked the link they became visible | Verifying proves the mailbox only (`emailVerifiedAt`); `isVerified` is set together with approval |
 | P-05 | Medium | review queue | Two administrators could act on one registration at the same moment (double mail, double audit entry); an unverified address could be approved | Conditional update (`approvalStatus != APPROVED` / `= PENDING`), 409 for the loser and no mail; approval refused with `EMAIL_NOT_VERIFIED` while verification is required |
 | P-06 | Low | lookups by id | A member holding the id of an unapproved registration could message it, send a connection request, follow it, ask it for a referral or open its profile | The lookups ask for `approvalStatus: APPROVED` (an unapproved id looks like a missing one) |
@@ -278,18 +282,18 @@ before they are admitted. The change was built test-first; the findings below ar
 | P-08 | Low | `start.sh` | On a host without Node the secret generator aborted the script (`pipefail` + `head`) | Fixed; found by running the suites under Node 20 |
 
 Consequences worth knowing: a registration waits for a human, so the queue must be worked (section 6, decision 10 of
-[PRODUCTION_CHECKLIST.md](PRODUCTION_CHECKLIST.md)); guest donations are closed (decision 12); a rejected person who registers
+[PRODUCTION_CHECKLIST.md](PRODUCTION_CHECKLIST.md)); guest donations stay open (decision 12), so the donation form is the one anonymous way into the payment code; a rejected person who registers
 again is told the address exists, and an administrator can approve the old registration.
 
 ## Test results (after round 2 and the production decisions)
 
 | Suite | Command | Result |
 |---|---|---|
-| Server unit | `npm test -w server` | 116 suites, 4,317 tests (also green on Node 20, which CI and Docker use) |
-| Server security (real PostgreSQL) | `npm run test:security -w server` | 32 suites, 401 tests (89 from round 1, 297 in `tests/security/round2/` plus the college privacy tests, 8 for e-mail verification and OAuth 2FA; the visitor-access tests now assert 401) |
-| Server integration (real PostgreSQL) | `npm run test:integration -w server` | 8 suites, 49 tests (new: `alumni-approval.int.test.ts`) |
-| Client/server contract | `npm run test:contract -w server` | 5 suites, 942 tests |
-| Client (vitest) | `npm test -w client` | 101 files, 1,203 tests (151 in `src/__security__/`) |
+| Server unit | `npm test -w server` | 123 suites, 4,375 tests (also green on Node 20, which CI and Docker use) |
+| Server security (real PostgreSQL) | `npm run test:security -w server` | 31 suites, 394 tests (the OAuth-linking suite went with the feature; the visitor-access tests now assert 401) |
+| Server integration (real PostgreSQL) | `npm run test:integration -w server` | 8 suites, 50 tests (new: `alumni-approval.int.test.ts`, including the notification flow to the college administrator) |
+| Client/server contract | `npm run test:contract -w server` | 5 suites, 931 tests |
+| Client (vitest) | `npm test -w client` | 102 files, 1,274 tests (151 in `src/__security__/`) |
 | Type checks | server `tsc -p tsconfig.test.json`, client `tsc --noEmit` | clean |
 | Lint | server eslint, client `next lint` | 0 errors |
 

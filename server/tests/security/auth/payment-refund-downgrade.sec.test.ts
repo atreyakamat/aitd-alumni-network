@@ -28,25 +28,22 @@ const sign = (orderId: string, paymentId: string) =>
   crypto.createHmac('sha256', KEY_SECRET).update(`${orderId}|${paymentId}`).digest('hex');
 
 describe('AU-03: invalid signatures cannot downgrade a refunded transaction', () => {
-  it('a refunded transaction without an owner (an old guest donation) is untouched by anybody: anonymous 401, member bogus signature 400, genuine replay 409', async () => {
-    const { auth } = await createUser('MEMBER');
+  it('guest donation: anonymous bogus signature leaves REFUNDED untouched', async () => {
     const orderId = `order_sec_${crypto.randomUUID()}`;
     const tx = await prisma.transaction.create({
       data: { userId: null, type: 'DONATION', amount: 500, status: 'REFUNDED', gatewayOrderId: orderId, metadata: { amountPaise: 50000 } },
     });
-    const body = { razorpay_order_id: orderId, razorpay_payment_id: 'pay_x', razorpay_signature: 'f'.repeat(64) };
 
-    // the platform is private: no anonymous call reaches the payment code at all
-    expect((await http().post('/api/donations/verify').send(body)).status).toBe(401);
-
-    const res = await http().post('/api/donations/verify').set('Authorization', auth).send(body);
+    const res = await http()
+      .post('/api/donations/verify')
+      .send({ razorpay_order_id: orderId, razorpay_payment_id: 'pay_x', razorpay_signature: 'f'.repeat(64) });
     expect(res.status).toBe(400);
+
     expect((await prisma.transaction.findUnique({ where: { id: tx.id } }))?.status).toBe('REFUNDED');
 
     // and the genuine signature is still refused rather than re-completing the payment
     const replay = await http()
       .post('/api/donations/verify')
-      .set('Authorization', auth)
       .send({ razorpay_order_id: orderId, razorpay_payment_id: 'pay_x', razorpay_signature: sign(orderId, 'pay_x') });
     expect(replay.status).toBe(409);
     expect(await prisma.donation.count({ where: { transactionId: tx.id } })).toBe(0);

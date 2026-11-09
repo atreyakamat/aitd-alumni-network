@@ -223,7 +223,8 @@ export type NotificationType =
   | 'COMMENT_REACTED'
   | 'POST_REPOSTED'
   | 'NEW_FOLLOWER'
-  | 'CONTENT_REPORTED';
+  | 'CONTENT_REPORTED'
+  | 'REGISTRATION_PENDING';
 
 export interface GalleryAlbum {
   id: string;

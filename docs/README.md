@@ -9,7 +9,8 @@ by tests); **historical** ones are kept for context only.
 |---|---|
 | Run the app on my machine | [GETTING_STARTED.md](GETTING_STARTED.md): install, embedded PostgreSQL (no Docker), seed, first sign-in |
 | Understand how it fits together | [ARCHITECTURE.md](ARCHITECTURE.md): request pipeline, auth, data model, search, real-time, payments, maps, lifecycle |
-| Understand sign-in, sessions and e-mail verification | [AUTHENTICATION.md](AUTHENTICATION.md): flows, token lifetimes, error codes, settings |
+| Understand sign-in, sessions, e-mail verification and the administrator's approval of registrations | [AUTHENTICATION.md](AUTHENTICATION.md): flows, token lifetimes, error codes, settings |
+| Run or debug notifications (Kafka, the e-mails to the college administrator) | [KAFKA.md](KAFKA.md): events, settings, what happens when the broker or the mail server fails |
 | Call or change the API | [API_REFERENCE.md](API_REFERENCE.md) (generated from the router: `npm run docs:api`) and [SOCIAL_API.md](SOCIAL_API.md) for the social layer |
 | Write or run tests | [TESTING.md](TESTING.md): the test layers, TDD loop, how to add an endpoint |
 | Put it on a server | **[PRODUCTION_CHECKLIST.md](PRODUCTION_CHECKLIST.md) first**, then [DOCKER.md](DOCKER.md) |
@@ -24,6 +25,7 @@ by tests); **historical** ones are kept for context only.
 | [PRODUCTION_CHECKLIST.md](PRODUCTION_CHECKLIST.md) | current | Every setting that must change for production, decisions taken, launch gates |
 | [AUTHENTICATION.md](AUTHENTICATION.md) | current | |
 | [ROBUSTNESS.md](ROBUSTNESS.md) | current | What was hardened for reliability, how to operate it, the open backlog |
+| [KAFKA.md](KAFKA.md) | current | Notification events through Kafka, the registration e-mails, failure handling |
 | [ARCHITECTURE.md](ARCHITECTURE.md) | current | |
 | [SECURITY_AUDIT.md](SECURITY_AUDIT.md) | current | Round 1, round 2, decisions implemented, test results |
 | [DOCKER.md](DOCKER.md) | current | Compose services, configuration, backups, upgrades, migrating old MySQL data |

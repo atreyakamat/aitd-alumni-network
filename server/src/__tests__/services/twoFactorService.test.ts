@@ -211,7 +211,7 @@ describe('twoFactorService', () => {
       expect(prismaMock.user.update).not.toHaveBeenCalled();
     });
 
-    it('lets a password-less (OAuth) account disable 2FA without a password', async () => {
+    it('lets an account without a password disable 2FA without a password', async () => {
       prismaMock.user.findUnique.mockResolvedValue({ passwordHash: '' });
       await expect(twoFactorService.disable2FA('u1')).resolves.toEqual({ message: 'Two-factor authentication disabled' });
     });

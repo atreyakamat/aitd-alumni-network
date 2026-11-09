@@ -1,9 +1,8 @@
 import prisma from '../config/database';
 import { AppError } from '../middleware/errorHandler';
 import { paginationHelper, buildPaginationResponse } from '../utils/helpers';
-import { NotificationType } from '@prisma/client';
-import { emitToUser } from '../utils/socket';
-import { log } from '../utils/logger';
+import { Notification, NotificationType } from '@prisma/client';
+import { publishNotificationEvent } from './notificationBus';
 
 export class NotificationService {
   async getNotifications(userId: string, page: number = 1, limit: number = 20, unreadOnly: boolean = false) {
@@ -71,7 +70,8 @@ export class NotificationService {
   }
 
   /**
-   * Internal helper to create and emit notification
+   * Creates a notification for one member. It goes through the notification bus: with Kafka configured the consumer stores it
+   * and nudges the member (the call then returns undefined); otherwise it is stored here and the stored row is returned.
    */
   async createNotification(data: {
     userId: string;
@@ -80,26 +80,16 @@ export class NotificationService {
     message: string;
     link?: string;
     metadata?: any;
-  }) {
-    const notification = await prisma.notification.create({
-      data: {
-        userId: data.userId,
-        type: data.type,
-        title: data.title,
-        message: data.message,
-        link: data.link,
-        metadata: data.metadata,
-      },
+  }): Promise<Notification | undefined> {
+    const stored = await publishNotificationEvent('notification.deliver', {
+      userId: data.userId,
+      type: data.type,
+      title: data.title,
+      message: data.message,
+      link: data.link,
+      metadata: data.metadata,
     });
-
-    // Emit real-time notification; a socket failure must not undo the persisted notification.
-    try {
-      emitToUser(data.userId, 'new_notification', notification);
-    } catch (error) {
-      log.warn('Failed to emit notification', { userId: data.userId, err: error });
-    }
-
-    return notification;
+    return stored as Notification | undefined;
   }
 }
 

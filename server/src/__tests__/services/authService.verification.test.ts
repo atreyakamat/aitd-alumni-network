@@ -12,14 +12,16 @@
  *  - registering an address whose account is still unverified replaces that pending registration (the real owner
  *    is never locked out of their own address)
  *  - a rate-limited, enumeration-free "resend verification" that does not become a mail-bombing tool
- *  - OAuth sign-in does not skip the second factor
  */
 import { authService, TOKEN_TYPES } from '../../services/authService';
 import { config } from '../../config';
 import { prismaMock } from '../../../tests/helpers';
 import { hashPassword } from '../../utils/password';
-import { hashToken, verifyTwoFactorToken } from '../../utils/jwt';
-import { sendVerificationEmail, sendApplicationReceivedEmail } from '../../utils/email';
+import { hashToken } from '../../utils/jwt';
+import { sendVerificationEmail } from '../../utils/email';
+import { publishNotificationEvent } from '../../services/notificationBus';
+
+jest.mock('../../services/notificationBus', () => ({ publishNotificationEvent: jest.fn().mockResolvedValue(undefined) }));
 
 const PASSWORD = 'Correct#Pass1';
 let passwordHash: string;
@@ -81,7 +83,7 @@ describe('login while the e-mail address is unverified', () => {
     });
   });
 
-  it('lets verified accounts in, including provider-verified (OAuth) accounts that only have emailVerifiedAt', async () => {
+  it('lets verified accounts in, including accounts that only have emailVerifiedAt (the mailbox link was used)', async () => {
     config.auth.requireEmailVerification = true;
     prismaMock.user.findUnique.mockResolvedValue(dbUser({ isVerified: true }));
     await expect(authService.login(credentials)).resolves.toHaveProperty('accessToken');
@@ -117,7 +119,7 @@ describe('verifyEmail with the registration password (policy on)', () => {
       where: { id: 'u1' },
       data: { emailVerifiedAt: expect.any(Date) },
     });
-    expect(sendApplicationReceivedEmail).toHaveBeenCalled();
+    expect(publishNotificationEvent).toHaveBeenCalledWith('registration.received', { userId: 'u1' });
   });
 
   it('refuses a link opened without a password and leaves the token unspent', async () => {
@@ -240,7 +242,7 @@ describe('register over an address whose account is still unverified (policy on)
 
   it.each([
     ['a verified account', { isVerified: true }],
-    ['a provider-verified (OAuth) account', { emailVerifiedAt: new Date(), passwordHash: null }],
+    ['an account without a password (created earlier through a former provider sign-in)', { emailVerifiedAt: new Date(), passwordHash: null }],
     ['a deactivated account', { isActive: false }],
     ['an unverified account that has been signed in to (it predates the policy: a real member, not a pending sign-up)', { lastLoginAt: new Date() }],
   ])('never touches %s: 409 EMAIL_EXISTS', async (_label, overrides) => {
@@ -283,7 +285,7 @@ describe('resendVerification', () => {
   it.each([
     ['an unknown address', null],
     ['a verified account', dbUser({ isVerified: true })],
-    ['a provider-verified account', dbUser({ emailVerifiedAt: new Date() })],
+    ['an account whose mailbox link was already used', dbUser({ emailVerifiedAt: new Date() })],
     ['a deactivated account', dbUser({ isActive: false })],
     ['an account without a password', dbUser({ passwordHash: null })],
   ])('answers identically and sends nothing for %s (no enumeration)', async (_label, user) => {
@@ -314,30 +316,5 @@ describe('resendVerification', () => {
     (sendVerificationEmail as jest.Mock).mockRejectedValueOnce(new Error('smtp down'));
     await expect(authService.resendVerification('alum@aitd.edu')).resolves.toEqual(GENERIC);
     await new Promise((resolve) => setImmediate(resolve));
-  });
-});
-
-describe('OAuth exchange keeps the second factor', () => {
-  const arrangeExchange = (user: Record<string, unknown>) => {
-    prismaMock.verificationToken.findFirst.mockResolvedValue({ id: 'vt1', userId: user.id, user } as any);
-    prismaMock.verificationToken.updateMany.mockResolvedValue({ count: 1 });
-  };
-
-  it('returns a 2FA challenge, not a session, for an account with 2FA enabled', async () => {
-    arrangeExchange(dbUser({ isVerified: true, twoFactorEnabled: true }));
-
-    const result: any = await authService.exchangeOAuthCode('code');
-
-    expect(result.requires2FA).toBe(true);
-    expect(result.accessToken).toBeUndefined();
-    expect(result.refreshToken).toBeUndefined();
-    expect(verifyTwoFactorToken(result.twoFactorToken)).toEqual({ userId: 'u1' });
-    expect(result.user).toMatchObject({ id: 'u1', email: 'alum@aitd.edu', twoFactorEnabled: true });
-    expect(prismaMock.refreshToken.create).not.toHaveBeenCalled();
-  });
-
-  it('still issues a session straight away when 2FA is off', async () => {
-    arrangeExchange(dbUser({ isVerified: true, twoFactorEnabled: false }));
-    await expect(authService.exchangeOAuthCode('code')).resolves.toHaveProperty('accessToken');
   });
 });

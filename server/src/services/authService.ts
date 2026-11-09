@@ -17,13 +17,13 @@ import {
   sendVerificationEmail,
   sendPasswordResetEmail,
   sendPasswordChangedEmail,
-  sendApplicationReceivedEmail,
 } from '../utils/email';
 import { AppError } from '../middleware/errorHandler';
 import { logAuditAction } from './auditService';
 import { MembershipTier, Prisma, RoleType, User } from '@prisma/client';
 import { disconnectUser } from '../utils/socket';
 import { assertApproved, isApproved } from '../utils/approval';
+import { publishNotificationEvent } from './notificationBus';
 
 interface RegisterInput {
   email: string;
@@ -52,7 +52,6 @@ const MINUTE = 60 * 1000;
 const REFRESH_TOKEN_TTL_MS = 7 * 24 * 60 * MINUTE;
 const EMAIL_VERIFY_TTL_MS = 24 * 60 * MINUTE;
 const PASSWORD_RESET_TTL_MS = 60 * MINUTE;
-const OAUTH_EXCHANGE_TTL_MS = 5 * MINUTE;
 
 /**
  * A rotated refresh token presented again within this window is treated as a
@@ -65,7 +64,6 @@ export const REFRESH_REUSE_GRACE_MS = 15 * 1000;
 export const TOKEN_TYPES = {
   EMAIL_VERIFY: 'EMAIL_VERIFY',
   PASSWORD_RESET: 'PASSWORD_RESET',
-  OAUTH_EXCHANGE: 'OAUTH_EXCHANGE',
 } as const;
 type TokenType = (typeof TOKEN_TYPES)[keyof typeof TOKEN_TYPES];
 
@@ -74,7 +72,7 @@ const GENERIC_RESEND_MESSAGE = 'If that address has an unverified account, a new
 /** One verification mail per account per minute: "resend" must not become a way to flood somebody's inbox. */
 const RESEND_COOLDOWN_MS = 60 * 1000;
 
-/** Provider-verified (OAuth) accounts carry `emailVerifiedAt` even though `isVerified` stays false. */
+/** `isVerified` is set with the administrator's approval; `emailVerifiedAt` is set when the mailbox link was used (or, on older accounts, by the former provider sign-in). */
 const isEmailVerified = (user: { isVerified: boolean; emailVerifiedAt?: Date | null }) =>
   Boolean(user.isVerified || user.emailVerifiedAt);
 
@@ -85,6 +83,16 @@ const applicantDetails = (input: Pick<RegisterInput, 'enrollmentNumber' | 'verif
   enrollmentNumber: input.enrollmentNumber?.trim() || null,
   verificationNote: input.verificationNote?.trim() || null,
 });
+
+/**
+ * Registration events go through the notification bus (Kafka): the college administrator is told that a registration is
+ * ready for review, and the applicant that it was received. The caller never waits for them and never fails because of them.
+ */
+const announce = (type: 'registration.submitted' | 'registration.received', data: { applicantId?: string; userId?: string }) => {
+  void publishNotificationEvent(type, data as never).catch((error: unknown) =>
+    log.error(`Could not publish the ${type} event`, { ...data, err: error })
+  );
+};
 
 const REGISTRATION_MESSAGE =
   'Registration received. Verify your e-mail address with the link we sent you. An administrator then checks that you are an alumnus of the college; you will be told by e-mail when your account is approved.';
@@ -227,6 +235,8 @@ export class AuthService {
       // can never be locked out of their own address by somebody who got there first (pre-hijacking).
       // Never for an account somebody has signed in to: that predates the policy and belongs to a real member, who must
       // not be locked out by a stranger registering their address. They verify through "resend verification" or reset the password.
+      // The same goes for an account without a password (created earlier through a former provider sign-in): the registration is refused, and the
+      // member sets a password through "Forgot password".
       const neverUsed = !existingUser.lastLoginAt;
       if (config.auth.requireEmailVerification && neverUsed && existingUser.isActive && existingUser.passwordHash && !isEmailVerified(existingUser)) {
         return this.replacePendingRegistration(existingUser.id, input);
@@ -263,6 +273,9 @@ export class AuthService {
     });
 
     this.sendVerificationInBackground(user.email, user.fullName, verificationToken);
+    // Ready for review at once only when the address does not have to be verified first (the local trial); otherwise
+    // the administrator is told when the applicant has verified it (verifyEmail)
+    if (!config.auth.requireEmailVerification) announce('registration.submitted', { applicantId: user.id });
 
     return {
       id: user.id,
@@ -429,11 +442,10 @@ export class AuthService {
       return { message: 'Email verified successfully' };
     }
 
-    try {
-      await sendApplicationReceivedEmail(record.user.email, record.user.fullName);
-    } catch (error) {
-      log.error('Failed to send the registration-received email', { err: error });
-    }
+    // The applicant is told it was received; the college administrator that it is ready for review (when the address had to be
+    // verified first; otherwise they were told at registration)
+    announce('registration.received', { userId: record.userId });
+    if (config.auth.requireEmailVerification) announce('registration.submitted', { applicantId: record.userId });
 
     return {
       message: 'Email verified. An administrator now checks that you are an alumnus of the college; you will be told by e-mail when your account is approved.',
@@ -535,7 +547,7 @@ export class AuthService {
     }
     if (!user.passwordHash) {
       throw new AppError(
-        'Your account signs in with Google or LinkedIn and has no password yet. Use password reset ("Forgot password") to set one.',
+        'Your account has no password yet. Use password reset ("Forgot password") to set one.',
         400,
         'PASSWORD_NOT_SET'
       );
@@ -722,42 +734,6 @@ export class AuthService {
     }
 
     return this.issueSession(user);
-  }
-
-  // Generate a one-time code for OAuth exchange (so JWTs never travel in URLs)
-  async createOAuthExchangeCode(userId: string) {
-    return this.createOneTimeToken(userId, TOKEN_TYPES.OAUTH_EXCHANGE, OAUTH_EXCHANGE_TTL_MS);
-  }
-
-  // Exchange the one-time code for real JWT tokens
-  async exchangeOAuthCode(code: string) {
-    const record = await this.consumeOneTimeToken(code, TOKEN_TYPES.OAUTH_EXCHANGE);
-    if (!record) {
-      throw new AppError('Invalid or expired exchange code', 400, 'INVALID_CODE');
-    }
-
-    if (!record.user.isActive) {
-      throw new AppError('Account is deactivated', 401, 'ACCOUNT_DEACTIVATED');
-    }
-
-    // A provider sign-in proves the mailbox, not that the person is an alumnus: the administrator's approval is still needed
-    assertApproved(record.user);
-
-    // A provider sign-in proves the mailbox, not the second factor the member chose to protect the account with
-    if (record.user.twoFactorEnabled) {
-      return {
-        requires2FA: true as const,
-        twoFactorToken: generateTwoFactorToken(record.user.id),
-        user: {
-          id: record.user.id,
-          email: record.user.email,
-          fullName: record.user.fullName,
-          twoFactorEnabled: true,
-        },
-      };
-    }
-
-    return this.issueSession(record.user);
   }
 }
 

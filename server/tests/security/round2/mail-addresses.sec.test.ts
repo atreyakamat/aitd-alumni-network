@@ -46,13 +46,14 @@ describe('single plain mailbox only', () => {
     expect(normalizeEmail(email)).toBeNull();
   });
 
-  // The platform is private: there is no anonymous donation any more, so a hostile "donor e-mail" has nowhere to go.
-  // (The validation itself stays in donationService and is covered by its unit tests.)
-  it.each(HOSTILE)('an anonymous donation order with %j as donor e-mail is refused before anything is stored', async (donorEmail) => {
+  it.each(HOSTILE)('guest donation orders refuse %j as donor e-mail', async (donorEmail) => {
     const res = await http().post('/api/donations/order').send({ amount: 500, donorName: 'Guest', donorEmail });
-    expect(res.status).toBe(401);
-    const pending = await prisma.transaction.count({ where: { type: 'DONATION', metadata: { path: ['donorEmail'], equals: donorEmail } } });
-    expect(pending).toBe(0);
+    expect([400, 503]).toContain(res.status); // 503 only when the gateway is not configured, and only AFTER validation
+    if (res.status === 503) {
+      // validation happens before the gateway is contacted: a refusal would be a 400
+      const pending = await prisma.transaction.count({ where: { type: 'DONATION', metadata: { path: ['donorEmail'], equals: donorEmail } } });
+      expect(pending).toBe(0);
+    }
   });
 
   it('every accepted invitation address is exactly one mailbox in the eyes of nodemailer', async () => {

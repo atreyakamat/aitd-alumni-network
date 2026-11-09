@@ -36,6 +36,12 @@ describe('/health', () => {
     expect(res.body).toMatchObject({ status: 'ok', databaseStatus: 'up', redisStatus: 'disabled' });
   });
 
+  it('reports Kafka informationally too (disabled when no broker is configured; the API works without it)', async () => {
+    const res = await request(app).get('/health');
+    expect(res.status).toBe(200);
+    expect(res.body.kafkaStatus).toBe('disabled');
+  });
+
   it('answers 503 and names the database when it cannot be reached', async () => {
     prismaMock.$queryRaw.mockRejectedValueOnce(new Error('connection refused'));
     const res = await request(app).get('/health');

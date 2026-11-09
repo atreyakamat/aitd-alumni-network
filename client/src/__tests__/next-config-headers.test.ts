@@ -152,14 +152,17 @@ describe('next.config.js security headers', () => {
     expect(prod['connect-src'].join(' ')).not.toMatch(/localhost:\*/);
   });
 
-  it('serves /login (OAuth hand-off) with Referrer-Policy: no-referrer, overriding the global value', async () => {
-    const { entries, forSource } = await load({ NODE_ENV: 'production' });
-    const login = forSource('/login');
-    expect(login['Referrer-Policy']).toBe('no-referrer');
-    // later entries override earlier ones for the same key, so /login must come after the global rule
-    expect(entries.findIndex((e) => e.source === '/login')).toBeGreaterThan(entries.findIndex((e) => e.source === '/:path*'));
-    // everything else is unchanged on /login
-    expect(Object.keys(login)).toEqual(['Referrer-Policy']);
+  it('serves /login like every other route: the one-time-code hand-off that needed its own Referrer-Policy is gone', async () => {
+    const { entries, global } = await load({ NODE_ENV: 'production' });
+    expect(entries.map((e) => e.source)).not.toContain('/login');
+    expect(global['Referrer-Policy']).toBe('strict-origin-when-cross-origin');
+  });
+
+  it('allows no sign-in provider in the CSP (no Google or LinkedIn host, no extra form-action target)', async () => {
+    const { global } = await load({ NODE_ENV: 'production' });
+    const policy = global['Content-Security-Policy'];
+    expect(policy).not.toMatch(/google|linkedin|licdn/i);
+    expect(csp(policy)['form-action']).toEqual(["'self'"]);
   });
 
   it('does not run the image optimizer (no /_next/image proxy for arbitrary https hosts)', async () => {

@@ -30,13 +30,14 @@ docker compose logs -f api
 | api | http://localhost:5000 (`API_HOST_PORT`) | `/api/*`, `/socket.io`, `/uploads`, `/health` |
 | postgres | `127.0.0.1:5432` (`POSTGRES_HOST_PORT`) | bound to localhost only, for psql / Prisma Studio |
 | redis | not published | internal cache |
+| kafka | not published | notification events ([KAFKA.md](KAFKA.md)); one KRaft node, data in the `kafka_data` volume |
 | nginx | http://localhost (`PROXY_HOST_PORT`) | only with `--profile proxy` |
 
 Sign in at http://localhost:3000/login as `SEED_ADMIN_EMAIL` with `SEED_ADMIN_PASSWORD`.
 
 ## What happens on start
 
-1. `postgres` and `redis` start; the API waits for both health checks.
+1. `postgres`, `redis` and `kafka` start; the API waits for their health checks (the broker takes about 30 seconds the first time).
 2. The API entrypoint (`server/docker-entrypoint.sh`) retries `prisma migrate deploy` until the database answers
    (`DB_WAIT_ATTEMPTS`, default 30 × 2 s), so pending migrations are always applied before the server starts.
 3. With `SEED_ON_START=true` **and** `SEED_ADMIN_PASSWORD` set, it runs the seed. The seed is idempotent: it creates the
@@ -58,7 +59,7 @@ Sign in at http://localhost:3000/login as `SEED_ADMIN_EMAIL` with `SEED_ADMIN_PA
 | `SEED_ADMIN_EMAIL`, `SEED_ADMIN_PASSWORD` | password yes | First super admin. Password 12+ characters. |
 | `SEED_ON_START` | no | `true` (default) runs the idempotent seed on every start. |
 | `SEED_SAMPLE_DATA` | no | `true` adds demo alumni, events and news. Not for production. |
-| `FRONTEND_URL` | yes for real hosts | Public web URL, used in emails and OAuth redirects. |
+| `FRONTEND_URL` | yes for real hosts | Public web URL, used in e-mail links. |
 | `CORS_ORIGINS` | yes for real hosts | Comma-separated origins allowed to call the API. Must include the web URL exactly. |
 | `NEXT_PUBLIC_API_URL` | yes for real hosts | API URL **as browsers see it**. Baked into the web image at **build** time, so rebuild (`--build`) after changing it. |
 | `GEOCODER_URL`, `GEOCODER_EMAIL` | no | Place search for the map. Defaults to OpenStreetMap Nominatim; `off` disables it. Use a self-hosted Nominatim for heavy traffic. |
@@ -66,7 +67,7 @@ Sign in at http://localhost:3000/login as `SEED_ADMIN_EMAIL` with `SEED_ADMIN_PA
 | `RAZORPAY_KEY_ID`, `RAZORPAY_KEY_SECRET`, `RAZORPAY_WEBHOOK_SECRET` | for payments | Webhook URL: `https://<api-host>/api/payments/webhook/razorpay` (events `payment.captured`, `order.paid`, `payment.failed`). Without the secret the webhook answers 503. |
 | `SENDGRID_API_KEY` or `SMTP_*`, `EMAIL_FROM` | for email | Verification, reset, invites and receipts. |
 | `AWS_*` | no | S3/R2 uploads; otherwise files go to the `uploads_data` volume. |
-| `GOOGLE_*`, `LINKEDIN_*` | no | OAuth sign-in. |
+| `APPROVAL_NOTIFY_EMAIL` | no | Extra mailbox(es) (the alumni office) told when a registration is waiting; the administrator accounts are always told ([KAFKA.md](KAFKA.md)). |
 | `WEB_HOST_PORT`, `API_HOST_PORT`, `POSTGRES_HOST_PORT`, `PROXY_HOST_PORT` | no | Host port mappings. |
 
 The compose file also sets `API_INTERNAL_URL=http://api:5000/api` for the web container (server-side fetches) and
@@ -146,7 +147,7 @@ Take a backup first. Migrations are forward-only (`prisma migrate deploy`).
 
 ### Stopping and data
 
-- `docker compose down` stops containers and keeps the `postgres_data`, `redis_data` and `uploads_data` volumes.
+- `docker compose down` stops containers and keeps the `postgres_data`, `redis_data`, `kafka_data` and `uploads_data` volumes.
 - `docker compose down -v` **deletes all data**.
 
 ## Troubleshooting

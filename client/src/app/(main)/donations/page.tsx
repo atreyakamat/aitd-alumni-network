@@ -29,7 +29,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { donationApi } from '@/lib/api';
 import { getPaymentErrorMessage, openRazorpayCheckout } from '@/lib/payments';
 import { useToast } from '@/hooks/use-toast';
-import { useAuth } from '@/context/auth-context';
+import { useAuth, type User } from '@/context/auth-context';
+import { GuestDonationForm } from '@/components/donations/GuestDonationForm';
+import { FullPageLoader } from '@/components/ui/loading';
 import { shareLinkWithToast } from '@/lib/share';
 import { getInitials, formatCurrency } from '@/lib/utils';
 import Link from 'next/link';
@@ -78,9 +80,9 @@ const getRankIcon = (index: number) => {
   }
 };
 
-export default function DonationsPage() {
+/** The full page: donor wall, leaderboard, chapter totals and statistics. Members only (those endpoints answer 401 to a visitor). */
+function MemberDonations({ user }: { user: User }) {
   const { toast } = useToast();
-  const { user } = useAuth();
   const [donations, setDonations] = useState<Donation[]>([]);
   const [donorSearch, setDonorSearch] = useState('');
   const [featuredDonors, setFeaturedDonors] = useState<any[]>([]);
@@ -90,8 +92,6 @@ export default function DonationsPage() {
   const [activeTab, setActiveTab] = useState('wall');
   const [donationAmount, setDonationAmount] = useState<number>(1000);
   const [showDonateModal, setShowDonateModal] = useState(false);
-  const [guestName, setGuestName] = useState('');
-  const [guestEmail, setGuestEmail] = useState('');
 
   useEffect(() => {
     loadData();
@@ -127,31 +127,21 @@ export default function DonationsPage() {
     }
     setDonating(true);
     try {
-      // Guests may leave a name/e-mail: the receipt is e-mailed to them (members get theirs in Settings).
-      const guest: { donorName?: string; donorEmail?: string } = user
-        ? {}
-        : { donorName: guestName.trim() || undefined, donorEmail: guestEmail.trim() || undefined };
-      const response = await donationApi.createOrder({ amount, isAnonymous: false, ...guest });
+      // A member's name and e-mail come from the account (the receipt is available in Settings); visitors donate through
+      // GuestDonationForm.
+      const response = await donationApi.createOrder({ amount, isAnonymous: false });
       const order = response.data.data;
 
       await openRazorpayCheckout(order, {
         description: 'Donation to Alumni Network',
-        prefill: user
-          ? { name: user.fullName, email: user.email }
-          : guest.donorName || guest.donorEmail
-            ? { name: guest.donorName, email: guest.donorEmail }
-            : undefined,
+        prefill: { name: user.fullName, email: user.email },
         onDismiss: () => setDonating(false),
         onSuccess: async (verification) => {
           try {
             await donationApi.verifyPayment(verification);
             toast({
               title: 'Thank you!',
-              description: user
-                ? 'Your donation was received. A receipt is available in Settings.'
-                : guest.donorEmail
-                  ? `Your donation was received. A receipt has been e-mailed to ${guest.donorEmail}.`
-                  : 'Your donation was received. Sign in or join to keep receipts in your account.',
+              description: 'Your donation was received. A receipt is available in Settings.',
             });
             loadData();
           } catch (err) {
@@ -273,27 +263,6 @@ export default function DonationsPage() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.6, delay: 0.4 }}
             >
-              {!user && (
-                <div className="mx-auto mb-4 grid max-w-md gap-3 sm:grid-cols-2">
-                  <Input
-                    aria-label="Your name (optional)"
-                    placeholder="Your name (optional)"
-                    maxLength={100}
-                    value={guestName}
-                    onChange={(e) => setGuestName(e.target.value)}
-                    className="border-white/30 bg-white/10 text-white placeholder:text-blue-200"
-                  />
-                  <Input
-                    type="email"
-                    aria-label="E-mail for your receipt (optional)"
-                    placeholder="E-mail for your receipt"
-                    maxLength={254}
-                    value={guestEmail}
-                    onChange={(e) => setGuestEmail(e.target.value)}
-                    className="border-white/30 bg-white/10 text-white placeholder:text-blue-200"
-                  />
-                </div>
-              )}
               <Button
                 size="lg"
                 className="bg-amber-500 hover:bg-amber-600 text-white px-8 py-6 text-lg"
@@ -731,4 +700,16 @@ export default function DonationsPage() {
       </section>
     </div>
   );
+}
+
+/**
+ * /donations is the ONE page a visitor may open (alumni donate as guests, without an account). A visitor gets the
+ * donation form and nothing else: the donor wall, leaderboard, chapter totals and statistics are members only, so this page
+ * must not request them while nobody is signed in (a 401 there would show errors). A signed-in member gets the full page.
+ * Which one is decided here, so MemberDonations (and its reads) only ever mounts for a member.
+ */
+export default function DonationsPage() {
+  const { user, isLoading } = useAuth();
+  if (isLoading) return <FullPageLoader text="Loading..." />;
+  return user ? <MemberDonations user={user} /> : <GuestDonationForm />;
 }

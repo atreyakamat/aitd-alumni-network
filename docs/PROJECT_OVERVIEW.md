@@ -26,7 +26,7 @@ aitd-alumni-network/
 │   │   ├── services/         # Business logic (14 files)
 │   │   ├── middleware/       # Auth, validation, errors
 │   │   ├── routes/           # API routes (index.ts)
-│   │   ├── config/           # Database, Passport config
+│   │   ├── config/           # Database, Kafka, production checks
 │   │   └── utils/            # Helpers, validators
 │   └── prisma/               # Database schema & migrations
 ├── docs/                      # Documentation
@@ -192,7 +192,7 @@ ChapterType: REGIONAL | INDUSTRY | INTEREST
 ## 🔒 Security Features
 
 - **JWT Authentication**: Access tokens (15 min in production) + rotating Refresh tokens (7 days) with reuse detection
-- **Verified e-mail before a session** in production, confirmed with the registration password; optional 2FA (also for Google/LinkedIn)
+- **Verified e-mail before a session** in production, confirmed with the registration password; optional 2FA
 - **Password Hashing**: bcrypt (cost 12), common-password list, 72-byte limit enforced
 - **Rate Limiting**: 10 auth requests / 15 min, 300 API requests / 15 min per client, shared through Redis when configured
 - **Input Validation**: Zod schema validation on all routes, a linear-time sanitizer, allowlisted link and media URLs

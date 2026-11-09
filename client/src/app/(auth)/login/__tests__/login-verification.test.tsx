@@ -22,12 +22,10 @@ vi.mock('@/hooks/use-toast', () => ({ useToast: () => ({ toast }) }));
 
 const login = vi.fn();
 const resendVerification = vi.fn();
-const post = vi.fn();
 vi.mock('@/lib/api', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/lib/api')>();
   return {
     ...actual,
-    api: { get: vi.fn().mockResolvedValue({ data: { data: { google: true, linkedin: true } } }), post: (...a: unknown[]) => post(...a) },
     authApi: {
       ...actual.authApi,
       login: (...args: unknown[]) => login(...args),
@@ -51,7 +49,6 @@ beforeEach(() => {
   toast.mockReset();
   login.mockReset();
   resendVerification.mockReset();
-  post.mockReset();
   search = new URLSearchParams();
   window.history.replaceState({}, '', '/login');
 });
@@ -84,20 +81,5 @@ describe('signing in before the e-mail address is verified', () => {
     await signIn();
     await waitFor(() => expect(login).toHaveBeenCalled());
     expect(screen.queryByRole('button', { name: /resend verification email/i })).not.toBeInTheDocument();
-  });
-});
-
-describe('OAuth sign-in for a member who has two-factor sign-in on', () => {
-  it('asks for the code instead of treating the challenge as a session', async () => {
-    search = new URLSearchParams('code=ONE-TIME&oauth=google');
-    window.history.replaceState({}, '', '/login?code=ONE-TIME&oauth=google');
-    post.mockResolvedValue({ data: { data: { requires2FA: true, twoFactorToken: 'challenge-token', userId: 'u1' } } });
-
-    render(<LoginPage />);
-
-    expect((await screen.findAllByText(/verification code/i)).length).toBeGreaterThan(0);
-    expect(await screen.findByRole('button', { name: /verify|continue|confirm/i })).toBeInTheDocument();
-    expect(setAuthData).not.toHaveBeenCalled();
-    expect(replace).not.toHaveBeenCalled();
   });
 });

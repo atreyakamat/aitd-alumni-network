@@ -266,7 +266,6 @@ const cases: Record<string, Case> = {
   },
   'post /auth/logout': { ok: async () => ({ as: null, path: '/auth/logout', headers: { Authorization: (await fx.newUser()).auth }, body: {} }), bad: () => ({ as: null, path: '/auth/logout', body: {} }), badStatus: 401 },
   'get /auth/me': { ok: () => ({ path: '/auth/me' }), shape: 'obj', bad: () => ({ as: null, path: '/auth/me' }), badStatus: 401 },
-  'get /auth/oauth/providers': { ok: () => ({ as: null, path: '/auth/oauth/providers' }), bad: null },
   'post /auth/verify-2fa': {
     ok: () => ({ as: null, path: '/auth/verify-2fa', body: { twoFactorToken: 'not-a-real-session', otp: '123456' } }),
     status: [400, 401],
@@ -279,16 +278,6 @@ const cases: Record<string, Case> = {
   },
   'post /auth/2fa/enable': { ok: async () => ({ path: '/auth/2fa/enable', body: {}, as: 'third' }), bad: () => ({ as: null, path: '/auth/2fa/enable', body: {} }), badStatus: 401 },
   'post /auth/2fa/disable': { ok: () => ({ path: '/auth/2fa/disable', body: { password: PASSWORD }, as: 'third' }), status: [200, 400], bad: () => ({ as: null, path: '/auth/2fa/disable', body: {} }), badStatus: 401 },
-  'post /auth/oauth/exchange': {
-    ok: () => ({ as: null, path: '/auth/oauth/exchange', body: { code: 'not-a-real-code' } }),
-    status: [400, 401],
-    bad: () => ({ as: null, path: '/auth/oauth/exchange', body: {} }),
-  },
-  // OAuth providers are not configured in tests: the redirect routes answer 503 by design
-  'get /auth/google': { ok: () => ({ as: null, path: '/auth/google' }), status: 503, bad: null },
-  'get /auth/google/callback': { ok: () => ({ as: null, path: '/auth/google/callback' }), status: 503, bad: null },
-  'get /auth/linkedin': { ok: () => ({ as: null, path: '/auth/linkedin' }), status: 503, bad: null },
-  'get /auth/linkedin/callback': { ok: () => ({ as: null, path: '/auth/linkedin/callback' }), status: 503, bad: null },
 
   // ---- Search ----
   'get /search': {
@@ -1194,7 +1183,8 @@ const cases: Record<string, Case> = {
       return { path: '/donations/verify', body: { razorpay_order_id: orderId, razorpay_payment_id: 'pay_contract_d', razorpay_signature: signCheckout(orderId, 'pay_contract_d') } };
     },
     shape: 'any',
-    bad: () => ({ path: '/donations/verify', body: { razorpay_order_id: 'o', razorpay_payment_id: 'p', razorpay_signature: 'bad' } }),
+    // A bogus signature from a visitor (guest checkout): reachable, and answered 400 rather than 401
+    bad: () => ({ as: null, path: '/donations/verify', body: { razorpay_order_id: 'o', razorpay_payment_id: 'p', razorpay_signature: 'bad' } }),
   },
 
   // ---- Transactions ----
@@ -1677,6 +1667,106 @@ describe('malformed input never 5xx', () => {
       if (path === probe.path) continue; // no uuid segment to replace (slug, year, token ...)
       const res = await call(method, { ...probe, path });
       if (res.status >= 500) failures.push(failure(key, `path: ${label}`, res));
+    }
+    expect(failures).toEqual([]);
+  });
+});
+
+// ---------------------------------------------------------------------------------------------
+// Guest donations. Alumni donate without an account, so the order and verify routes are the one open write
+// on the otherwise private platform. The table above drives their member rows (one row per route key); these
+// drive the same two routes anonymously (`as: null`: no Authorization header at all).
+// ---------------------------------------------------------------------------------------------
+
+describe('guest donations: post /donations/order and post /donations/verify answer a visitor', () => {
+  const guestBody = (donorEmail = fx.uniqueEmail('guest')) => ({
+    amount: 500,
+    chapterId: f.chapter.id,
+    isAnonymous: false,
+    dedicatedTo: 'Batch 2018',
+    message: 'Thanks',
+    donorName: 'Guest Donor',
+    donorEmail,
+  });
+  const guestOrder = async (body: Record<string, unknown> = guestBody()) => {
+    const res = await call('post', { as: null, path: '/donations/order', body });
+    expect(res.status).toBeLessThan(300);
+    return res.body.data.orderId as string;
+  };
+  const verifyBody = (orderId: string, paymentId: string) => ({
+    razorpay_order_id: orderId,
+    razorpay_payment_id: paymentId,
+    razorpay_signature: signCheckout(orderId, paymentId),
+  });
+
+  it('post /donations/order: an anonymous order is created as a PENDING guest transaction', async () => {
+    const donorEmail = fx.uniqueEmail('guest');
+    const res = await call('post', { as: null, path: '/donations/order', body: guestBody(donorEmail) });
+    expect(res.status).toBeLessThan(300);
+    expect(res.body).toEqual(expect.objectContaining({ success: true }));
+    expect(res.body.data).toEqual(expect.objectContaining({ orderId: expect.any(String), amount: 50000, currency: 'INR' }));
+    const stored = await fx.prisma.transaction.findUnique({ where: { gatewayOrderId: res.body.data.orderId } });
+    expect(stored).toMatchObject({ userId: null, type: 'DONATION', status: 'PENDING' });
+    expect(stored!.metadata).toMatchObject({ donorName: 'Guest Donor', donorEmail: donorEmail.toLowerCase(), chapterId: f.chapter.id });
+  });
+
+  it('post /donations/order: an invalid amount or donor e-mail is a clean 400 for a visitor, not a 401 or a 5xx', async () => {
+    for (const body of [{ amount: -5 }, { amount: 0 }, { amount: 'lots' }, { amount: 500, donorEmail: 'not-an-email' }, { amount: 500, donorEmail: 'a@b.com, c@d.com' }]) {
+      const res = await call('post', { as: null, path: '/donations/order', body });
+      expect({ body, status: res.status }).toEqual({ body, status: 400 });
+      expect(res.body.success).toBe(false);
+      expect(messageOf(res.body)).not.toBeNull();
+    }
+  });
+
+  it('post /donations/verify: an anonymous guest payment is completed and stays a guest donation', async () => {
+    const orderId = await guestOrder();
+    const res = await call('post', { as: null, path: '/donations/verify', body: verifyBody(orderId, 'pay_contract_guest') });
+    expect(res.status).toBeLessThan(300);
+    expect(res.body).toEqual(expect.objectContaining({ success: true }));
+    expect(res.body.data.alreadyVerified).toBe(false);
+    expect(res.body.data.donation).toMatchObject({ userId: null });
+    const stored = await fx.prisma.transaction.findUnique({ where: { gatewayOrderId: orderId } });
+    expect(stored).toMatchObject({ userId: null, status: 'SUCCESS', gatewayPaymentId: 'pay_contract_guest' });
+
+    // verifying again is idempotent
+    const again = await call('post', { as: null, path: '/donations/verify', body: verifyBody(orderId, 'pay_contract_guest') });
+    expect(again.status).toBe(200);
+    expect(again.body.data.alreadyVerified).toBe(true);
+  });
+
+  it('post /donations/verify: a bogus signature or missing fields are a 400 for a visitor', async () => {
+    const orderId = await guestOrder();
+    for (const body of [{ ...verifyBody(orderId, 'pay_contract_bogus'), razorpay_signature: 'f'.repeat(64) }, {}, { razorpay_order_id: orderId }]) {
+      const res = await call('post', { as: null, path: '/donations/verify', body });
+      expect({ body, status: res.status }).toEqual({ body, status: 400 });
+      expect(res.body.success).toBe(false);
+    }
+  });
+
+  it('post /donations/verify: a visitor cannot verify a member order (403)', async () => {
+    const memberOrder = await call('post', { path: '/donations/order', body: { amount: 100 } });
+    expect(memberOrder.status).toBeLessThan(300);
+    const orderId = memberOrder.body.data.orderId as string;
+    const res = await call('post', { as: null, path: '/donations/verify', body: verifyBody(orderId, 'pay_contract_member_order') });
+    expect(res.status).toBe(403);
+    expect((await fx.prisma.transaction.findUnique({ where: { gatewayOrderId: orderId } }))!.status).toBe('PENDING');
+  });
+
+  it('only those two routes are open: every other donation endpoint is a 401 for a visitor', async () => {
+    for (const path of ['/donations/wall', '/donations/featured', '/donations/chapters', '/donations/stats', '/donations/leaderboard', '/donations/my']) {
+      const res = await call('get', { as: null, path });
+      expect({ path, status: res.status }).toEqual({ path, status: 401 });
+    }
+  });
+
+  it('post /donations/order: wrong field types in a guest body (donor name, e-mail, message...) never 5xx', async () => {
+    const failures: string[] = [];
+    for (const field of Object.keys(guestBody())) {
+      for (const [label, value] of BODY_MUTATIONS) {
+        const res = await call('post', { as: null, path: '/donations/order', body: { ...guestBody(), [field]: value } });
+        if (res.status >= 500) failures.push(failure('post /donations/order (guest)', `${field}: ${label}`, res));
+      }
     }
     expect(failures).toEqual([]);
   });

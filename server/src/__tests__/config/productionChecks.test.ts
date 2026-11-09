@@ -15,6 +15,7 @@ const good = (overrides: Record<string, string | undefined> = {}): NodeJS.Proces
   SMTP_USER: 'mailer',
   SMTP_PASS: 'mailer-password',
   REDIS_URL: 'redis://redis:6379',
+  KAFKA_BROKERS: 'kafka:9092',
   AWS_S3_BUCKET: 'aitd-uploads',
   TRUST_PROXY: '1',
   ...overrides,
@@ -149,13 +150,6 @@ describe('findProductionProblems', () => {
       }
       expect(codes(good({ JWT_EXPIRES_IN: '2h' }))).toContain('JWT_EXPIRES_TOO_LONG');
       expect(codes(good({ JWT_EXPIRES_IN: '7d' }))).toContain('JWT_EXPIRES_TOO_LONG');
-    });
-
-    it('flags OAuth callback URLs that still point at localhost', () => {
-      expect(codes(good({ GOOGLE_CLIENT_ID: 'id', GOOGLE_CLIENT_SECRET: 's' }))).toContain('OAUTH_CALLBACK_LOCAL');
-      expect(
-        codes(good({ GOOGLE_CLIENT_ID: 'id', GOOGLE_CLIENT_SECRET: 's', GOOGLE_CALLBACK_URL: 'https://api.example.edu/api/auth/google/callback' }))
-      ).not.toContain('OAUTH_CALLBACK_LOCAL');
     });
 
     it('warns about a short seed admin password', () => {

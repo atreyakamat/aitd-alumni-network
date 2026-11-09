@@ -55,6 +55,42 @@ services:
       retries: 5
     networks: [backend]
 
+  # Notification events (in-app notifications, the e-mail to the college administrator when a registration is waiting, the
+  # e-mails to applicants). One broker that is also its own controller (KRaft, no ZooKeeper). It is only reachable inside the
+  # compose network. Failed events end up in the "<prefix>.notifications.dlq" topic (docs/KAFKA.md). Without this service
+  # (KAFKA_BROKERS unset) the API still works: it delivers the same events in-process.
+  kafka:
+    image: apache/kafka:3.9.0
+    restart: unless-stopped
+    logging: *default-logging
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_LISTENERS: PLAINTEXT://:9092,CONTROLLER://:9093
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
+      # one node: every internal topic can only have one replica
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      # the API creates its two topics itself, with the partition count it wants
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "false"
+      KAFKA_LOG_DIRS: /var/lib/kafka/data
+      KAFKA_HEAP_OPTS: "-Xms256m -Xmx512m"
+    volumes:
+      - kafka_data:/var/lib/kafka/data
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/kafka/bin/kafka-broker-api-versions.sh --bootstrap-server localhost:9092 > /dev/null 2>&1"]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+      start_period: 30s
+    networks: [backend]
+
   api:
     build:
       context: .
@@ -66,11 +102,19 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+      kafka:
+        condition: service_healthy
     environment:
       NODE_ENV: production
       PORT: 5000
       DATABASE_URL: postgresql://${POSTGRES_USER:-aiem}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-aiem_connect}?schema=public
       REDIS_URL: redis://redis:6379
+      # Notification events travel through Kafka (docs/KAFKA.md)
+      KAFKA_BROKERS: kafka:9092
+      KAFKA_TOPIC_PREFIX: ${KAFKA_TOPIC_PREFIX:-aitd}
+      KAFKA_PARTITIONS: ${KAFKA_PARTITIONS:-3}
+      # Extra address(es) for "a registration is waiting" (for example the alumni office); the administrator accounts are always told
+      APPROVAL_NOTIFY_EMAIL: ${APPROVAL_NOTIFY_EMAIL:-}
       JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET (32+ random characters) in .env}
       JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:?Set JWT_REFRESH_SECRET (32+ random characters) in .env}
       JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-15m}
@@ -105,12 +149,6 @@ services:
       AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-}
       AWS_REGION: ${AWS_REGION:-ap-south-1}
       AWS_S3_BUCKET: ${AWS_S3_BUCKET:-}
-      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
-      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
-      GOOGLE_CALLBACK_URL: ${GOOGLE_CALLBACK_URL:-http://localhost:5000/api/auth/google/callback}
-      LINKEDIN_CLIENT_ID: ${LINKEDIN_CLIENT_ID:-}
-      LINKEDIN_CLIENT_SECRET: ${LINKEDIN_CLIENT_SECRET:-}
-      LINKEDIN_CALLBACK_URL: ${LINKEDIN_CALLBACK_URL:-http://localhost:5000/api/auth/linkedin/callback}
     volumes:
       - uploads_data:/app/server/uploads
     # Loopback by default: the API is meant to sit behind the proxy profile (or your own TLS proxy). Publishing it
@@ -179,4 +217,5 @@ networks:
 volumes:
   postgres_data:
   redis_data:
+  kafka_data:
   uploads_data:

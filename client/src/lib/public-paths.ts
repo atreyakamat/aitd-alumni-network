@@ -1,20 +1,21 @@
 /**
- * The platform is PRIVATE: no section of the (main) app is open to visitors. Everything there (events, gallery, news,
- * donations, chapters, search, shared post links, profiles ...) needs a signed-in, APPROVED member; a visitor who opens
- * such a link is sent to /login?next=<that link> and lands on it after signing in.
+ * The platform is PRIVATE: only ONE section of the (main) app is open to visitors, /donations (alumni donate as guests,
+ * without an account: the page shows a visitor the donation form and nothing else). Everything else there (events,
+ * gallery, news, chapters, search, shared post links, profiles ...) needs a signed-in, APPROVED member; a visitor who
+ * opens such a link is sent to /login?next=<that link> and lands on it after signing in.
  *
- * These lists are kept (empty) so that the single place that classifies a path stays one place, and so that opening a
- * section to the public again is a deliberate, reviewed edit with a failing test (route-access.test.ts pins both lists
- * to empty). The only pages visitors may use are the landing page and the pages in OPEN_PATH_PREFIXES below.
+ * These lists stay the single place that classifies a path, and opening another section to the public is a deliberate,
+ * reviewed edit with a failing test (route-access.test.ts and public-paths.test.ts pin them). The pages visitors may
+ * use are the landing page, this section and the pages in OPEN_PATH_PREFIXES below.
  */
-export const PUBLIC_SECTIONS: readonly { readonly href: string; readonly label: string }[] = [];
+export const PUBLIC_SECTIONS: readonly { readonly href: string; readonly label: string }[] = [{ href: '/donations', label: 'Donate' }];
 
-/** Deep links (shared posts, search ...) that open for visitors. None: a shared link now asks for a sign-in first. */
+/** Deep links (shared posts, search ...) that open for visitors. None: a shared link asks for a sign-in first. */
 export const PUBLIC_DEEP_LINK_PREFIXES: readonly string[] = [];
 
 export const PUBLIC_PATH_PREFIXES: readonly string[] = [...PUBLIC_SECTIONS.map((s) => s.href), ...PUBLIC_DEEP_LINK_PREFIXES];
 
-/** True when `pathname` is a public section or nested under one (segment-prefix match). Always false while the lists are empty. */
+/** True when `pathname` is a public section or nested under one (segment-prefix match): `/donations` and `/donations/...` only. */
 export function isPublicPath(pathname: string | null | undefined): boolean {
   if (!pathname) return false;
   const path = pathname.split(/[?#]/)[0].replace(/\/+$/, '') || '/';
@@ -64,7 +65,7 @@ export function buildRegisterHref(nextPath?: string | null): string {
 /**
  * Pages that live OUTSIDE the (main) route group and are open to everyone: the landing page,
  * the auth screens (they must be reachable without a session) and the legal and contact pages.
- * This, plus the landing page, is the WHOLE allow-list of the private platform.
+ * This, plus the landing page and the PUBLIC_PATH_PREFIXES section (/donations, the guest donation form), is the WHOLE allow-list of the private platform.
  * Keep in sync with `src/app/(auth)`, `src/app/(legal)` and `src/app/page.tsx`;
  * `route-access.test.ts` scans the app directory and fails if a route is missing here.
  */
@@ -87,7 +88,7 @@ const matchesPrefix = (path: string, prefixes: readonly string[]) =>
 
 /**
  * True for every page that needs a session: i.e. anything that is not the landing page and not an
- * auth/legal page (and not a PUBLIC_PATH_PREFIXES section, of which there are none). Fail-closed: an unknown path counts as
+ * auth/legal page (and not a PUBLIC_PATH_PREFIXES section: only /donations). Fail-closed: an unknown path counts as
  * member-only, so a new (main) route is protected by default. Static assets never reach this
  * (the middleware matcher skips them).
  */

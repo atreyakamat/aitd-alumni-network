@@ -77,16 +77,40 @@ describe('the gate is the same for every spelling of a members-only path', () =>
     expect(['redirected', 'skipped']).toContain(anonymousOutcome(url));
   });
 
-  it('the pages open to visitors are only the landing page, the auth screens and the legal pages', () => {
-    for (const url of ['/', '/login', '/register?next=%2Fjobs', '/verify-email?token=t', '/forgot-password', '/reset-password?token=t', '/privacy', '/terms', '/contact', '/cookies']) {
+  it('the pages open to visitors are only the landing page, the auth screens, the legal pages and the guest donation page', () => {
+    for (const url of ['/', '/login', '/register?next=%2Fjobs', '/verify-email?token=t', '/forgot-password', '/reset-password?token=t', '/privacy', '/terms', '/contact', '/cookies', '/donations', '/donations/', '/donations?amount=500']) {
       expect({ url, outcome: anonymousOutcome(url) }).toEqual({ url, outcome: 'served' });
     }
   });
 
-  it('what used to be browsable without an account is behind the login now', () => {
-    for (const url of ['/events', '/events/', '/events/42', '/news', '/news/some-slug', '/gallery', '/donations', '/chapters', '/chapters/c1', '/posts/p1', '/search?q=ab']) {
+  it('what used to be browsable without an account is behind the login now (only /donations is open)', () => {
+    for (const url of ['/events', '/events/', '/events/42', '/news', '/news/some-slug', '/gallery', '/chapters', '/chapters/c1', '/posts/p1', '/search?q=ab']) {
       expect({ url, outcome: anonymousOutcome(url) }).toEqual({ url, outcome: 'redirected' });
     }
+  });
+
+  // The one open section must not become a way in to the rest: spellings that name a DIFFERENT page, or that only look
+  // like /donations, are judged by the page they really name.
+  it.each([
+    '/donations/../dashboard',
+    '/donations/%2e%2e/dashboard',
+    '/donations/%2E%2E/admin/users',
+    '/donations/../../admin',
+    '/donations/./../directory',
+    '/donations%2f..%2fdashboard',
+    '/donations%2fx',
+    '/DONATIONS',
+    '/Donations',
+    '/donationsx',
+    '/donations-archive',
+    '/donations;x=1',
+    '/donations%00',
+    '/admin/donations',
+    '/profile/donations',
+    '//donations',
+  ])('anonymous %s is not served as the guest donation page', (url) => {
+    // "//donations" and the upper-case spellings are different paths for the router (and the gate is fail-closed for them)
+    expect(['redirected', 'skipped']).toContain(anonymousOutcome(url));
   });
 
   it('a forged hint cookie in the wrong shape does not open the gate', () => {

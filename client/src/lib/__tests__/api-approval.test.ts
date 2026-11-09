@@ -132,6 +132,36 @@ describe('the account is not (or no longer) approved', () => {
     notApproved.stop();
   });
 
+  it('on /donations (open to visitors for guest donations) it only clears the session too: the page drops to the visitor view', async () => {
+    at('/donations');
+    answerWith(403, 'ACCOUNT_REJECTED');
+    const notApproved = listen('api:account_not_approved');
+
+    await expect(api.get('/donations/wall')).rejects.toBeTruthy();
+
+    expect(localStorage.getItem('accessToken')).toBeNull();
+    expect(notApproved.handler).toHaveBeenCalledTimes(1);
+    expect(navigations).toEqual([]);
+    notApproved.stop();
+  });
+
+  it('a visitor donating as a guest is never taken anywhere: a refused order is just an error on the form', async () => {
+    localStorage.clear();
+    at('/donations');
+    const adapter = answerWith(400, 'VALIDATION_ERROR', 'Amount must be at least ₹1');
+    const expired = listen('api:session_expired');
+    const notApproved = listen('api:account_not_approved');
+
+    await expect(api.post('/donations/order', { amount: 0 })).rejects.toMatchObject({ response: { status: 400 } });
+
+    expect(adapter).toHaveBeenCalledTimes(1);
+    expect(expired.handler).not.toHaveBeenCalled();
+    expect(notApproved.handler).not.toHaveBeenCalled();
+    expect(navigations).toEqual([]);
+    expired.stop();
+    notApproved.stop();
+  });
+
   it('a burst of calls announces it once and navigates once', async () => {
     at('/jobs');
     answerWith(403, 'ACCOUNT_REJECTED');
@@ -144,7 +174,7 @@ describe('the account is not (or no longer) approved', () => {
     notApproved.stop();
   });
 
-  it.each(['/auth/login', '/auth/oauth/exchange', '/auth/verify-2fa'])(
+  it.each(['/auth/login', '/auth/verify-2fa'])(
     'the sign-in call POST %s is left to the login page: no redirect, no event, tokens of an older session untouched',
     async (url) => {
       at('/login');
@@ -214,7 +244,7 @@ describe('an expired session and the pages that are open to visitors', () => {
     vi.spyOn(axios, 'post').mockRejectedValue(new Error('refresh token reused'));
   };
 
-  it.each(['/', '/login', '/register', '/privacy', '/contact'])(
+  it.each(['/', '/login', '/register', '/privacy', '/contact', '/donations', '/donations/thanks'])(
     'does not bounce %s to the login page: it is open to visitors anyway',
     async (pathname) => {
       at(pathname);
@@ -236,7 +266,7 @@ describe('an expired session and the pages that are open to visitors', () => {
     ['/search', '?q=x', '/login?next=%2Fsearch%3Fq%3Dx'],
     ['/dashboard', '', '/login?next=%2Fdashboard'],
   ])(
-    'sends %s%s to the login page, which brings the member back afterwards (no page is public any more, so none is simply reloaded)',
+    'sends %s%s to the login page, which brings the member back afterwards (only /donations is public: see above)',
     async (pathname, search, expected) => {
       at(pathname, search);
       failRefresh();

@@ -55,7 +55,6 @@ interface AuthContextType {
   setAuthData: (data: { accessToken: string; refreshToken: string; user?: unknown }) => void;
   /** Clear tokens and local session state without calling the server. */
   clearSession: () => void;
-  setOAuthTokens: (accessToken: string, refreshToken: string) => Promise<void>;
 }
 
 interface RegisterData {
@@ -200,14 +199,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setUser(null);
   }, []);
 
-  // For OAuth login - store tokens and fetch user from API
-  const setOAuthTokens = async (accessToken: string, refreshToken: string) => {
-    localStorage.setItem('accessToken', accessToken);
-    localStorage.setItem('refreshToken', refreshToken);
-    setSessionHint();
-    await refreshUser();
-  };
-
   const value = {
     user,
     isLoading,
@@ -218,7 +209,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     refreshUser,
     setAuthData,
     clearSession,
-    setOAuthTokens,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

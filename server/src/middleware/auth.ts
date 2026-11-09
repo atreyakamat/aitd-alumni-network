@@ -32,14 +32,12 @@ export const isRevoked = (decoded: Pick<JwtPayload, 'tv'>, tokenVersion: number 
 declare global {
   // eslint-disable-next-line @typescript-eslint/no-namespace
   namespace Express {
-    // Combined User type for both JWT auth middleware and Passport OAuth
+    // The user the JWT auth middleware attaches to a request
     interface User {
       id: string;
       email: string;
       fullName: string;
       userRole?: UserRole;
-      profilePhotoUrl?: string;
-      isNewUser?: boolean;
       approvalStatus?: string;
     }
     interface Request {

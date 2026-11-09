@@ -1,10 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { authService } from '../services/authService';
 import { twoFactorService } from '../services/twoFactorService';
-import config from '../config';
 import { AppError } from '../middleware/errorHandler';
-import type { OAuthUser } from '../config/passport';
-import { log } from '../utils/logger';
 
 export class AuthController {
   async register(req: Request, res: Response, next: NextFunction) {
@@ -185,103 +182,6 @@ export class AuthController {
       res.json({ success: true, data: result });
     } catch (error) {
       next(error);
-    }
-  }
-
-  async getOAuthProviders(req: Request, res: Response, next: NextFunction) {
-    try {
-      res.json({
-        success: true,
-        data: {
-          google: Boolean(config.google.clientId && config.google.clientSecret),
-          linkedin: Boolean(config.linkedin.clientId && config.linkedin.clientSecret),
-        },
-      });
-    } catch (error) {
-      next(error);
-    }
-  }
-
-  // Exchange one-time code for JWT tokens (Security fix)
-  async exchangeOAuthCode(req: Request, res: Response, next: NextFunction) {
-    try {
-      const { code } = req.body;
-      if (!code || typeof code !== 'string') {
-        throw new AppError('Exchange code is required', 400, 'VALIDATION_ERROR');
-      }
-      const result = await authService.exchangeOAuthCode(code);
-
-      // 2FA enabled: the provider proved the mailbox, not the second factor. Same challenge as a password login.
-      if ('requires2FA' in result && result.requires2FA) {
-        await twoFactorService.sendOTP(result.user.id, result.user.email);
-        return res.json({
-          success: true,
-          data: {
-            requires2FA: true,
-            userId: result.user.id,
-            twoFactorToken: result.twoFactorToken,
-            message: 'Verification code sent to your email',
-          },
-        });
-      }
-
-      res.json({ success: true, data: result });
-    } catch (error) {
-      next(error);
-    }
-  }
-
-  // OAuth callback handler for Google
-  async googleCallback(req: Request, res: Response, next: NextFunction) {
-    try {
-      const oauthUser = req.user as OAuthUser;
-      
-      if (!oauthUser) {
-        return res.redirect(`${config.frontendUrl}/login?error=oauth_failed`);
-      }
-
-      // Generate a one-time exchange code instead of passing JWTs in URL
-      const code = await authService.createOAuthExchangeCode(oauthUser.id);
-
-      // Redirect to frontend with code in URL params
-      const redirectUrl = new URL(`${config.frontendUrl}/login`);
-      redirectUrl.searchParams.set('code', code);
-      redirectUrl.searchParams.set('oauth', 'google');
-      if (oauthUser.isNewUser) {
-        redirectUrl.searchParams.set('newUser', 'true');
-      }
-
-      res.redirect(redirectUrl.toString());
-    } catch (error) {
-      log.error('Google OAuth callback failed', { err: error });
-      res.redirect(`${config.frontendUrl}/login?error=oauth_failed`);
-    }
-  }
-
-  // OAuth callback handler for LinkedIn
-  async linkedinCallback(req: Request, res: Response, next: NextFunction) {
-    try {
-      const oauthUser = req.user as OAuthUser;
-      
-      if (!oauthUser) {
-        return res.redirect(`${config.frontendUrl}/login?error=oauth_failed`);
-      }
-
-      // Generate a one-time exchange code
-      const code = await authService.createOAuthExchangeCode(oauthUser.id);
-
-      // Redirect to frontend with code in URL params
-      const redirectUrl = new URL(`${config.frontendUrl}/login`);
-      redirectUrl.searchParams.set('code', code);
-      redirectUrl.searchParams.set('oauth', 'linkedin');
-      if (oauthUser.isNewUser) {
-        redirectUrl.searchParams.set('newUser', 'true');
-      }
-
-      res.redirect(redirectUrl.toString());
-    } catch (error) {
-      log.error('LinkedIn OAuth callback failed', { err: error });
-      res.redirect(`${config.frontendUrl}/login?error=oauth_failed`);
     }
   }
 }

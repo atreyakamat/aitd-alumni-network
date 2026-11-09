@@ -9,8 +9,10 @@ const gate = (pathname: string, search = '', hasSessionHint = false) => decideAc
 describe('decideAccess (middleware decision)', () => {
   it.each([
     '/dashboard', '/directory', '/jobs', '/jobs/42', '/yearbook', '/admin', '/admin/users', '/messages', '/profile/abc', '/videos', '/saved',
-    // the platform is private: these used to be open to visitors
-    '/events', '/events/42', '/gallery', '/news', '/news/some-slug', '/donations', '/chapters', '/chapters/c1', '/posts/123', '/search',
+    // the platform is private: these used to be open to visitors (only /donations is open again: guest donations)
+    '/events', '/events/42', '/gallery', '/news', '/news/some-slug', '/chapters', '/chapters/c1', '/posts/123', '/search',
+    // look-alikes of the one open section
+    '/donationsx', '/donations-archive', '/admin/donations',
   ])(
     'redirects anonymous visitors from %s to login with next',
     (p) => {
@@ -25,15 +27,25 @@ describe('decideAccess (middleware decision)', () => {
     });
   });
 
-  // THE allow-list of the private platform: the landing page, the auth screens and the legal/contact pages. Adding a path
-  // here means opening it to the whole internet: do it on purpose.
-  const ALLOWED_TO_VISITORS = ['/', '/login', '/register', '/verify-email', '/forgot-password', '/reset-password', '/privacy', '/terms', '/contact', '/cookies'];
+  // THE allow-list of the private platform: the landing page, the auth screens, the legal/contact pages and ONE community
+  // page, /donations (alumni donate as guests, without an account). Adding a path here means opening it to the whole
+  // internet: do it on purpose.
+  const ALLOWED_TO_VISITORS = ['/', '/login', '/register', '/verify-email', '/forgot-password', '/reset-password', '/privacy', '/terms', '/contact', '/cookies', '/donations'];
 
-  it.each(ALLOWED_TO_VISITORS)('lets anonymous visitors through to %s', (p) => expect(gate(p)).toEqual({ action: 'next' }));
+  it.each([...ALLOWED_TO_VISITORS, '/donations/', '/donations/anything', '/donations?amount=500'])('lets anonymous visitors through to %s', (p) => {
+    const [pathname, query] = p.split('?');
+    expect(gate(pathname, query ? `?${query}` : '')).toEqual({ action: 'next' });
+  });
 
   it('opens nothing else: the open prefixes are exactly the allow-list (plus the landing page)', () => {
-    expect(['/', ...OPEN_PATH_PREFIXES].sort()).toEqual([...ALLOWED_TO_VISITORS].sort());
-    expect(PUBLIC_PATH_PREFIXES).toEqual([]);
+    expect(['/', ...OPEN_PATH_PREFIXES, ...PUBLIC_PATH_PREFIXES].sort()).toEqual([...ALLOWED_TO_VISITORS].sort());
+    expect(PUBLIC_PATH_PREFIXES).toEqual(['/donations']);
+  });
+
+  it('every other former public section still sends a visitor to the login page, remembering where they wanted to go', () => {
+    for (const p of ['/events', '/events/42', '/news', '/news/some-slug', '/gallery', '/chapters', '/chapters/c1', '/search', '/posts/123']) {
+      expect(gate(p), p).toEqual({ action: 'redirect', location: `/login?next=${encodeURIComponent(p)}` });
+    }
   });
 
   it('sends a visitor who opens a shared deep link to the login page, remembering where they wanted to go', () => {
@@ -80,7 +92,7 @@ describe('route classification matches the app directory', () => {
       .filter((d) => d.isDirectory() && d.name !== '__tests__' && !d.name.startsWith('['))
       .map((d) => `/${d.name}`);
 
-  it('every (main) route is member-only: the platform is private', () => {
+  it('every (main) route is member-only: the platform is private, except the one public section (/donations)', () => {
     const segments = topLevelSegments('(main)');
     expect(segments).toContain('/dashboard');
     expect(segments).toContain('/admin');
@@ -88,9 +100,16 @@ describe('route classification matches the app directory', () => {
     expect(segments).toContain('/posts');
     expect(segments).toContain('/search');
     for (const seg of segments) {
-      expect(isMemberOnlyPath(seg), seg).toBe(true);
-      expect(isPublicPath(seg), seg).toBe(false);
+      const expectedPublic = PUBLIC_PATH_PREFIXES.includes(seg);
+      expect(isMemberOnlyPath(seg), seg).toBe(!expectedPublic);
+      expect(isPublicPath(seg), seg).toBe(expectedPublic);
     }
+  });
+
+  it('the (main) routes that are public per PUBLIC_PATH_PREFIXES really exist, and are only /donations', () => {
+    const segments = topLevelSegments('(main)');
+    expect([...PUBLIC_PATH_PREFIXES]).toEqual(['/donations']);
+    for (const prefix of PUBLIC_PATH_PREFIXES) expect(segments, prefix).toContain(prefix);
   });
 
   it('the app has no page outside (main) that is not on the allow-list', () => {

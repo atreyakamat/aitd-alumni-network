@@ -73,7 +73,7 @@ describe('findDatabaseProblems', () => {
     expect(await codes([row({ userRole: 'SUPER_ADMIN', isActive: false })])).toContain('NO_ACTIVE_SUPER_ADMIN');
   });
 
-  it('skips accounts without a password (OAuth-only) when checking passwords', async () => {
+  it('skips accounts without a password (created earlier through a former provider sign-in) when checking passwords', async () => {
     const found = await codes([row({ userRole: 'SUPER_ADMIN', passwordHash: strongHash }), row({ id: 'o', userRole: 'ADMIN', passwordHash: null })]);
     expect(found).not.toContain('DEFAULT_CREDENTIALS');
   });

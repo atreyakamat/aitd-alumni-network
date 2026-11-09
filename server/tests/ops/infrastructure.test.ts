@@ -38,8 +38,8 @@ describe('package manager and runtime', () => {
 });
 
 describe('docker-compose.yml', () => {
-  it('describes the five services', () => {
-    expect(names.sort()).toEqual(['api', 'nginx', 'postgres', 'redis', 'web']);
+  it('describes the six services', () => {
+    expect(names.sort()).toEqual(['api', 'kafka', 'nginx', 'postgres', 'redis', 'web']);
   });
 
   it.each(names)('%s: container logs are rotated, so they cannot fill the disk', (name) => {
@@ -53,7 +53,7 @@ describe('docker-compose.yml', () => {
     expect(services[name].restart).toBe('unless-stopped');
   });
 
-  it.each(['postgres', 'redis', 'api', 'web'])('%s: has a health check', (name) => {
+  it.each(['postgres', 'redis', 'kafka', 'api', 'web'])('%s: has a health check', (name) => {
     expect(services[name].healthcheck?.test).toBeTruthy();
   });
 
@@ -61,8 +61,9 @@ describe('docker-compose.yml', () => {
     for (const mapping of ports('postgres')) expect(mapping).toMatch(/^127\.0\.0\.1:/);
   });
 
-  it('Redis is not published at all', () => {
+  it('Redis and Kafka are not published at all', () => {
     expect(ports('redis')).toEqual([]);
+    expect(ports('kafka')).toEqual([]);
   });
 
   it('the API port is on loopback unless the operator opts in', () => {
@@ -92,6 +93,46 @@ describe('docker-compose.yml', () => {
 
   it('the API gets Redis, so rate limits and background jobs work', () => {
     expect(services.api.environment.REDIS_URL).toBe('redis://redis:6379');
+  });
+
+  describe('Kafka (notification events)', () => {
+    const env = () => services.kafka.environment as Record<string, string>;
+
+    it('runs one broker that is its own controller (KRaft: no ZooKeeper), reachable only inside the compose network', () => {
+      expect(String(services.kafka.image)).toMatch(/^apache\/kafka:\d+\.\d+/);
+      expect(env().KAFKA_PROCESS_ROLES).toBe('broker,controller');
+      expect(env().KAFKA_ADVERTISED_LISTENERS).toBe('PLAINTEXT://kafka:9092');
+      expect(env().KAFKA_CONTROLLER_QUORUM_VOTERS).toBe('1@kafka:9093');
+      expect(services.kafka.networks).toEqual(['backend']);
+    });
+
+    it('keeps its data in a named volume, so notifications survive a restart', () => {
+      const volumes = services.kafka.volumes as string[];
+      expect(volumes.some((v) => v.startsWith('kafka_data:'))).toBe(true);
+      expect(Object.keys(compose.volumes)).toContain('kafka_data');
+    });
+
+    it('is a single node, so every internal topic has one replica (the default of 3 would never become ready)', () => {
+      expect(String(env().KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR)).toBe('1');
+      expect(String(env().KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR)).toBe('1');
+      expect(String(env().KAFKA_TRANSACTION_STATE_LOG_MIN_ISR)).toBe('1');
+    });
+
+    it('does not create topics on its own: the API creates the two it needs with the partitions it wants', () => {
+      expect(String(env().KAFKA_AUTO_CREATE_TOPICS_ENABLE)).toBe('false');
+    });
+
+    it('the API waits for a healthy broker and is told where it is', () => {
+      expect(services.api.depends_on.kafka.condition).toBe('service_healthy');
+      expect(services.api.environment.KAFKA_BROKERS).toBe('kafka:9092');
+    });
+
+    it('the settings an operator may change are passed through with safe defaults', () => {
+      const api = services.api.environment;
+      expect(api.KAFKA_TOPIC_PREFIX).toContain('${KAFKA_TOPIC_PREFIX:-aitd}');
+      expect(api.KAFKA_PARTITIONS).toContain(':-3');
+      expect(api.APPROVAL_NOTIFY_EMAIL).toContain('${APPROVAL_NOTIFY_EMAIL:-}');
+    });
   });
 
   it('the proxy is optional (a profile), not started by default', () => {

@@ -2,6 +2,7 @@ import prisma from '../config/database';
 import { NotificationType } from '@prisma/client';
 import { emitToUser } from '../utils/socket';
 import { notificationQueue, BROADCAST_JOB } from '../config/queue';
+import { readKafkaSettings } from '../config/kafka';
 
 export interface BroadcastPayload {
   type: NotificationType;
@@ -68,10 +69,16 @@ export async function fanOutNotification(payload: BroadcastPayload): Promise<num
 }
 
 /**
- * Enqueue a broadcast for background processing when the queue is available;
- * otherwise run the fan-out inline so the feature still works without Redis.
+ * Send a broadcast through Kafka when brokers are configured; otherwise enqueue it for background processing when the queue
+ * is available; otherwise run the fan-out inline so the feature still works without either.
  */
 export async function broadcastNotification(payload: BroadcastPayload): Promise<void> {
+  if (readKafkaSettings().enabled) {
+    // Loaded here, not at the top: the bus's handlers call fanOutNotification from this module
+    const { publishNotificationEvent } = await import('./notificationBus');
+    await publishNotificationEvent('notification.broadcast', payload, { key: 'broadcast' });
+    return;
+  }
   if (notificationQueue) {
     await notificationQueue.add(BROADCAST_JOB, payload, {
       attempts: 3,

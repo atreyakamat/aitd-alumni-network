@@ -135,9 +135,6 @@ const nextConfig = {
   async headers() {
     return [
       { source: '/:path*', headers: securityHeaders },
-      // OAuth hand-off lands on /login?code=... : never send that URL as a Referer to anyone.
-      // Listed AFTER the global rule so its Referrer-Policy wins (later matches override).
-      { source: '/login', headers: [{ key: 'Referrer-Policy', value: 'no-referrer' }] },
     ];
   },
   experimental: {

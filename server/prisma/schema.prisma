@@ -138,6 +138,8 @@ enum NotificationType {
   POST_REPOSTED
   NEW_FOLLOWER
   CONTENT_REPORTED
+  // A registration is ready for the college administrator to review
+  REGISTRATION_PENDING
 }
 
 enum ReactionType {

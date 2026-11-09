@@ -48,6 +48,7 @@ describe('clientLinks', () => {
     ['event', clientLinks.event('event-1')],
     ['job', clientLinks.job('job-1')],
     ['adminDashboard', clientLinks.adminDashboard()],
+    ['adminApprovals', clientLinks.adminApprovals()],
     ['adminAudit', clientLinks.adminAudit()],
     ['adminAudit (filtered)', clientLinks.adminAudit('PAYMENT_MISMATCH')],
   ])('%s link resolves to an existing client page', (_name, link) => {

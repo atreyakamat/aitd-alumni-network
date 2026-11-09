@@ -72,7 +72,6 @@ const NO_REFRESH_PATHS = [
   '/auth/resend-2fa',
   '/auth/forgot-password',
   '/auth/reset-password',
-  '/auth/oauth',
   '/auth/logout',
 ];
 

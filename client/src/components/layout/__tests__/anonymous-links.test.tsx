@@ -51,10 +51,12 @@ afterEach(() => {
 });
 
 describe('anonymous landing page does not advertise members-only pages', () => {
-  it('PublicNav links only to the landing page and the auth screens', () => {
+  it('PublicNav links only to the landing page, the guest donation page and the auth screens', () => {
     const { container } = render(<PublicNav />);
     expectNoMemberOnlyLinks(container);
-    for (const label of ['Events', 'Gallery', 'News', 'Donate', 'Chapters']) {
+    // guest donations are the one open section: a visible Donate link
+    expect(screen.getByRole('link', { name: 'Donate' })).toHaveAttribute('href', '/donations');
+    for (const label of ['Events', 'Gallery', 'News', 'Chapters']) {
       expect(screen.queryByRole('link', { name: label })).not.toBeInTheDocument();
     }
     expect(screen.queryByRole('link', { name: /directory|jobs|yearbook/i })).not.toBeInTheDocument();
@@ -90,6 +92,10 @@ describe('anonymous landing page does not advertise members-only pages', () => {
     expect(footer.getByRole('link', { name: /^events/i })).toHaveAttribute('href', '/login?next=%2Fevents');
     expect(footer.getByRole('link', { name: /^news/i })).toHaveAttribute('href', '/login?next=%2Fnews');
     expect(footer.getAllByText(/members/i).length).toBeGreaterThan(0);
+    // donating needs no account: a plain link, not labelled "Members"
+    const donate = footer.getByRole('link', { name: /^donate$/i });
+    expect(donate).toHaveAttribute('href', '/donations');
+    expect(donate).not.toHaveTextContent(/members/i);
     // the legal and contact pages stay open
     expect(footer.getByRole('link', { name: /privacy policy/i })).toHaveAttribute('href', '/privacy');
     expect(footer.getByRole('link', { name: /terms of service/i })).toHaveAttribute('href', '/terms');
@@ -119,5 +125,15 @@ describe('the landing page only calls what is still public', () => {
     expect(screen.queryByText(/latest news|latest from/i)).not.toBeInTheDocument();
     // the sign-up call to action is still there
     expect(screen.getAllByRole('link', { name: /get started|join the network/i }).length).toBeGreaterThan(0);
+  });
+
+  it('has a visible Donate call to action that leads to the guest donation page (header, call to action and footer)', async () => {
+    const { container } = render(<HomePage />);
+    await waitFor(() => expect(requested).toContain('/landing'));
+    const donate = screen.getAllByRole('link', { name: /^donate$/i });
+    expect(donate.length).toBeGreaterThanOrEqual(3);
+    for (const link of donate) expect(link).toHaveAttribute('href', '/donations');
+    // every other internal link still goes through login or to an open page
+    expectNoMemberOnlyLinks(container);
   });
 });

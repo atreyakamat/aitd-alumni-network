@@ -95,7 +95,7 @@ export const renderApiReference = (routes: RouteDoc[]): string => {
     ),
     '',
     'Role checks re-read the user from the database on every request, so role changes and deactivation apply immediately.',
-    'Auth endpoints (login, register, password reset, 2FA, email verification, OAuth exchange) are limited to',
+    'Auth endpoints (login, register, password reset, 2FA, email verification) are limited to',
     '10 requests per 15 minutes per IP; refresh-token to 60; every other `/api` route shares a 300 request budget.',
     '',
     '"Validated" means the request body or query is schema-validated before the handler runs (invalid input returns 400).',

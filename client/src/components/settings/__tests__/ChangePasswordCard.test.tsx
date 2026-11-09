@@ -118,15 +118,15 @@ describe('<ChangePasswordCard>', () => {
     expect(setAuthData).not.toHaveBeenCalled();
   });
 
-  it('explains password reset for OAuth-only accounts', async () => {
+  it('explains password reset for accounts that have no password yet', async () => {
     changePassword.mockRejectedValue(
-      apiError(400, 'PASSWORD_NOT_SET', 'Your account signs in with Google or LinkedIn and has no password yet.')
+      apiError(400, 'PASSWORD_NOT_SET', 'Your account has no password yet. Use password reset ("Forgot password") to set one.')
     );
     render(<ChangePasswordCard />);
     await fill('anything', 'Brand#New2026');
     await submit();
 
-    expect(await screen.findByRole('alert')).toHaveTextContent(/google or linkedin/i);
+    expect(await screen.findByRole('alert')).toHaveTextContent(/no password yet/i);
     expect(screen.getByRole('link', { name: /reset/i })).toHaveAttribute('href', '/forgot-password');
   });
 });

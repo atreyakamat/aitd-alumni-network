@@ -36,6 +36,14 @@ describe('limits on abuse-prone endpoints that used to share only the global bud
     expect(await hammer('post', '/api/donations/order', 25)).toBe(21);
   });
 
+  it('the donation order budget counts anonymous callers: the first 20 reach the route (400 for an empty body, never 401), the 21st is 429', async () => {
+    const app = createApp({ disableRateLimit: false });
+    const statuses: number[] = [];
+    for (let i = 1; i <= 21; i++) statuses.push((await request(app).post('/api/donations/order').send({})).status);
+    expect(statuses.slice(0, 20)).toEqual(Array(20).fill(400));
+    expect(statuses[20]).toBe(429);
+  });
+
   it('invite sending (outbound e-mail) is limited to 30 per window', async () => {
     expect(await hammer('post', '/api/invites/send', 35)).toBe(31);
   });

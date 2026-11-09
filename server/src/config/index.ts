@@ -68,16 +68,6 @@ export const config = {
     region: process.env.AWS_REGION || 'ap-south-1',
     s3Bucket: process.env.AWS_S3_BUCKET || 'aiem-connection-uploads',
   },
-  google: {
-    clientId: process.env.GOOGLE_CLIENT_ID || '',
-    clientSecret: process.env.GOOGLE_CLIENT_SECRET || '',
-    callbackUrl: process.env.GOOGLE_CALLBACK_URL || 'http://localhost:5000/api/auth/google/callback',
-  },
-  linkedin: {
-    clientId: process.env.LINKEDIN_CLIENT_ID || '',
-    clientSecret: process.env.LINKEDIN_CLIENT_SECRET || '',
-    callbackUrl: process.env.LINKEDIN_CALLBACK_URL || 'http://localhost:5000/api/auth/linkedin/callback',
-  },
   cache: {
     feedTtlSeconds: toInt(process.env.FEED_CACHE_TTL_SECONDS, 120),
   },

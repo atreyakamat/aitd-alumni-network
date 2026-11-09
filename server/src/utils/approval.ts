@@ -2,7 +2,7 @@ import { AppError } from '../middleware/errorHandler';
 
 /**
  * Alumni approval: a person can only use the platform once an administrator has approved the registration.
- * Everything that hands out a session (login, 2FA completion, OAuth exchange, token refresh) and the authentication
+ * Everything that hands out a session (login, 2FA completion, token refresh) and the authentication
  * middleware go through this one place, so the rule cannot drift between them.
  */
 export interface HasApprovalStatus {

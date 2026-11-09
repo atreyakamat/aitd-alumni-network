@@ -32,6 +32,20 @@ const register = (address: string, extra: Record<string, unknown> = {}) =>
     ...extra,
   });
 
+/** The e-mails are events on the notification bus: in-process here (no broker in the tests), right after the response. */
+const eventually = async (check: () => void | Promise<void>, ms = 3000) => {
+  const deadline = Date.now() + ms;
+  for (;;) {
+    try {
+      await check();
+      return;
+    } catch (error) {
+      if (Date.now() > deadline) throw error;
+      await new Promise((resolve) => setTimeout(resolve, 25));
+    }
+  }
+};
+
 const login = (address: string, password = PASSWORD) => http().post('/api/auth/login').send({ email: address, password });
 
 describe('alumni approval', () => {
@@ -77,7 +91,7 @@ describe('alumni approval', () => {
     const approved = await http().post(`/api/admin/approvals/${stored!.id}/approve`).set('Authorization', admin.auth).send({ note: 'In the 2016 list' });
     expect(approved.status).toBe(200);
     expect(approved.body.data).toMatchObject({ approvalStatus: 'APPROVED', approvalNote: 'In the 2016 list', approvalReviewedBy: { id: admin.user.id } });
-    expect(welcome).toHaveBeenCalledWith(address, 'Approval Applicant');
+    await eventually(() => expect(welcome).toHaveBeenCalledWith(address, 'Approval Applicant'));
     expect(await prisma.user.findUnique({ where: { id: stored!.id }, select: { isVerified: true, approvalReviewedById: true } })).toEqual({ isVerified: true, approvalReviewedById: admin.user.id });
     // Approving twice is refused
     expect((await http().post(`/api/admin/approvals/${stored!.id}/approve`).set('Authorization', admin.auth).send({})).status).toBe(409);
@@ -111,7 +125,7 @@ describe('alumni approval', () => {
     const rejected = await http().post(`/api/admin/approvals/${id}/reject`).set('Authorization', admin.auth).send({ reason: 'We could not find you in the 2016 batch.' });
     expect(rejected.status).toBe(200);
     expect(rejected.body.data).toMatchObject({ approvalStatus: 'REJECTED', approvalNote: 'We could not find you in the 2016 batch.' });
-    expect(rejection).toHaveBeenCalledWith(address, 'Approval Applicant', 'We could not find you in the 2016 batch.');
+    await eventually(() => expect(rejection).toHaveBeenCalledWith(address, 'Approval Applicant', 'We could not find you in the 2016 batch.'));
 
     const denied = await login(address);
     expect(denied.status).toBe(403);
@@ -127,6 +141,40 @@ describe('alumni approval', () => {
     // An administrator can change their mind
     expect((await http().post(`/api/admin/approvals/${id}/approve`).set('Authorization', admin.auth).send({})).status).toBe(200);
     expect((await login(address)).status).toBe(200);
+  });
+
+  it('the college administrator is told that a registration is waiting: by e-mail and in the app, once', async () => {
+    spy('sendVerificationEmail');
+    const adminMail = spy('sendNewRegistrationEmail');
+    const admin = await createUser('ADMIN');
+    const address = uniqueEmail('notified');
+
+    const reg = await register(address, { fullName: 'Notify Applicant', department: 'Mechanical Engineering' });
+    expect(reg.status).toBe(201);
+    const applicantId = (await prisma.user.findUnique({ where: { email: address } }))!.id;
+
+    // (e-mail verification is not required in the tests, so the registration is ready for review at once)
+    await eventually(async () => {
+      const notice = await prisma.notification.findFirst({
+        where: { userId: admin.user.id, type: 'REGISTRATION_PENDING', metadata: { path: ['applicantId'], equals: applicantId } },
+      });
+      expect(notice).toMatchObject({ link: '/admin/approvals', title: 'New registration to review' });
+      expect(notice!.message).toContain('Notify Applicant');
+    });
+    expect(adminMail).toHaveBeenCalledWith(admin.user.email, { fullName: 'Notify Applicant', batchYear: 2016, department: 'Mechanical Engineering' });
+
+    // the notice is also what the administrator's bell shows
+    const bell = await http().get('/api/notifications').set('Authorization', admin.auth);
+    expect(bell.status).toBe(200);
+    expect(JSON.stringify(bell.body)).toContain('REGISTRATION_PENDING');
+
+    // an applicant who was already decided is never announced again
+    await http().post(`/api/admin/approvals/${applicantId}/approve`).set('Authorization', admin.auth).send({}).expect(200);
+    const before = adminMail.mock.calls.length;
+    const { publishNotificationEvent } = await import('../../src/services/notificationBus');
+    await publishNotificationEvent('registration.submitted', { applicantId });
+    await new Promise((resolve) => setTimeout(resolve, 150));
+    expect(adminMail.mock.calls.length).toBe(before);
   });
 
   it('a session that exists when the account stops being approved is refused at once', async () => {

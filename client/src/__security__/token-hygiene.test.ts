@@ -28,11 +28,11 @@ describe('token hygiene', () => {
     expect(files.length).toBeGreaterThan(100);
   });
 
-  it('never passes a token, Authorization header or OAuth code to console.*', () => {
+  it('never passes a token or Authorization header to console.*', () => {
     const offenders: string[] = [];
     for (const { file, text } of files) {
       text.split('\n').forEach((line, i) => {
-        if (/console\.(log|info|warn|error|debug|trace)\(/.test(line) && /(accessToken|refreshToken|authorization|bearer|\btoken\b|oauth.*code)/i.test(line)) {
+        if (/console\.(log|info|warn|error|debug|trace)\(/.test(line) && /(accessToken|refreshToken|authorization|bearer|\btoken\b)/i.test(line)) {
           offenders.push(`${file}:${i + 1}: ${line.trim()}`);
         }
       });

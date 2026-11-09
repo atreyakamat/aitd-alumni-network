@@ -40,7 +40,7 @@ npm run verify:deploy -w server -- --web https://alumni.example.edu
 | `POSTGRES_PASSWORD` / `DATABASE_URL` | `postgres:postgres`, `change-me-...` | random 24+ characters | The guard rejects empty, short, placeholder, common and **the password that was committed to this repository** |
 | `JWT_SECRET`, `JWT_REFRESH_SECRET` | random per process | two different random 48+ character values | Anyone with them can forge sessions. The API will not start with weak ones. Changing them signs everybody out |
 | `JWT_EXPIRES_IN` | `24h` | leave unset (defaults to `15m` in production) | A stolen access token expires quickly; the refresh token keeps people signed in |
-| `FRONTEND_URL` | `http://localhost:3000` | `https://<your domain>` | Used in e-mail links and OAuth redirects |
+| `FRONTEND_URL` | `http://localhost:3000` | `https://<your domain>` | Used in e-mail links |
 | `CORS_ORIGINS` | localhost list | exactly the `https://` origin(s) of the web app | The guard rejects localhost, wildcards and plain http |
 | `NEXT_PUBLIC_API_URL` | `http://localhost:5000/api` | `https://<your domain>/api` (single origin via the `proxy` profile) | Baked into the web image **at build time**: rebuild after changing it |
 | `TRUST_PROXY` | `1` | number of proxies in front of the API (`1` for the bundled nginx, `2` behind Cloudflare + nginx) | Rate limits key on the client address. Too high: clients can spoof it. Too low: everyone shares one bucket |
@@ -139,13 +139,14 @@ that still behaves like a normal website. Revisit one only with the trigger give
 | 3 | Tokens in `localStorage` | **Not changed yet. Gate for a public launch** (section 7). Compensating controls in place: 15-minute access tokens, refresh-token rotation with reuse detection, strict CSP, URL allowlists, output encoding, token-hygiene tests | Any XSS could read the tokens until the cookie migration is done | Before opening registration to the public |
 | 4 | Login lockout / CAPTCHA | **No account lockout** (it would let anybody lock any alumnus out). Layers instead: nginx 5 req/s per address on `/api/auth/*`, 10 login attempts per 15 minutes per address in the API (shared through Redis), a per-account budget on password changes, account deletion, 2FA management and e-mail confirmation (not on sign-in itself, which is exactly what makes a lockout impossible), bcrypt for all passwords. Put Cloudflare Turnstile/hCaptcha or WAF rules in front if you see credential-stuffing | A distributed guessing run is slowed, not stopped. Registration still says "e-mail already registered" | Alerts show a spread of failures against one account |
 | 5 | Rate limits per process | **Shared through Redis** when `REDIS_URL` is set (every limiter has its own key prefix). If Redis is down each process counts for itself instead of switching limits off | Needs Redis (compose includes it) | n/a |
-| 6 | OAuth skipped the second factor | **Fixed**: a Google/LinkedIn sign-in for a member with 2FA on gets the same e-mailed code challenge as a password sign-in | none | n/a |
+| 6 | Google/LinkedIn sign-in | **Removed.** The registration form is the only way to get an account; an administrator approves it (decision 10). It also removed the OAuth second-factor and account-linking questions | Members who had used Google/LinkedIn set a password with "Forgot password" | n/a |
 | 7 | Account deletion keeps some data | Unchanged and documented: sent messages, reactions and anonymised audit entries stay; the audit trail no longer keeps IP/user agent for deleted members | Stored files (photos) are not purged from storage | If your privacy policy promises full erasure |
 | 8 | Long-lived access tokens | **15 minutes** in production (was 24 h). The client refreshes automatically and sockets reconnect with the new token | none visible | n/a |
 | 9 | Next.js 14 advisories | **Gate for a public launch** (section 7) | See below | Before opening registration to the public |
 | 10 | Who may use the platform | **An administrator approves every registration** after checking that the person is an alumnus of the college (`approvalStatus`, [AUTHENTICATION.md](AUTHENTICATION.md#alumni-approval)). No session by any route until then; approving is refused for an unverified address while e-mail verification is on | Somebody has to work the queue: an unattended queue means nobody new gets in, and registrations wait indefinitely. Applicants are told by e-mail, so a working mail server is part of the process | If you want members admitted automatically (for example by college e-mail domain), change `approvalStatus` handling in `authService.register` in one place |
-| 11 | Anonymous access | **None except sign-in/registration, the landing page, its aggregate counts (`/users/stats`) and the admin-built landing blocks.** Events, news, gallery, chapters, jobs, search, profiles, posts, videos, magazine, requirements, marketplace, membership tiers and the donor wall all answer 401 to a visitor, and the pages redirect to sign-in | The public cannot see what the community does; shared post/event links open the sign-in page first | Re-open a section only by changing its route guard **and** `src/lib/public-paths.ts`; the RBAC matrix test fails until both agree |
-| 12 | Donating without an account | **Closed.** `POST /donations/order` and `/donations/verify` need an approved member. Guest orders opened earlier are still completed by their signed webhook | Outside donors cannot give through the site; they can be approved as members first | If outside giving matters, add a separate, rate-limited, CAPTCHA-protected public donation page; do not re-open the member routes |
+| 11 | Anonymous access | **None except sign-in/registration, the landing page, its aggregate counts (`/users/stats`), the admin-built landing blocks, and the donation form (decision 12).** Events, news, gallery, chapters, jobs, search, profiles, posts, videos, magazine, requirements, marketplace, membership tiers and the donor wall all answer 401 to a visitor, and the pages redirect to sign-in | The public cannot see what the community does; shared post/event links open the sign-in page first | Re-open a section only by changing its route guard **and** `src/lib/public-paths.ts`; the RBAC matrix test fails until both agree |
+| 12 | Donating without an account | **Open, as before.** Alumni donate as guests: `POST /donations/order` and `/donations/verify` work without a session (a missing, invalid, expired or not-approved token is simply treated as a guest), and `/donations` is the one page a visitor may open (the donation form only). The donor wall, leaderboard, chapter totals and stats stay members only | Anybody can start an order, so the per-endpoint rate limit (20 per 15 minutes) and the strict donor-address validation are what protect it; a donor's name and address are kept in the transaction record | Add CAPTCHA/WAF in front of `/api/donations/*` before a public launch (section 7) |
+| 13 | How notifications are delivered | **Through Kafka** ([KAFKA.md](KAFKA.md)): in-app notifications, announcement broadcasts, the e-mail to the college administrator when a registration is waiting, and the e-mails to applicants. Failed events end in a dead-letter topic. Without `KAFKA_BROKERS` the same events are delivered in-process, and a broker outage falls back the same way, so nothing is lost | One more service to run (the compose file includes a single broker; a managed or 3-broker cluster is the production-grade setup). **Not exercised against a real broker in CI** | Before relying on it: register a test applicant on the server and check the administrator's inbox (section 9) |
 
 ## 7. Must be finished before a public launch
 
@@ -170,14 +171,14 @@ These are not configuration; they are engineering work. Do not open registration
 
 ## 8. Still open (smaller)
 
-* LinkedIn sign-in: the configured scopes (`openid profile email`) look incompatible with `passport-linkedin-oauth2` v2, which
-  reads the e-mail only with `r_emailaddress`. Untested against the live provider: test before enabling the button.
 * Text fields strip HTML tags, so `List<String>` loses its angle-bracket content. Encoding on output would fix it.
 * Follow/unfollow and react/unreact loops can generate repeated notifications (only the global limit applies).
 * `sharp` is declared in both `client/package.json` and `server/package.json`; the client probably does not need it.
 * CSP still needs `'unsafe-inline'` for scripts and styles (Next.js nonce support arrives with the upgrade).
 
 ## 9. After deploying
+
+**Check the notification path.** Register a test applicant with a real mailbox: the college administrator (every `ADMIN`/`SUPER_ADMIN` account, plus `APPROVAL_NOTIFY_EMAIL` if you set it) must receive "New registration to review" by SMTP and see the notice in the bell; approving must send the applicant "you can sign in". `GET /health` should say `kafkaStatus: up`; the dead-letter topic ([KAFKA.md](KAFKA.md)) should stay empty.
 
 **Approve the first members.** Sign in as the seeded administrator, open *Admin > Approvals*, and decide who may join. Check
 that the approval e-mail reaches a real mailbox before you tell members to register. Decide who works the queue (and how
@@ -188,5 +189,4 @@ npm run verify:deploy -w server -- --web https://alumni.example.edu
 ```
 
 Then by hand: register a test member with a real mailbox and confirm the e-mail link works end to end; sign in as the admin
-and change the seed password; place a ₹1 live donation and check the receipt and the webhook; sign in with each OAuth
-provider you enabled (including one member with 2FA on); restore last night's backup into a scratch database.
+and change the seed password; place a ₹1 live donation and check the receipt and the webhook; sign in as a member with 2FA on; restore last night's backup into a scratch database.

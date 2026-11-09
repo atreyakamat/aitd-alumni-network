@@ -12,7 +12,7 @@ How AITD Connection is put together, for people who need to change it.
     └──────────────►     │        │        │
                          │        │        └──► Redis (optional: response cache, shared rate-limit counters)
                          │        └──► S3/R2 or local uploads volume
-                         └──► Razorpay · SMTP/SendGrid · OAuth · Nominatim (place search)
+                         └──► Razorpay · SMTP/SendGrid · Kafka (notification events) · Nominatim (place search)
 ```
 
 npm workspaces monorepo:
@@ -33,9 +33,9 @@ npm workspaces monorepo:
    (route pattern, status, duration; never the query string). Logging is `utils/logger.ts`: JSON in production, `LOG_LEVEL`, secrets redacted.
 1. **Path normalisation:** repeated slashes are collapsed (also behind an absolute-form request target), so no spelling of a
    path can dodge a per-endpoint limiter that is mounted on the exact path.
-2. helmet security headers; CORS against `CORS_ORIGINS` (a foreign origin gets `403 FORBIDDEN_ORIGIN`); passport (OAuth).
+2. helmet security headers; CORS against `CORS_ORIGINS` (a foreign origin gets `403 FORBIDDEN_ORIGIN`).
 3. **Rate limits** (counters are shared through Redis when `REDIS_URL` is set, per process otherwise): 300 requests / 15 min per
-   client on `/api`; 10 / 15 min on sign-in, register, verification, reset, 2FA and OAuth exchange; refresh 60; budgets for
+   client on `/api`; 10 / 15 min on sign-in, register, verification, reset and 2FA; refresh 60; budgets for
    search (100), uploads (30), invites (30), donation orders (20), `/api/geo` (30 / min); the signed Razorpay webhook has its own
    budget and a 256 KB body limit.
 4. A guard that answers `400 INVALID_PATH` for NUL bytes in a path, then **body parsing**: JSON and urlencoded bodies are
@@ -63,7 +63,7 @@ The flows, token lifetimes, error codes and settings are in [AUTHENTICATION.md](
 - **Refresh tokens** are stored hashed and rotated on every use, in a *family* per sign-in; replaying a rotated token revokes the
   family and writes a `SECURITY_ALERT` audit entry.
 - **Verified e-mail before a session** in production, confirmed with the registration password (account pre-hijacking defence);
-  optional 2FA by e-mailed code, which Google/LinkedIn sign-ins also go through.
+  optional 2FA by e-mailed code.
 - **RBAC:** `MEMBER < CHAPTER_ADMIN < ADMIN < SUPER_ADMIN`, defined once in `src/config/permissions.ts`. Route guards
   `authenticate` / `isChapterAdmin` / `isAdmin` / `isSuperAdmin` live in `src/middleware/auth.ts`. `authenticate` re-reads the
   role **and the approval status** from the database on every request and answers 403 `ACCOUNT_PENDING_APPROVAL` /
@@ -89,7 +89,7 @@ PostgreSQL via Prisma. The main groups:
 - **Content:** `Event`/`EventRSVP`, `GalleryAlbum`/`GalleryPhoto`, `NewsArticle`, `Chapter`/`ChapterMembership`,
   `MarketplaceListing`.
 - **Revenue:** `MembershipTier`/`UserMembership`, `Donation`, `Transaction` (unique `gatewayOrderId`; `userId`
-  is nullable for donations made as a guest before the platform became private; no route creates those any more).
+  is nullable for guest donations).
 - **Governance:** `AuditLog`, `Invite`.
 
 PostgreSQL compares text case-sensitively, so user-facing searches use the `ilike()` helper (`src/utils/helpers.ts`,
@@ -120,6 +120,18 @@ the same visibility rules as the feed (no unapproved or deactivated people, no h
 The client has one search box in the header (`HeaderSearch`) and one results page (`/search`). All `contains` filters go through
 `ilike()`, which escapes LIKE wildcards.
 
+## Notifications (Kafka)
+
+Every notification is an event on the **notification bus** (`services/notificationBus.ts`): in-app notifications
+(`notificationService.createNotification`), announcement broadcasts, and the registration flow (the e-mail to the college
+administrator when a registration is waiting, the e-mails to the applicant). With `KAFKA_BROKERS` the bus publishes to the
+`<prefix>.notifications` topic and `workers/notificationConsumer.ts` (in the API process, group `aitd-notifications`) delivers: it stores
+the notification, pushes it over the socket and sends the e-mail through SMTP. Failed events are retried with a doubling pause and then
+moved to the `<prefix>.notifications.dlq` topic; invalid messages go there at once. Without a broker, and whenever publishing fails,
+the same handlers (`notificationEventHandlers.ts`) run in-process, so a Kafka outage loses nothing. Events are validated with zod when
+published and consumed, keyed by member so one person's events stay in order, and delivery is at-least-once with idempotent handlers.
+See [KAFKA.md](KAFKA.md).
+
 ## Real-time
 
 socket.io shares the HTTP server (`src/utils/socket.ts`). The handshake uses the access token, with the same
@@ -129,8 +141,8 @@ server disconnects.
 
 ## Payments
 
-Razorpay orders are created server-side as `PENDING` `Transaction`s (members only: there is no anonymous donation any more; orders
-opened as a guest earlier are still completed). They are completed
+Razorpay orders are created server-side as `PENDING` `Transaction`s, guest donations included (alumni donate without an account; the
+`/donations` form is the one public page). They are completed
 either by the client verify call (signature check) or by the webhook `POST /api/payments/webhook/razorpay` (HMAC over
 the raw body with `RAZORPAY_WEBHOOK_SECRET`; 503 when unset). Both paths go through an idempotent
 `completeTransaction`. Amount or currency mismatches are recorded as `PAYMENT_MISMATCH` audit entries and notify

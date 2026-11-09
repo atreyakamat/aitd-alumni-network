@@ -25,6 +25,8 @@ export const clientLinks = {
   event: (eventId: string) => `/events/${id(eventId)}`,
   job: (jobId: string) => `/jobs/${id(jobId)}`,
   adminDashboard: () => '/admin',
+  /** The review queue of registrations waiting for the college administrator. */
+  adminApprovals: () => '/admin/approvals',
   /** Admin audit log, optionally pre-filtered by action (e.g. PAYMENT_MISMATCH). */
   adminAudit: (action?: string) => (action ? `/admin/audit?action=${id(action)}` : '/admin/audit'),
 };

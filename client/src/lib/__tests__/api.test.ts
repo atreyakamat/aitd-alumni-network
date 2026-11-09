@@ -185,7 +185,7 @@ describe('accountApi', () => {
     expect(mockInstance.delete).toHaveBeenCalledWith('/users/me', { data: { password: 'secret' } });
   });
 
-  it('DELETEs my account with a typed confirmation for OAuth accounts', async () => {
+  it('DELETEs my account with a typed confirmation for accounts without a password', async () => {
     await accountApi.deleteMyAccount({ confirm: 'DELETE' });
     expect(mockInstance.delete).toHaveBeenCalledWith('/users/me', { data: { confirm: 'DELETE' } });
   });

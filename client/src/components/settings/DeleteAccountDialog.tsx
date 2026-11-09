@@ -108,7 +108,7 @@ export function DeleteAccountDialog({ open, onOpenChange, onConfirm }: DeleteAcc
             <legend className="text-sm font-medium mb-2">How do you sign in?</legend>
             <div className="grid sm:grid-cols-2 gap-2">
               {modeOption('password', 'Email and password')}
-              {modeOption('confirm', 'Google or LinkedIn')}
+              {modeOption('confirm', 'I have no password yet')}
             </div>
           </fieldset>
 

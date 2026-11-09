@@ -62,7 +62,7 @@ describe('privacyService', () => {
       expect(prismaMock.user.update).not.toHaveBeenCalled();
     });
 
-    it('requires explicit confirmation for password-less (OAuth) accounts', async () => {
+    it('requires explicit confirmation for accounts without a password', async () => {
       arrangeUser({ passwordHash: null });
       await expect(privacyService.deleteMyAccount('u1', {})).rejects.toMatchObject({ statusCode: 400 });
       arrangeUser({ passwordHash: null });

@@ -33,6 +33,10 @@ export function Footer() {
             <MemberLink path="/directory">Directory</MemberLink>
             <MemberLink path="/yearbook">Yearbook</MemberLink>
             <MemberLink path="/jobs">Jobs</MemberLink>
+            {/* The one page open to visitors besides the legal pages: alumni donate as guests, without an account */}
+            <Link href="/donations" className={linkClass}>
+              Donate
+            </Link>
           </div>
           <div className="flex flex-col space-y-3">
             <span className="mb-2 text-xs font-bold uppercase tracking-widest text-primary font-label">Legal</span>

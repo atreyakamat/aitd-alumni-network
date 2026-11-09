@@ -27,14 +27,20 @@ describe('middleware', () => {
     expect(res.headers.get('x-middleware-next')).toBe('1');
   });
 
-  it('serves only the landing page, the auth screens and the legal pages anonymously', () => {
-    for (const p of ['/', '/login', '/register', '/verify-email', '/forgot-password', '/reset-password', '/privacy', '/terms', '/contact', '/cookies']) {
+  it('serves only the landing page, the auth screens, the legal pages and the guest donation page anonymously', () => {
+    for (const p of ['/', '/login', '/register', '/verify-email', '/forgot-password', '/reset-password', '/privacy', '/terms', '/contact', '/cookies', '/donations', '/donations/', '/donations/anything']) {
       expect(middleware(req(p)).headers.get('location'), p).toBeNull();
     }
   });
 
-  it('the platform is private: events, news, gallery, donations, chapters, posts and search all go to login', () => {
-    for (const p of ['/events', '/events/1', '/news', '/news/some-slug', '/gallery', '/donations', '/chapters', '/posts/123', '/search', '/profile/abc']) {
+  it('a visitor on /donations keeps the query string and is not redirected', () => {
+    const res = middleware(req('/donations?amount=500'));
+    expect(res.headers.get('location')).toBeNull();
+    expect(res.headers.get('x-middleware-next')).toBe('1');
+  });
+
+  it('the platform is private: events, news, gallery, chapters, posts and search all go to login (only /donations is open)', () => {
+    for (const p of ['/events', '/events/1', '/news', '/news/some-slug', '/gallery', '/chapters', '/posts/123', '/search', '/profile/abc', '/donationsx', '/admin/donations']) {
       const res = middleware(req(p));
       expect(res.status, p).toBe(307);
       const location = new URL(res.headers.get('location')!);

@@ -1,14 +1,17 @@
 /**
  * Alumni approval. A registration is only a claim ("I am an alumnus of the college"). Until an administrator has
- * checked it, the person gets no session by any route: not by password, not after the second factor, not through a
- * Google/LinkedIn sign-in, not by refreshing a token.
+ * checked it, the person gets no session by any route: not by password, not after the second factor, not by refreshing
+ * a token. (The registration form is the only way to get an account.)
  */
 import { authService, TOKEN_TYPES } from '../../services/authService';
 import { config } from '../../config';
 import { prismaMock } from '../../../tests/helpers';
 import { hashPassword } from '../../utils/password';
 import { hashToken, generateRefreshToken } from '../../utils/jwt';
-import { sendVerificationEmail, sendWelcomeEmail, sendApplicationReceivedEmail } from '../../utils/email';
+import { sendVerificationEmail, sendWelcomeEmail } from '../../utils/email';
+import { publishNotificationEvent } from '../../services/notificationBus';
+
+jest.mock('../../services/notificationBus', () => ({ publishNotificationEvent: jest.fn().mockResolvedValue(undefined) }));
 
 const PASSWORD = 'Correct#Pass1';
 let passwordHash: string;
@@ -144,13 +147,6 @@ describe('the other ways to get a session', () => {
     expect(prismaMock.refreshToken.create).not.toHaveBeenCalled();
   });
 
-  it('a Google/LinkedIn sign-in cannot skip the approval', async () => {
-    prismaMock.verificationToken.findFirst.mockResolvedValue({ id: 'vt', userId: 'u1', user: dbUser({ approvalStatus: 'PENDING', passwordHash: '' }) });
-    prismaMock.verificationToken.updateMany.mockResolvedValue({ count: 1 });
-    await expect(authService.exchangeOAuthCode('code')).rejects.toMatchObject({ statusCode: 403, code: 'ACCOUNT_PENDING_APPROVAL' });
-    expect(prismaMock.refreshToken.create).not.toHaveBeenCalled();
-  });
-
   it('refreshing a token refuses an account that is no longer approved', async () => {
     const value = generateRefreshToken('u1');
     prismaMock.refreshToken.findUnique.mockResolvedValue({
@@ -188,7 +184,7 @@ describe('verifying the e-mail address', () => {
     arrange();
     const result = await authService.verifyEmail('raw-token', PASSWORD);
     expect(result.message).toMatch(/administrator/i);
-    expect(sendApplicationReceivedEmail).toHaveBeenCalledWith('alum@aitd.edu', 'Ada Alum');
+    expect(publishNotificationEvent).toHaveBeenCalledWith('registration.received', { userId: 'u1' });
     expect(sendWelcomeEmail).not.toHaveBeenCalled();
   });
 
