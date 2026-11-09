@@ -2,7 +2,7 @@ jest.mock('../../services/notificationService', () => ({
   notificationService: { createNotification: jest.fn() },
 }));
 
-import { mentorshipService, MAX_MENTEES, MAX_FOCUS_AREAS } from '../../services/mentorshipService';
+import { mentorshipService, MAX_MENTEES, MAX_FOCUS_AREAS, MAX_MENTOR_SCAN } from '../../services/mentorshipService';
 import { notificationService } from '../../services/notificationService';
 import { prismaMock } from '../../../tests/helpers';
 
@@ -84,6 +84,12 @@ describe('mentorshipService', () => {
       expect(byName.data.map((m: any) => m.id)).toEqual(['p2']);
       expect(byBio.data.map((m: any) => m.id)).toEqual(['p3']);
       expect(byArea.data.map((m: any) => m.id)).toEqual(['p2']);
+    });
+
+    it('bounds the number of profiles scanned when the filters have to run in memory', async () => {
+      prismaMock.mentorProfile.findMany.mockResolvedValue(mentors);
+      await mentorshipService.getMentors(1, 20, { search: 'bala' });
+      expect(prismaMock.mentorProfile.findMany.mock.calls[0][0].take).toBe(MAX_MENTOR_SCAN);
     });
 
     it('paginates filtered results in memory', async () => {

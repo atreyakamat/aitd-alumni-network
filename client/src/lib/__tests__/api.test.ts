@@ -25,6 +25,7 @@ import {
   eventApi,
   getApiErrorMessage,
   jobApi,
+  networkApi,
   searchApi,
   transactionApi,
   EXPORT_ENTITIES,
@@ -92,6 +93,55 @@ describe('adminApi', () => {
   it('url-encodes ids', async () => {
     await adminApi.updateUserRole('a/b', 'MEMBER');
     expect(mockInstance.patch).toHaveBeenCalledWith('/admin/users/a%2Fb/role', { role: 'MEMBER' });
+  });
+});
+
+describe('adminApi: alumni approval', () => {
+  it('lists registrations by status, with search and paging', async () => {
+    await adminApi.listApprovals({ status: 'PENDING', search: 'ada', page: 2, limit: 20 });
+    expect(mockInstance.get).toHaveBeenCalledWith('/admin/approvals', { params: { status: 'PENDING', search: 'ada', page: 2, limit: 20 } });
+  });
+
+  it('drops empty filters so the server sees no blank params', async () => {
+    await adminApi.listApprovals({ status: 'REJECTED', search: '', page: 1 });
+    expect(mockInstance.get).toHaveBeenCalledWith('/admin/approvals', { params: { status: 'REJECTED', page: 1 } });
+    await adminApi.listApprovals();
+    expect(mockInstance.get).toHaveBeenLastCalledWith('/admin/approvals', { params: {} });
+  });
+
+  it('GETs the counts per status', async () => {
+    await adminApi.approvalSummary();
+    expect(mockInstance.get).toHaveBeenCalledWith('/admin/approvals/summary');
+  });
+
+  it('POSTs an approval with the optional note, trimmed, or with an empty body', async () => {
+    await adminApi.approveRegistration('u1', '  Checked with the alumni office  ');
+    expect(mockInstance.post).toHaveBeenCalledWith('/admin/approvals/u1/approve', { note: 'Checked with the alumni office' });
+    await adminApi.approveRegistration('u2');
+    expect(mockInstance.post).toHaveBeenLastCalledWith('/admin/approvals/u2/approve', {});
+    await adminApi.approveRegistration('u3', '   ');
+    expect(mockInstance.post).toHaveBeenLastCalledWith('/admin/approvals/u3/approve', {});
+  });
+
+  it('POSTs a rejection with the reason (the person is told by e-mail), trimmed', async () => {
+    await adminApi.rejectRegistration('u1', '  Not on the batch list  ');
+    expect(mockInstance.post).toHaveBeenCalledWith('/admin/approvals/u1/reject', { reason: 'Not on the batch list' });
+  });
+
+  it('url-encodes the id', async () => {
+    await adminApi.approveRegistration('a/b');
+    expect(mockInstance.post).toHaveBeenCalledWith('/admin/approvals/a%2Fb/approve', {});
+    await adminApi.rejectRegistration('a/b', 'because');
+    expect(mockInstance.post).toHaveBeenLastCalledWith('/admin/approvals/a%2Fb/reject', { reason: 'because' });
+  });
+});
+
+describe('networkApi', () => {
+  it('GETs pending connection requests one page at a time', async () => {
+    await networkApi.getPendingRequests();
+    expect(mockInstance.get).toHaveBeenLastCalledWith('/network/requests', { params: undefined });
+    await networkApi.getPendingRequests({ type: 'received', page: 3, limit: 20 });
+    expect(mockInstance.get).toHaveBeenLastCalledWith('/network/requests', { params: { type: 'received', page: 3, limit: 20 } });
   });
 });
 

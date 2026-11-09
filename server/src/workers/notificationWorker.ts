@@ -2,6 +2,7 @@ import { Worker } from 'bullmq';
 import IORedis from 'ioredis';
 import { NOTIFICATION_QUEUE, BROADCAST_JOB } from '../config/queue';
 import { fanOutNotification, BroadcastPayload } from '../services/broadcastService';
+import { log } from '../utils/logger';
 
 /**
  * Starts the BullMQ worker that processes broadcast-notification jobs.
@@ -26,9 +27,9 @@ export function startNotificationWorker(): Worker | null {
   );
 
   worker.on('failed', (job, err) => {
-    console.error(`Notification job ${job?.id} failed:`, err.message);
+    log.error('Notification job failed', { jobId: job?.id, err });
   });
-  worker.on('ready', () => console.log('✅ Notification worker ready'));
+  worker.on('ready', () => log.info('Notification worker ready'));
 
   return worker;
 }

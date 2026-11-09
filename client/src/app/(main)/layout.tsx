@@ -4,16 +4,17 @@ import { useEffect } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { useAuth } from '@/context/auth-context';
 import { MainNav } from '@/components/layout/MainNav';
-import { PublicNav } from '@/components/layout/PublicNav';
 import { ChatDrawer } from '@/components/layout/ChatDrawer';
 import { FullPageLoader } from '@/components/ui/loading';
-import { buildLoginHref, isPublicPath } from '@/lib/public-paths';
+import { buildLoginHref } from '@/lib/public-paths';
 
 /**
- * Client-side gate for the (main) group. Defence in depth, in order:
+ * Client-side gate for the (main) group. The platform is private: EVERY page here needs a signed-in, approved member.
+ * Defence in depth, in order:
  *  1. `src/middleware.ts` keeps the member app shell from being served to visitors without the
  *     non-secret `aitd_session` hint cookie (anonymous requests get a 307 to /login?next=...).
- *  2. THIS layout renders nothing for members-only paths until `/auth/me` confirms a real session.
+ *  2. THIS layout renders nothing until `/auth/me` confirms a real session; a visitor is sent to
+ *     /login?next=<this page> and lands back here after signing in.
  *  3. The API enforces authorization (and roles) on every request; the UI checks are UX only.
  */
 export default function MainLayout({
@@ -24,31 +25,20 @@ export default function MainLayout({
   const { isLoading, isAuthenticated } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
-  const isPublic = isPublicPath(pathname);
 
   useEffect(() => {
-    if (!isLoading && !isAuthenticated && !isPublic) {
+    if (!isLoading && !isAuthenticated) {
       const current =
         typeof window !== 'undefined' ? `${window.location.pathname}${window.location.search}` : pathname;
       router.replace(buildLoginHref(current));
     }
-  }, [isLoading, isAuthenticated, isPublic, pathname, router]);
+  }, [isLoading, isAuthenticated, pathname, router]);
 
   if (isLoading) {
     return <FullPageLoader text="Loading..." />;
   }
 
-  if (!isAuthenticated) {
-    if (!isPublic) return null;
-
-    // PRD 6.1: events, gallery, news and donations are browsable without an account.
-    return (
-      <div className="min-h-screen bg-background relative">
-        <PublicNav />
-        <main className="container pb-6 pt-28">{children}</main>
-      </div>
-    );
-  }
+  if (!isAuthenticated) return null;
 
   return (
     <div className="min-h-screen bg-background relative">

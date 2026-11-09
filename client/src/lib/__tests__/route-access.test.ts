@@ -7,7 +7,11 @@ import { OPEN_PATH_PREFIXES, PUBLIC_PATH_PREFIXES, isMemberOnlyPath, isPublicPat
 const gate = (pathname: string, search = '', hasSessionHint = false) => decideAccess({ pathname, search, hasSessionHint });
 
 describe('decideAccess (middleware decision)', () => {
-  it.each(['/dashboard', '/directory', '/jobs', '/jobs/42', '/yearbook', '/admin', '/admin/users', '/messages', '/profile/abc', '/videos', '/saved'])(
+  it.each([
+    '/dashboard', '/directory', '/jobs', '/jobs/42', '/yearbook', '/admin', '/admin/users', '/messages', '/profile/abc', '/videos', '/saved',
+    // the platform is private: these used to be open to visitors
+    '/events', '/events/42', '/gallery', '/news', '/news/some-slug', '/donations', '/chapters', '/chapters/c1', '/posts/123', '/search',
+  ])(
     'redirects anonymous visitors from %s to login with next',
     (p) => {
       expect(gate(p)).toEqual({ action: 'redirect', location: `/login?next=${encodeURIComponent(p)}` });
@@ -21,10 +25,23 @@ describe('decideAccess (middleware decision)', () => {
     });
   });
 
-  it.each([...PUBLIC_PATH_PREFIXES, '/events/42', '/news/some-slug', '/posts/p1', '/search', '/', '/login', '/register', '/forgot-password', '/reset-password', '/verify-email', '/privacy', '/terms', '/contact', '/cookies'])(
-    'lets anonymous visitors through to %s',
-    (p) => expect(gate(p)).toEqual({ action: 'next' })
-  );
+  // THE allow-list of the private platform: the landing page, the auth screens and the legal/contact pages. Adding a path
+  // here means opening it to the whole internet: do it on purpose.
+  const ALLOWED_TO_VISITORS = ['/', '/login', '/register', '/verify-email', '/forgot-password', '/reset-password', '/privacy', '/terms', '/contact', '/cookies'];
+
+  it.each(ALLOWED_TO_VISITORS)('lets anonymous visitors through to %s', (p) => expect(gate(p)).toEqual({ action: 'next' }));
+
+  it('opens nothing else: the open prefixes are exactly the allow-list (plus the landing page)', () => {
+    expect(['/', ...OPEN_PATH_PREFIXES].sort()).toEqual([...ALLOWED_TO_VISITORS].sort());
+    expect(PUBLIC_PATH_PREFIXES).toEqual([]);
+  });
+
+  it('sends a visitor who opens a shared deep link to the login page, remembering where they wanted to go', () => {
+    expect(gate('/posts/123')).toEqual({ action: 'redirect', location: '/login?next=%2Fposts%2F123' });
+    expect(gate('/search', '?q=x')).toEqual({ action: 'redirect', location: '/login?next=%2Fsearch%3Fq%3Dx' });
+    expect(gate('/events')).toEqual({ action: 'redirect', location: '/login?next=%2Fevents' });
+    expect(gate('/events/42', '?tab=rsvp')).toEqual({ action: 'redirect', location: '/login?next=%2Fevents%2F42%3Ftab%3Drsvp' });
+  });
 
   it('lets everything through when the session hint is present', () => {
     for (const p of ['/dashboard', '/admin/users', '/jobs/1']) expect(gate(p, '', true)).toEqual({ action: 'next' });
@@ -46,7 +63,7 @@ describe('decideAccess (middleware decision)', () => {
 
   it('treats trailing slashes and query strings like the bare path', () => {
     expect(isMemberOnlyPath('/directory/')).toBe(true);
-    expect(isMemberOnlyPath('/events/?page=2')).toBe(false);
+    expect(isMemberOnlyPath('/events/?page=2')).toBe(true);
     expect(isMemberOnlyPath('/login/')).toBe(false);
   });
 });
@@ -63,20 +80,25 @@ describe('route classification matches the app directory', () => {
       .filter((d) => d.isDirectory() && d.name !== '__tests__' && !d.name.startsWith('['))
       .map((d) => `/${d.name}`);
 
-  it('every (main) route is member-only unless it is a public section', () => {
+  it('every (main) route is member-only: the platform is private', () => {
     const segments = topLevelSegments('(main)');
     expect(segments).toContain('/dashboard');
     expect(segments).toContain('/admin');
+    expect(segments).toContain('/events');
+    expect(segments).toContain('/posts');
+    expect(segments).toContain('/search');
     for (const seg of segments) {
-      const expectedPublic = PUBLIC_PATH_PREFIXES.includes(seg);
-      expect(isMemberOnlyPath(seg), seg).toBe(!expectedPublic);
-      expect(isPublicPath(seg), seg).toBe(expectedPublic);
+      expect(isMemberOnlyPath(seg), seg).toBe(true);
+      expect(isPublicPath(seg), seg).toBe(false);
     }
   });
 
-  it('(main) routes that are public per PUBLIC_PATH_PREFIXES really exist', () => {
-    const segments = topLevelSegments('(main)');
-    for (const prefix of PUBLIC_PATH_PREFIXES) expect(segments, prefix).toContain(prefix);
+  it('the app has no page outside (main) that is not on the allow-list', () => {
+    const topLevelPages = fs
+      .readdirSync(appDir, { withFileTypes: true })
+      .filter((d) => d.isDirectory() && !d.name.startsWith('(') && !d.name.startsWith('_') && d.name !== 'api')
+      .map((d) => `/${d.name}`);
+    expect(topLevelPages).toEqual([]);
   });
 
   it.each(['(auth)', '(legal)'])('every %s route stays open', (group) => {

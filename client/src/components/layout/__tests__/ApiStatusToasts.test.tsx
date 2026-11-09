@@ -37,6 +37,26 @@ describe('ApiStatusToasts', () => {
     expect(toast.mock.calls[0][0]).toMatchObject({ title: expect.stringMatching(/session/i) });
   });
 
+  it('tells a member whose registration is waiting for approval what is going on, calmly (not as an error)', () => {
+    render(<ApiStatusToasts />);
+    fire('api:account_not_approved', { state: 'pending', message: 'Your registration is waiting for approval.' });
+    expect(toast).toHaveBeenCalledTimes(1);
+    const shown = toast.mock.calls[0][0];
+    expect(shown.title).toMatch(/waiting for approval/i);
+    expect(shown.description).toMatch(/e-mail/i);
+    expect(shown.variant).not.toBe('destructive');
+  });
+
+  it('tells a member whose registration was not approved to check the e-mail or contact the alumni office', () => {
+    render(<ApiStatusToasts />);
+    fire('api:account_not_approved', { state: 'rejected' });
+    const shown = toast.mock.calls[0][0];
+    expect(shown.title).toMatch(/not approved/i);
+    expect(shown.description).toMatch(/e-mail/i);
+    expect(shown.description).toMatch(/alumni office/i);
+    expect(shown.variant).not.toBe('destructive');
+  });
+
   it('shows a burst of identical failures once (a page can fire a dozen requests at the same moment)', () => {
     render(<ApiStatusToasts />);
     for (let i = 0; i < 12; i++) fire('api:network_error');
@@ -56,7 +76,8 @@ describe('ApiStatusToasts', () => {
     fire('api:network_error');
     fire('api:server_error', { status: 503 });
     fire('api:session_expired');
-    expect(toast).toHaveBeenCalledTimes(3);
+    fire('api:account_not_approved', { state: 'pending' });
+    expect(toast).toHaveBeenCalledTimes(4);
   });
 
   it('stops listening when it is removed', () => {

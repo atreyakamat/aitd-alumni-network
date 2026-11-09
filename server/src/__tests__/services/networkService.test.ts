@@ -2,7 +2,7 @@ jest.mock('../../services/notificationService', () => ({
   notificationService: { createNotification: jest.fn().mockResolvedValue(undefined) },
 }));
 
-import { networkService } from '../../services/networkService';
+import { networkService, MAX_SUGGESTION_EXCLUSIONS } from '../../services/networkService';
 import { notificationService } from '../../services/notificationService';
 import { prismaMock } from '../../../tests/helpers';
 
@@ -64,17 +64,84 @@ describe('networkService', () => {
   });
 
   describe('getPendingRequests', () => {
-    it('splits pending requests into received and sent', async () => {
+    const arrangePending = (receivedTotal = 1, sentTotal = 1) => {
       prismaMock.connection.findMany
         .mockResolvedValueOnce([{ ...conn({ id: 'in', requesterId: THEM, addresseeId: ME }), requester: { id: THEM } }])
         .mockResolvedValueOnce([{ ...conn({ id: 'out' }), addressee: { id: 'z' } }]);
+      prismaMock.connection.count.mockImplementation(async (args: any) => (args.where.addresseeId === ME ? receivedTotal : sentTotal));
+    };
+
+    it('splits pending requests into received and sent, keeping the shape the client reads', async () => {
+      arrangePending();
 
       const result = await networkService.getPendingRequests(ME);
 
       expect(prismaMock.connection.findMany.mock.calls[0][0].where).toEqual({ addresseeId: ME, status: 'PENDING' });
       expect(prismaMock.connection.findMany.mock.calls[1][0].where).toEqual({ requesterId: ME, status: 'PENDING' });
-      expect(result.received).toEqual([expect.objectContaining({ connectionId: 'in', user: { id: THEM } })]);
-      expect(result.sent).toEqual([expect.objectContaining({ connectionId: 'out', user: { id: 'z' } })]);
+      expect(result.data.received).toEqual([expect.objectContaining({ connectionId: 'in', user: { id: THEM } })]);
+      expect(result.data.sent).toEqual([expect.objectContaining({ connectionId: 'out', user: { id: 'z' } })]);
+    });
+
+    it('returns one page of 20 by default, newest first, with a stable order for paging', async () => {
+      arrangePending(45, 3);
+
+      const result = await networkService.getPendingRequests(ME);
+
+      for (const [args] of prismaMock.connection.findMany.mock.calls) {
+        expect(args.take).toBe(20);
+        expect(args.skip).toBe(0);
+        expect(args.orderBy).toEqual([{ createdAt: 'desc' }, { id: 'desc' }]);
+      }
+      expect(result.pagination.received).toEqual({ total: 45, page: 1, limit: 20, totalPages: 3, hasNextPage: true, hasPrevPage: false });
+      expect(result.pagination.sent).toEqual({ total: 3, page: 1, limit: 20, totalPages: 1, hasNextPage: false, hasPrevPage: false });
+    });
+
+    it('serves the requested page and never more than 100 rows at once', async () => {
+      arrangePending(12, 12);
+      const second = await networkService.getPendingRequests(ME, 2, 5);
+      expect(prismaMock.connection.findMany.mock.calls[0][0]).toMatchObject({ skip: 5, take: 5 });
+      expect(second.pagination.received).toEqual({ total: 12, page: 2, limit: 5, totalPages: 3, hasNextPage: true, hasPrevPage: true });
+
+      prismaMock.connection.findMany.mockClear();
+      arrangePending(500, 500);
+      await networkService.getPendingRequests(ME, 1, 100000);
+      expect(prismaMock.connection.findMany.mock.calls.map((c: any[]) => c[0].take)).toEqual([100, 100]);
+
+      prismaMock.connection.findMany.mockClear();
+      arrangePending(1, 1);
+      await networkService.getPendingRequests(ME, -4, Number.NaN);
+      expect(prismaMock.connection.findMany.mock.calls[0][0]).toMatchObject({ skip: 0, take: 20 });
+    });
+
+    it('with type=received reads only the requests waiting on the member', async () => {
+      prismaMock.connection.findMany.mockResolvedValueOnce([{ ...conn({ id: 'in', requesterId: THEM, addresseeId: ME }), requester: { id: THEM } }]);
+      prismaMock.connection.count.mockResolvedValue(30);
+
+      const result = await networkService.getPendingRequests(ME, 2, 20, 'received');
+
+      expect(prismaMock.connection.findMany).toHaveBeenCalledTimes(1);
+      expect(prismaMock.connection.count).toHaveBeenCalledTimes(1);
+      expect(prismaMock.connection.findMany.mock.calls[0][0].where).toEqual({ addresseeId: ME, status: 'PENDING' });
+      expect(result.data.sent).toEqual([]);
+      expect(result.pagination.sent).toBeUndefined();
+      expect(result.pagination.received).toMatchObject({ total: 30, page: 2, hasNextPage: false });
+    });
+
+    it('with type=sent reads only the requests the member sent', async () => {
+      prismaMock.connection.findMany.mockResolvedValueOnce([{ ...conn({ id: 'out' }), addressee: { id: 'z' } }]);
+      prismaMock.connection.count.mockResolvedValue(1);
+
+      const result = await networkService.getPendingRequests(ME, 1, 20, 'sent');
+
+      expect(prismaMock.connection.findMany).toHaveBeenCalledTimes(1);
+      expect(prismaMock.connection.findMany.mock.calls[0][0].where).toEqual({ requesterId: ME, status: 'PENDING' });
+      expect(result.data.received).toEqual([]);
+      expect(result.pagination.received).toBeUndefined();
+    });
+
+    it('rejects an unknown type with a 400 before reading anything', async () => {
+      await expect(networkService.getPendingRequests(ME, 1, 20, 'everything')).rejects.toMatchObject({ statusCode: 400 });
+      expect(prismaMock.connection.findMany).not.toHaveBeenCalled();
     });
   });
 
@@ -171,6 +238,24 @@ describe('networkService', () => {
       });
       expect(prismaMock.connection.create).not.toHaveBeenCalled();
       expect(createNotification).toHaveBeenCalledWith(expect.objectContaining({ userId: THEM, type: 'CONNECTION_REQUEST' }));
+    });
+
+    it('request, decline, request again does not notify the member a second time within a day', async () => {
+      arrangeUsers();
+      prismaMock.connection.findFirst.mockResolvedValue(conn({ id: 'old', requesterId: THEM, addresseeId: ME, status: 'REJECTED' }));
+      prismaMock.connection.update.mockResolvedValue(conn({ id: 'old' }));
+      prismaMock.notification.findFirst.mockResolvedValue({ id: 'n-earlier' });
+
+      const result = await networkService.sendConnectionRequest(ME, THEM);
+
+      expect(result.status).toBe('PENDING');
+      expect(prismaMock.connection.update).toHaveBeenCalled();
+      expect(createNotification).not.toHaveBeenCalled();
+      expect(prismaMock.notification.findFirst.mock.calls[0][0].where).toMatchObject({
+        userId: THEM,
+        type: 'CONNECTION_REQUEST',
+        AND: [{ metadata: { path: ['requesterId'], equals: ME } }],
+      });
     });
 
     it('uses a generic name when the requester profile cannot be loaded', async () => {
@@ -303,6 +388,9 @@ describe('networkService', () => {
       await networkService.getSuggestions(ME, 5);
 
       expect(prismaMock.connection.findMany.mock.calls[0][0].where).toEqual({ OR: [{ requesterId: ME }, { addresseeId: ME }] });
+      // the exclusion list is bounded: a very well connected member must not load every connection
+      expect(prismaMock.connection.findMany.mock.calls[0][0].take).toBe(MAX_SUGGESTION_EXCLUSIONS);
+      expect(prismaMock.connection.findMany.mock.calls[0][0].orderBy).toEqual({ createdAt: 'desc' });
       const args = prismaMock.user.findMany.mock.calls[0][0];
       expect(args.where.id.notIn.sort()).toEqual([ME, 'a', 'b'].sort());
       expect(args.where.isActive).toBe(true);

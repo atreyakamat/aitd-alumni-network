@@ -26,6 +26,7 @@ const dbUser = (overrides: Record<string, unknown> = {}) => ({
   profilePhotoUrl: null,
   userRole: 'MEMBER',
   isActive: true,
+  approvalStatus: 'APPROVED',
   isVerified: true,
   twoFactorEnabled: false,
   profileCompleteness: 40,

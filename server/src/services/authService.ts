@@ -17,12 +17,13 @@ import {
   sendVerificationEmail,
   sendPasswordResetEmail,
   sendPasswordChangedEmail,
-  sendWelcomeEmail,
+  sendApplicationReceivedEmail,
 } from '../utils/email';
 import { AppError } from '../middleware/errorHandler';
 import { logAuditAction } from './auditService';
 import { MembershipTier, Prisma, RoleType, User } from '@prisma/client';
 import { disconnectUser } from '../utils/socket';
+import { assertApproved, isApproved } from '../utils/approval';
 
 interface RegisterInput {
   email: string;
@@ -32,6 +33,9 @@ interface RegisterInput {
   department: string;
   degree: string;
   roleType?: RoleType;
+  /** What the applicant tells the reviewer who checks that they are an alumnus of the college. */
+  enrollmentNumber?: string;
+  verificationNote?: string;
 }
 
 interface LoginInput {
@@ -76,6 +80,15 @@ const isEmailVerified = (user: { isVerified: boolean; emailVerifiedAt?: Date | n
 
 const normaliseEmail = (email: string) => email.trim().toLowerCase();
 
+/** Trimmed; empty means "nothing" so a blank field never overwrites or stores whitespace. */
+const applicantDetails = (input: Pick<RegisterInput, 'enrollmentNumber' | 'verificationNote'>) => ({
+  enrollmentNumber: input.enrollmentNumber?.trim() || null,
+  verificationNote: input.verificationNote?.trim() || null,
+});
+
+const REGISTRATION_MESSAGE =
+  'Registration received. Verify your e-mail address with the link we sent you. An administrator then checks that you are an alumnus of the college; you will be told by e-mail when your account is approved.';
+
 // Compared against when the account does not exist, so unknown emails cost the
 // same bcrypt work as known ones (no timing-based user enumeration).
 let dummyHash: Promise<string> | undefined;
@@ -107,6 +120,7 @@ export class AuthService {
    * a new token family (one family per login on a device).
    */
   private async issueSession(user: SessionUser) {
+    assertApproved(user);
     await prisma.user.update({
       where: { id: user.id },
       data: { lastLoginAt: new Date() },
@@ -151,7 +165,7 @@ export class AuthService {
       data: { revokedAt: new Date() },
     });
 
-    console.warn(`[auth] Refresh token reuse detected for user ${userId} (family ${familyId ?? 'legacy'}); family revoked`);
+    log.warn('Refresh token reuse detected; family revoked', { userId, familyId: familyId ?? 'legacy' });
     await logAuditAction({
       userId,
       action: 'SECURITY_ALERT',
@@ -232,6 +246,7 @@ export class AuthService {
           department: input.department,
           degree: input.degree,
           roleType: input.roleType || 'ALUMNI',
+          ...applicantDetails(input),
           profileCompleteness: 20,
         },
       });
@@ -253,7 +268,8 @@ export class AuthService {
       id: user.id,
       email: user.email,
       fullName: user.fullName,
-      message: 'Registration successful. Please check your email to verify your account.',
+      approvalStatus: 'PENDING' as const,
+      message: REGISTRATION_MESSAGE,
     };
   }
 
@@ -281,6 +297,7 @@ export class AuthService {
           department: input.department,
           degree: input.degree,
           roleType: input.roleType || 'ALUMNI',
+          ...applicantDetails(input),
           tokenVersion: { increment: 1 },
         },
       });
@@ -304,7 +321,8 @@ export class AuthService {
       id: user.id,
       email: user.email,
       fullName: user.fullName,
-      message: 'Registration successful. Please check your email to verify your account.',
+      approvalStatus: 'PENDING' as const,
+      message: REGISTRATION_MESSAGE,
     };
   }
 
@@ -336,6 +354,9 @@ export class AuthService {
         'EMAIL_NOT_VERIFIED'
       );
     }
+
+    // Said only after the password is proven. No second-factor challenge and no session until an administrator approved the registration.
+    assertApproved(user);
 
     // 2FA: no session yet - hand back a short-lived challenge bound to this user
     if (user.twoFactorEnabled) {
@@ -397,21 +418,26 @@ export class AuthService {
       throw new AppError('Invalid or expired verification token', 400, 'INVALID_TOKEN');
     }
 
+    // The mailbox is proven; that does NOT make the person a member. isVerified (what the directory and search filter on)
+    // is set together with the administrator's approval, never here.
     await prisma.user.update({
       where: { id: record.userId },
-      data: {
-        isVerified: true,
-        emailVerifiedAt: new Date(),
-      },
+      data: { emailVerifiedAt: new Date() },
     });
 
-    try {
-      await sendWelcomeEmail(record.user.email, record.user.fullName);
-    } catch (error) {
-      console.error('Failed to send welcome email:', error);
+    if (isApproved(record.user)) {
+      return { message: 'Email verified successfully' };
     }
 
-    return { message: 'Email verified successfully' };
+    try {
+      await sendApplicationReceivedEmail(record.user.email, record.user.fullName);
+    } catch (error) {
+      log.error('Failed to send the registration-received email', { err: error });
+    }
+
+    return {
+      message: 'Email verified. An administrator now checks that you are an alumnus of the college; you will be told by e-mail when your account is approved.',
+    };
   }
 
   /** Same answer for every address: unknown, verified, deactivated and rate-limited all look alike. */
@@ -461,7 +487,7 @@ export class AuthService {
 
     // Not awaited: response time must not reveal whether an email was sent
     sendPasswordResetEmail(user.email, user.fullName, resetToken).catch((error: unknown) => {
-      console.error('Failed to send password reset email:', error);
+      log.error('Failed to send password reset email', { err: error });
     });
 
     return { message: GENERIC_RESET_MESSAGE };
@@ -554,7 +580,7 @@ export class AuthService {
     });
 
     sendPasswordChangedEmail(user.email, user.fullName).catch((error: unknown) => {
-      console.error('Failed to send password changed email:', error);
+      log.error('Failed to send password changed email', { err: error });
     });
 
     return {
@@ -599,6 +625,10 @@ export class AuthService {
     if (!user.isActive) {
       await prisma.refreshToken.deleteMany({ where: { userId: user.id } });
       throw new AppError('Account is deactivated', 401, 'ACCOUNT_DEACTIVATED');
+    }
+    if (!isApproved(user)) {
+      await prisma.refreshToken.deleteMany({ where: { userId: user.id } });
+      assertApproved(user);
     }
 
     // Legacy rows (issued before families existed) become the root of a new family
@@ -709,6 +739,9 @@ export class AuthService {
     if (!record.user.isActive) {
       throw new AppError('Account is deactivated', 401, 'ACCOUNT_DEACTIVATED');
     }
+
+    // A provider sign-in proves the mailbox, not that the person is an alumnus: the administrator's approval is still needed
+    assertApproved(record.user);
 
     // A provider sign-in proves the mailbox, not the second factor the member chose to protect the account with
     if (record.user.twoFactorEnabled) {

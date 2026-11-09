@@ -37,6 +37,12 @@ const PROFILE_SELECT = {
   secondaryEmail: true,
   userRole: true,
   isVerified: true,
+  // What the person told the reviewer and the outcome of the review
+  enrollmentNumber: true,
+  verificationNote: true,
+  approvalStatus: true,
+  approvalNote: true,
+  approvalReviewedAt: true,
   twoFactorEnabled: true,
   digestOptOut: true,
   createdAt: true,
@@ -246,6 +252,10 @@ export class PrivacyService {
           githubUrl: null,
           websiteUrl: null,
           secondaryEmail: null,
+          // what the applicant told the reviewer, and the reviewer's notes about them
+          enrollmentNumber: null,
+          verificationNote: null,
+          approvalNote: null,
           twoFactorEnabled: false,
           userRole: 'MEMBER',
           // Revoke every access token still in circulation

@@ -69,23 +69,27 @@ describe('social routes (HTTP)', () => {
     [`/api/users/${P}/posts?limit=10`, feedService, 'getUserPosts'],
     [`/api/posts/${P}/comments?sort=newest`, postService, 'listComments'],
     [`/api/comments/${P}/replies`, postService, 'listReplies'],
-  ] as const)('GET %s works anonymously', async (url, service, fn) => {
+  ] as const)('GET %s works for a signed-in member and not for a visitor', async (url, service, fn) => {
     const spy = jest.spyOn(service as any, fn).mockResolvedValue(page);
-    const res = await api().get(url);
+    expect((await api().get(url)).status).toBe(401);
+    expect(spy).not.toHaveBeenCalled();
+
+    const { header } = authAs('MEMBER');
+    const res = await api().get(url).set('Authorization', header);
     expect(res.status).toBe(200);
     expect(res.body.data).toEqual(page);
     expect(spy).toHaveBeenCalled();
   });
 
-  it('POST /api/posts/:id/view counts for members and accepts anonymous calls', async () => {
+  it('POST /api/posts/:id/view counts for members only', async () => {
     const spy = jest.spyOn(postService, 'recordView').mockResolvedValue({ views: 3 });
     const anon = await api().post(`/api/posts/${P}/view`);
-    expect(anon.status).toBe(200);
-    expect(spy.mock.calls[0]).toEqual([P, undefined]);
+    expect(anon.status).toBe(401);
+    expect(spy).not.toHaveBeenCalled();
 
     const { header, user } = authAs('MEMBER');
     await api().post(`/api/posts/${P}/view`).set('Authorization', header);
-    expect(spy.mock.calls[1][1]).toMatchObject({ id: user.id });
+    expect(spy.mock.calls[0][1]).toMatchObject({ id: user.id });
   });
 
   it('forwards service errors with their status', async () => {

@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { networkApi, getApiErrorMessage } from '@/lib/api';
-import { readConnections, readRequests, type ConnectionEntry, type RequestEntry } from '@/lib/people';
+import { readConnections, readRequests, readRequestsPaging, type ConnectionEntry, type PageInfo, type RequestEntry } from '@/lib/people';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
@@ -22,9 +22,14 @@ import { useToast } from '@/hooks/use-toast';
 import { getInitials } from '@/lib/utils';
 import { useRouter } from 'next/navigation';
 
+/** Pending requests are fetched this many at a time (the server returns at most 100). */
+const REQUESTS_PAGE_SIZE = 20;
+
 export default function NetworkPage() {
   const [connections, setConnections] = useState<ConnectionEntry[]>([]);
   const [requests, setRequests] = useState<RequestEntry[]>([]);
+  const [requestsPaging, setRequestsPaging] = useState<PageInfo | null>(null);
+  const [loadingMoreRequests, setLoadingMoreRequests] = useState(false);
   const [suggestions, setSuggestions] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
@@ -39,12 +44,13 @@ export default function NetworkPage() {
     try {
       const [connRes, reqRes, sugRes] = await Promise.all([
         networkApi.getConnections(),
-        networkApi.getPendingRequests(),
+        networkApi.getPendingRequests({ type: 'received', page: 1, limit: REQUESTS_PAGE_SIZE }),
         networkApi.getSuggestions(12)
       ]);
       // /network/connections is { data: [...], pagination }; /network/requests is { data: { received, sent } }
       setConnections(readConnections(connRes.data));
       setRequests(readRequests(reqRes.data).received);
+      setRequestsPaging(readRequestsPaging(reqRes.data).received);
       setSuggestions(sugRes.data.data || []);
     } catch (error) {
       console.error('Failed to fetch network data:', error);
@@ -55,6 +61,22 @@ export default function NetworkPage() {
       });
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadMoreRequests = async () => {
+    if (!requestsPaging?.hasNextPage || loadingMoreRequests) return;
+    setLoadingMoreRequests(true);
+    try {
+      const res = await networkApi.getPendingRequests({ type: 'received', page: requestsPaging.page + 1, limit: REQUESTS_PAGE_SIZE });
+      const more = readRequests(res.data).received;
+      // Requests answered meanwhile shift the pages: never show the same person twice
+      setRequests((prev) => [...prev, ...more.filter((entry) => !prev.some((known) => known.id === entry.id))]);
+      setRequestsPaging(readRequestsPaging(res.data).received);
+    } catch (error) {
+      toast({ variant: 'destructive', title: 'Error', description: getApiErrorMessage(error, 'Failed to load more requests.') });
+    } finally {
+      setLoadingMoreRequests(false);
     }
   };
 
@@ -123,7 +145,7 @@ export default function NetworkPage() {
           <TabsTrigger value="requests" className="relative">
             Requests
             {requests.length > 0 && (
-              <Badge variant="destructive" className="ml-2">{requests.length}</Badge>
+              <Badge variant="destructive" className="ml-2">{requestsPaging?.total ?? requests.length}</Badge>
             )}
           </TabsTrigger>
           <TabsTrigger value="suggestions">Suggestions</TabsTrigger>
@@ -195,6 +217,12 @@ export default function NetworkPage() {
                   </CardContent>
                 </Card>
               ))}
+              {requestsPaging?.hasNextPage && (
+                <Button variant="outline" onClick={loadMoreRequests} disabled={loadingMoreRequests} className="justify-self-center">
+                  {loadingMoreRequests && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                  Load more
+                </Button>
+              )}
             </div>
           ) : (
             <Card className="py-12 text-center">

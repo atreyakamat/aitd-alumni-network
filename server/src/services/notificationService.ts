@@ -3,6 +3,7 @@ import { AppError } from '../middleware/errorHandler';
 import { paginationHelper, buildPaginationResponse } from '../utils/helpers';
 import { NotificationType } from '@prisma/client';
 import { emitToUser } from '../utils/socket';
+import { log } from '../utils/logger';
 
 export class NotificationService {
   async getNotifications(userId: string, page: number = 1, limit: number = 20, unreadOnly: boolean = false) {
@@ -95,7 +96,7 @@ export class NotificationService {
     try {
       emitToUser(data.userId, 'new_notification', notification);
     } catch (error) {
-      console.warn('Failed to emit notification:', error);
+      log.warn('Failed to emit notification', { userId: data.userId, err: error });
     }
 
     return notification;

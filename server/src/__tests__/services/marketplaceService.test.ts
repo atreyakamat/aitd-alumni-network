@@ -1,4 +1,4 @@
-import { marketplaceService } from '../../services/marketplaceService';
+import { marketplaceService, MAX_OWN_LISTINGS } from '../../services/marketplaceService';
 import { prismaMock } from '../../../tests/helpers';
 
 const owner = { id: 'u1', userRole: 'MEMBER' as const };
@@ -231,6 +231,7 @@ describe('marketplaceService', () => {
       expect(prismaMock.marketplaceListing.findMany).toHaveBeenCalledWith({
         where: { userId: 'u1' },
         orderBy: { createdAt: 'desc' },
+        take: MAX_OWN_LISTINGS,
       });
     });
 

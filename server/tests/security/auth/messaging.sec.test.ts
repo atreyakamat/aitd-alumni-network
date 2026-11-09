@@ -85,7 +85,7 @@ describe('AU-07: message-request fan-out', () => {
     const strangers = await Promise.all(
       Array.from({ length: MAX_MESSAGE_REQUESTS_PER_DAY + 1 }, () =>
         prisma.user.create({
-          data: { email: uniqueEmail('stranger'), fullName: 'Stranger', batchYear: 2010, department: 'X', degree: 'Y' },
+          data: { email: uniqueEmail('stranger'), fullName: 'Stranger', batchYear: 2010, department: 'X', degree: 'Y', approvalStatus: 'APPROVED' },
         })
       )
     );

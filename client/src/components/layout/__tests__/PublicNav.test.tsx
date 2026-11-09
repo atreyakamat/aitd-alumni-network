@@ -10,18 +10,31 @@ vi.mock('next/navigation', () => ({
 
 import { PublicNav } from '@/components/layout/PublicNav';
 
-describe('PublicNav auth links', () => {
-  it('carries the current public page to both "Sign In" and "Join Now"', () => {
-    pathname = '/events/42';
-    render(<PublicNav />);
-    expect(screen.getByRole('link', { name: 'Sign In' })).toHaveAttribute('href', '/login?next=%2Fevents%2F42');
-    expect(screen.getByRole('link', { name: 'Join Now' })).toHaveAttribute('href', '/register?next=%2Fevents%2F42');
-  });
-
-  it('uses plain links on non-public pages', () => {
+describe('PublicNav (the landing page header of a private platform)', () => {
+  it('offers sign in and registration, as plain links', () => {
     pathname = '/';
     render(<PublicNav />);
     expect(screen.getByRole('link', { name: 'Sign In' })).toHaveAttribute('href', '/login');
     expect(screen.getByRole('link', { name: 'Join Now' })).toHaveAttribute('href', '/register');
+    expect(screen.getByRole('link', { name: /aiem connection/i })).toHaveAttribute('href', '/');
+  });
+
+  it('does not carry a return path: there is no public page to return to', () => {
+    pathname = '/events/42';
+    render(<PublicNav />);
+    expect(screen.getByRole('link', { name: 'Sign In' })).toHaveAttribute('href', '/login');
+    expect(screen.getByRole('link', { name: 'Join Now' })).toHaveAttribute('href', '/register');
+  });
+
+  it.each(['Events', 'Gallery', 'News', 'Donate', 'Chapters'])('has no "%s" link: that section needs an account now', (label) => {
+    render(<PublicNav />);
+    expect(screen.queryByRole('link', { name: label })).not.toBeInTheDocument();
+  });
+
+  it('has no search box: search is for members', () => {
+    render(<PublicNav />);
+    expect(screen.queryByRole('search')).not.toBeInTheDocument();
+    expect(screen.queryByRole('searchbox')).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'Search' })).not.toBeInTheDocument();
   });
 });

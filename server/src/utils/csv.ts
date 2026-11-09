@@ -21,12 +21,15 @@ const formatCell = (raw: unknown): string => {
   return text;
 };
 
-export const toCsv = <T>(rows: T[], columns: CsvColumn<T>[]): string => {
-  const header = columns.map((c) => formatCell(c.header)).join(',');
-  const body = rows.map((row) =>
-    columns
-      .map((c) => formatCell(c.value ? c.value(row) : c.key ? (row as any)[c.key] : undefined))
-      .join(',')
-  );
-  return [header, ...body].join('\r\n');
-};
+/** One value as a CSV cell: quoted when needed and neutralised against spreadsheet formula injection. */
+export const csvCell = (value: unknown): string => formatCell(value);
+
+/** The header line (no line terminator): the first line of a CSV, also when the rest is streamed. */
+export const csvHeaderLine = <T>(columns: CsvColumn<T>[]): string => columns.map((c) => formatCell(c.header)).join(',');
+
+/** One record (no line terminator). Lines are joined with CRLF; there is no trailing newline. */
+export const csvRowLine = <T>(row: T, columns: CsvColumn<T>[]): string =>
+  columns.map((c) => formatCell(c.value ? c.value(row) : c.key ? (row as any)[c.key] : undefined)).join(',');
+
+export const toCsv = <T>(rows: T[], columns: CsvColumn<T>[]): string =>
+  [csvHeaderLine(columns), ...rows.map((row) => csvRowLine(row, columns))].join('\r\n');

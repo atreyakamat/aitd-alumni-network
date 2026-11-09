@@ -25,6 +25,7 @@
     "contract:inventory": "tsx scripts/extract-client-contract.ts",
     "preflight": "tsx scripts/preflight.ts",
     "secrets": "tsx scripts/secrets.ts",
+    "uploads:cleanup": "tsx scripts/cleanup-orphan-uploads.ts",
     "verify:deploy": "node scripts/verify-deployment.mjs",
     "test:all": "npm run test:unit && npm run test:integration && npm run test:security && npm run test:contract",
     "typecheck": "tsc -p tsconfig.test.json",

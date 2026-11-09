@@ -2,7 +2,14 @@ jest.mock('../../services/notificationService', () => ({
   notificationService: { createNotification: jest.fn().mockResolvedValue(undefined) },
 }));
 
-import { postService, POST_CONTENT_MAX_LENGTH, COMMENT_CONTENT_MAX_LENGTH, MAX_MEDIA_URLS } from '../../services/postService';
+import {
+  postService,
+  POST_CONTENT_MAX_LENGTH,
+  COMMENT_CONTENT_MAX_LENGTH,
+  MAX_MEDIA_URLS,
+  MAX_DETAIL_COMMENTS,
+  MAX_REPLIES_PER_COMMENT,
+} from '../../services/postService';
 import { notificationService } from '../../services/notificationService';
 import { prismaMock } from '../../../tests/helpers';
 import { arrangeViewer, commentRow, OTHER, OWNER, postRow, THIRD } from '../../../tests/helpers/social';
@@ -82,6 +89,17 @@ describe('postService', () => {
         viewer: { reaction: 'CELEBRATE', isAuthor: false },
         comments: [{ id: 'c1', replies: [] }],
       });
+    });
+
+    it('bounds the v1 comment tree: the latest top-level comments and a capped number of replies each', async () => {
+      prismaMock.post.findUnique.mockResolvedValue(postRow());
+      prismaMock.postComment.findMany.mockResolvedValue([]);
+      await postService.getPost('p1', { id: OTHER });
+      const args = prismaMock.postComment.findMany.mock.calls[0][0];
+      expect(args.take).toBe(MAX_DETAIL_COMMENTS);
+      expect(args.orderBy).toEqual({ createdAt: 'desc' });
+      expect(args.include.replies.take).toBe(MAX_REPLIES_PER_COMMENT);
+      expect(args.include.replies.orderBy).toEqual({ createdAt: 'asc' });
     });
 
     it('returns isLiked=false for anonymous viewers without querying their reactions', async () => {

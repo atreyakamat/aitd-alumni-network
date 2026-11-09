@@ -44,6 +44,21 @@ describe('reactionService.reactToPost', () => {
     );
   });
 
+  it('react, un-react, react again does not notify the author a second time within a day', async () => {
+    prismaMock.postLike.findUnique.mockResolvedValue(null);
+    prismaMock.postLike.groupBy.mockResolvedValue([{ type: 'LIKE', _count: { _all: 1 } }]);
+    prismaMock.notification.findFirst.mockResolvedValue({ id: 'n-earlier' });
+
+    await reactionService.reactToPost({ id: OTHER }, 'p1', 'LIKE');
+
+    expect(createNotification).not.toHaveBeenCalled();
+    expect(prismaMock.notification.findFirst.mock.calls[0][0].where).toMatchObject({
+      userId: OWNER,
+      type: 'POST_REACTED',
+      AND: [{ metadata: { path: ['postId'], equals: 'p1' } }, { metadata: { path: ['reactorId'], equals: OTHER } }],
+    });
+  });
+
   it('changes an existing reaction without notifying again', async () => {
     prismaMock.postLike.findUnique.mockResolvedValue({ type: 'LIKE' });
     prismaMock.postLike.groupBy.mockResolvedValue([{ type: 'LOVE', _count: { _all: 1 } }]);
@@ -159,6 +174,21 @@ describe('reactionService.reactToComment', () => {
         link: '/posts/p1#comment-c1',
       })
     );
+  });
+
+  it('does not notify the comment author again for a reaction the same member already gave within a day', async () => {
+    prismaMock.commentReaction.findUnique.mockResolvedValue(null);
+    prismaMock.commentReaction.count.mockResolvedValue(1);
+    prismaMock.notification.findFirst.mockResolvedValue({ id: 'n-earlier' });
+
+    await reactionService.reactToComment({ id: OTHER }, 'c1', 'LIKE');
+
+    expect(createNotification).not.toHaveBeenCalled();
+    expect(prismaMock.notification.findFirst.mock.calls[0][0].where).toMatchObject({
+      userId: OWNER,
+      type: 'COMMENT_REACTED',
+      AND: [{ metadata: { path: ['commentId'], equals: 'c1' } }, { metadata: { path: ['reactorId'], equals: OTHER } }],
+    });
   });
 
   it('changes or removes an existing reaction without notifying', async () => {

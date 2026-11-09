@@ -354,18 +354,27 @@ describe('payment routes', () => {
     expect(prismaMock.transaction.create).not.toHaveBeenCalled();
   });
 
-  it('POST /api/donations/order returns 503 for guests without Razorpay keys', async () => {
+  it('POST /api/donations/order returns 503 when Razorpay keys are missing', async () => {
     config.razorpay.keyId = '';
     config.razorpay.keySecret = '';
-    const res = await api().post('/api/donations/order').send({ amount: 100 });
+    const { header } = authAs('MEMBER');
+    const res = await api().post('/api/donations/order').set('Authorization', header).send({ amount: 100 });
     expect(res.status).toBe(503);
     expect(res.body.error.code).toBe('PAYMENT_NOT_CONFIGURED');
   });
 
   it('POST /api/donations/order validates the amount before touching Razorpay', async () => {
-    const res = await api().post('/api/donations/order').send({ amount: 0 });
+    const { header } = authAs('MEMBER');
+    const res = await api().post('/api/donations/order').set('Authorization', header).send({ amount: 0 });
     expect(res.status).toBe(400);
     expect(res.body.error.code).toBe('VALIDATION_ERROR');
+  });
+
+  it('donating needs an approved member account (no anonymous payment endpoint on a private platform)', async () => {
+    await api().post('/api/donations/order').send({ amount: 100 }).expect(401);
+    await api().post('/api/donations/verify').send({}).expect(401);
+    const { header } = authAs('MEMBER', { approvalStatus: 'PENDING' });
+    await api().post('/api/donations/order').set('Authorization', header).send({ amount: 100 }).expect(403);
   });
 
   it('POST /api/memberships/verify requires authentication', async () => {

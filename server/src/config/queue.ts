@@ -1,5 +1,6 @@
 import { Queue } from 'bullmq';
 import IORedis from 'ioredis';
+import { log } from '../utils/logger';
 
 /**
  * Background job queue (BullMQ) for broadcast notifications.
@@ -30,10 +31,11 @@ export const digestQueue: Queue | null = queueConnection
   : null;
 
 if (notificationQueue) {
-  notificationQueue.on('error', (err) => console.error('Notification queue error:', err.message));
+  // Connection errors repeat on every retry: the message is enough, a stack adds nothing
+  notificationQueue.on('error', (err) => log.error('Notification queue error', { error: err.message }));
 }
 if (digestQueue) {
-  digestQueue.on('error', (err) => console.error('Digest queue error:', err.message));
+  digestQueue.on('error', (err) => log.error('Digest queue error', { error: err.message }));
 }
 
 export default notificationQueue;

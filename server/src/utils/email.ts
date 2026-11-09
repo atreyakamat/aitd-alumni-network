@@ -171,18 +171,19 @@ export const sendPasswordResetEmail = async (
   });
 };
 
+/** Sent when an administrator has approved the registration: this is the moment the account becomes usable. */
 export const sendWelcomeEmail = async (
   email: string,
   name: string
 ): Promise<void> => {
   await sendEmail({
     to: email,
-    subject: 'Welcome to AIEM Connection!',
+    subject: 'Your AIEM Connection registration is approved',
     html: `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
         <h1 style="color: #0B2A5B;">Welcome to AIEM Connection!</h1>
         <p>Hi ${escapeEmailHtml(name)},</p>
-        <p>Your email has been verified and your account is now active.</p>
+        <p>An administrator has checked your registration and approved it. You can sign in now.</p>
         <p>Here's what you can do:</p>
         <ul>
           <li>Complete your profile to connect with other alumni</li>
@@ -191,10 +192,10 @@ export const sendWelcomeEmail = async (
           <li>Find career opportunities</li>
           <li>Join events and chapters</li>
         </ul>
-        <a href="${config.frontendUrl}/dashboard" 
+        <a href="${config.frontendUrl}/login" 
            style="display: inline-block; background-color: #0B2A5B; color: white; padding: 12px 24px; 
                   text-decoration: none; border-radius: 6px; margin: 20px 0;">
-          Go to Dashboard
+          Sign in
         </a>
         <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;" />
         <p style="color: #999; font-size: 12px;">
@@ -205,7 +206,44 @@ export const sendWelcomeEmail = async (
   });
 };
 
-/** Security notice after a signed-in password change (all other sessions were signed out). */
+/** Sent once the e-mail address is verified: the registration now waits for an administrator. */
+export const sendApplicationReceivedEmail = async (email: string, name: string): Promise<void> => {
+  await sendEmail({
+    to: email,
+    subject: 'We received your AIEM Connection registration',
+    html: `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <h1 style="color: #0B2A5B;">Your registration is being reviewed</h1>
+        <p>Hi ${escapeEmailHtml(name)},</p>
+        <p>Thank you for verifying your e-mail address. AIEM Connection is for alumni of the college only, so an
+        administrator checks every registration before it is approved.</p>
+        <p>You do not need to do anything. We will e-mail you as soon as the review is done; you can sign in after that.</p>
+        <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;" />
+        <p style="color: #999; font-size: 12px;">© AIEM Connection. All rights reserved.</p>
+      </div>
+    `,
+  });
+};
+
+/** Sent when an administrator did not approve the registration. The reason is the administrator's own words, so it is escaped. */
+export const sendRejectionEmail = async (email: string, name: string, reason: string): Promise<void> => {
+  await sendEmail({
+    to: email,
+    subject: 'Your AIEM Connection registration was not approved',
+    html: `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <h1 style="color: #0B2A5B;">Your registration was not approved</h1>
+        <p>Hi ${escapeEmailHtml(name)},</p>
+        <p>An administrator reviewed your registration and could not approve it.</p>
+        <p style="background: #f6f7f9; padding: 12px 16px; border-radius: 6px;">${escapeEmailHtml(reason)}</p>
+        <p>If you think this is a mistake, reply to the alumni office with the details that show you studied at the college.</p>
+        <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;" />
+        <p style="color: #999; font-size: 12px;">© AIEM Connection. All rights reserved.</p>
+      </div>
+    `,
+  });
+};
+
 export const sendPasswordChangedEmail = async (email: string, name: string): Promise<void> => {
   const resetUrl = `${config.frontendUrl}/forgot-password`;
   await sendEmail({

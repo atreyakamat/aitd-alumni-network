@@ -19,6 +19,8 @@ interface CreateListingInput {
 }
 
 const MAX_LISTING_IMAGES = 8;
+/** "My listings" shows the newest this many. */
+export const MAX_OWN_LISTINGS = 200;
 
 /** Keep only valid string URLs, capped at MAX_LISTING_IMAGES. Returns undefined to leave unchanged. */
 const sanitizeImages = (value: unknown): string[] | undefined => {
@@ -270,6 +272,7 @@ export class MarketplaceService {
     return prisma.marketplaceListing.findMany({
       where: { userId },
       orderBy: { createdAt: 'desc' },
+      take: MAX_OWN_LISTINGS,
     });
   }
 

@@ -30,6 +30,36 @@ describe('auth validators', () => {
       if (result.success) expect(result.data.body.email).toBe('alum@aitd.edu');
     });
 
+    describe('what the applicant tells the reviewer', () => {
+      it('accepts an enrolment number and a note, trimmed', () => {
+        const result = parseRegister({ enrollmentNumber: '  12CE045 ', verificationNote: ' Class of 2015 ' });
+        expect(result.success).toBe(true);
+        if (result.success) {
+          expect(result.data.body.enrollmentNumber).toBe('12CE045');
+          expect(result.data.body.verificationNote).toBe('Class of 2015');
+        }
+      });
+
+      it('both are optional', () => {
+        expect(parseRegister().success).toBe(true);
+      });
+
+      it('limits their length', () => {
+        expect(parseRegister({ enrollmentNumber: 'x'.repeat(51) }).success).toBe(false);
+        expect(parseRegister({ verificationNote: 'x'.repeat(1001) }).success).toBe(false);
+      });
+
+      it('cannot be used to choose the approval state or the role', () => {
+        const result = parseRegister({ approvalStatus: 'APPROVED', isVerified: true, userRole: 'SUPER_ADMIN' });
+        expect(result.success).toBe(true);
+        if (result.success) {
+          expect(result.data.body).not.toHaveProperty('approvalStatus');
+          expect(result.data.body).not.toHaveProperty('isVerified');
+          expect(result.data.body).not.toHaveProperty('userRole');
+        }
+      });
+    });
+
     it.each([
       ['too short', 'Ab1'],
       ['no digit', 'NoDigitsHere'],

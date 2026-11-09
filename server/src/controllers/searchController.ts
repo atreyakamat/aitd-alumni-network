@@ -199,7 +199,7 @@ export const searchController = {
         },
       });
     } catch (error) {
-      console.error('Global search error:', error);
+      // the error handler logs it with the request id
       next(error);
     }
   },

@@ -237,7 +237,7 @@ export const adminController = {
         },
       });
     } catch (error) {
-      console.error('Error fetching admin stats:', error);
+      // the error handler logs it with the request id
       next(error);
     }
   },

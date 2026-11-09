@@ -3,6 +3,7 @@ import { AppError } from '../middleware/errorHandler';
 import { calculateProfileCompleteness, paginationHelper, buildPaginationResponse, ilike } from '../utils/helpers';
 import { Prisma, RoleType } from '@prisma/client';
 import { deleteFromStorage, isManagedStorageUrl } from '../utils/storage';
+import { log } from '../utils/logger';
 
 interface UpdateProfileInput {
   fullName?: string;
@@ -108,7 +109,20 @@ const PROFILE_WRITABLE_FIELDS = [
 const PHONE_VISIBILITY = ['PUBLIC', 'CONNECTIONS', 'PRIVATE'];
 
 // Fields only the profile owner may see.
-const OWNER_ONLY_FIELDS = ['twoFactorEnabled', 'lastLoginAt', 'emailVerifiedAt'] as const;
+const OWNER_ONLY_FIELDS = [
+  'twoFactorEnabled',
+  'lastLoginAt',
+  'emailVerifiedAt',
+  // What the applicant told the reviewer and what the reviewer decided: personal data, administrators only (and the owner)
+  'enrollmentNumber',
+  'verificationNote',
+  'approvalStatus',
+  'approvalNote',
+  'approvalReviewedAt',
+  'approvalReviewedById',
+] as const;
+// Never leaves the server, not even to the owner
+const NEVER_EXPOSED_FIELDS = ['tokenVersion'] as const;
 // Contact e-mails are hidden from anonymous (logged-out) viewers.
 const AUTHENTICATED_ONLY_FIELDS = ['email', 'secondaryEmail'] as const;
 
@@ -250,7 +264,8 @@ const toMapAlumnus = (row: MapAlumniRow) => {
 export class UserService {
   async getProfile(userId: string, viewerId?: string) {
     const user = await prisma.user.findUnique({
-      where: { id: userId },
+      // A registration that is still waiting for approval has no profile page
+      where: { id: userId, approvalStatus: 'APPROVED' },
       include: {
         membershipTier: true,
         workExperiences: {
@@ -323,6 +338,7 @@ export class UserService {
 
     const showPreciseLocation = isOwnProfile || user.isLocationPublic;
 
+    for (const field of NEVER_EXPOSED_FIELDS) delete profile[field];
     if (!isOwnProfile) {
       for (const field of OWNER_ONLY_FIELDS) delete profile[field];
       if (!viewerId) {
@@ -1100,7 +1116,7 @@ export class UserService {
       try {
         await deleteFromStorage(previous);
       } catch (error) {
-        console.warn(`Failed to delete old ${field}:`, error);
+        log.warn('Failed to delete the replaced file', { field, err: error });
       }
     }
 

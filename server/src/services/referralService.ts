@@ -47,7 +47,7 @@ export class ReferralService {
     if (!company) throw new AppError('A company is required', 400, 'VALIDATION_ERROR');
     if (!message) throw new AppError('A message is required', 400, 'VALIDATION_ERROR');
 
-    const target = await prisma.user.findUnique({ where: { id: targetId }, select: { id: true, isActive: true } });
+    const target = await prisma.user.findUnique({ where: { id: targetId, approvalStatus: 'APPROVED' }, select: { id: true, isActive: true } });
     if (!target || !target.isActive) throw new AppError('Member not found', 404, 'NOT_FOUND');
 
     if (company.length > 200) throw new AppError('Company must be at most 200 characters', 400, 'VALIDATION_ERROR');

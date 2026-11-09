@@ -1,26 +1,20 @@
 /**
- * Sections of the (main) app that anonymous visitors may browse (PRD 6.1).
- * Everything else under (main) requires a session and redirects to /login.
+ * The platform is PRIVATE: no section of the (main) app is open to visitors. Everything there (events, gallery, news,
+ * donations, chapters, search, shared post links, profiles ...) needs a signed-in, APPROVED member; a visitor who opens
+ * such a link is sent to /login?next=<that link> and lands on it after signing in.
+ *
+ * These lists are kept (empty) so that the single place that classifies a path stays one place, and so that opening a
+ * section to the public again is a deliberate, reviewed edit with a failing test (route-access.test.ts pins both lists
+ * to empty). The only pages visitors may use are the landing page and the pages in OPEN_PATH_PREFIXES below.
  */
-export const PUBLIC_SECTIONS = [
-  { href: '/events', label: 'Events' },
-  { href: '/gallery', label: 'Gallery' },
-  { href: '/news', label: 'News' },
-  { href: '/donations', label: 'Donate' },
-  { href: '/chapters', label: 'Chapters' },
-] as const;
+export const PUBLIC_SECTIONS: readonly { readonly href: string; readonly label: string }[] = [];
 
-/**
- * Shareable post links (`/posts/<id>`) open for anonymous visitors too; the API decides what they
- * may see (public posts only). So does `/search`: the API answers visitors with public content only
- * (events, news, chapters) and the page tells them to sign in for the rest. Neither is a nav section,
- * so they are not in PUBLIC_SECTIONS.
- */
-export const PUBLIC_DEEP_LINK_PREFIXES = ['/posts', '/search'] as const;
+/** Deep links (shared posts, search ...) that open for visitors. None: a shared link now asks for a sign-in first. */
+export const PUBLIC_DEEP_LINK_PREFIXES: readonly string[] = [];
 
 export const PUBLIC_PATH_PREFIXES: readonly string[] = [...PUBLIC_SECTIONS.map((s) => s.href), ...PUBLIC_DEEP_LINK_PREFIXES];
 
-/** True when `pathname` is a public section or nested under one (segment-prefix match). */
+/** True when `pathname` is a public section or nested under one (segment-prefix match). Always false while the lists are empty. */
 export function isPublicPath(pathname: string | null | undefined): boolean {
   if (!pathname) return false;
   const path = pathname.split(/[?#]/)[0].replace(/\/+$/, '') || '/';
@@ -69,7 +63,8 @@ export function buildRegisterHref(nextPath?: string | null): string {
 
 /**
  * Pages that live OUTSIDE the (main) route group and are open to everyone: the landing page,
- * the auth screens (they must be reachable without a session) and the legal pages.
+ * the auth screens (they must be reachable without a session) and the legal and contact pages.
+ * This, plus the landing page, is the WHOLE allow-list of the private platform.
  * Keep in sync with `src/app/(auth)`, `src/app/(legal)` and `src/app/page.tsx`;
  * `route-access.test.ts` scans the app directory and fails if a route is missing here.
  */
@@ -91,8 +86,8 @@ const matchesPrefix = (path: string, prefixes: readonly string[]) =>
   prefixes.some((prefix) => path === prefix || path.startsWith(`${prefix}/`));
 
 /**
- * True for every page that needs a session: i.e. anything that is not the landing page, not an
- * auth/legal page and not a PUBLIC_PATH_PREFIXES section. Fail-closed: an unknown path counts as
+ * True for every page that needs a session: i.e. anything that is not the landing page and not an
+ * auth/legal page (and not a PUBLIC_PATH_PREFIXES section, of which there are none). Fail-closed: an unknown path counts as
  * member-only, so a new (main) route is protected by default. Static assets never reach this
  * (the middleware matcher skips them).
  */

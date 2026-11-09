@@ -14,9 +14,11 @@ import { Label } from '@/components/ui/label';
 import { useAuth } from '@/context/auth-context';
 import { useToast } from '@/hooks/use-toast';
 import { Eye, EyeOff, Loader2, ShieldCheck } from 'lucide-react';
-import { api, authApi, twoFactorApi, isTwoFactorChallenge, getApiErrorCode, getApiErrorMessage } from '@/lib/api';
+import { api, authApi, twoFactorApi, isTwoFactorChallenge, getApiErrorCode, getApiErrorMessage, getApprovalState, type ApprovalState } from '@/lib/api';
 import { getAuthErrorMessage, shouldRestart2FA } from '@/lib/auth';
 import { buildRegisterHref, getSafeNextPath } from '@/lib/public-paths';
+import { parseApprovalParam } from '@/lib/approval';
+import { ApprovalNotice } from '@/components/auth/ApprovalNotice';
 
 const loginSchema = z.object({
   email: z.string().email('Please enter a valid email'),
@@ -48,6 +50,9 @@ function LoginContent() {
   const code = searchParams?.get('code');
   const oauthProvider = searchParams?.get('oauth');
   const isNewUser = searchParams?.get('newUser');
+  // Why the platform will not let this person in: an administrator has not approved the registration (yet), or has not approved
+  // it at all. Set by a refused sign-in below, or by ?approval= when a running session was ended because the approval was taken back.
+  const [approvalNotice, setApprovalNotice] = useState<ApprovalState | null>(() => parseApprovalParam(searchParams?.get('approval')));
   // Where to go after signing in; only same-origin relative paths are honoured (handles both ?next= and ?redirect=).
   const afterLoginPath = getSafeNextPath(searchParams?.get('next') ?? searchParams?.get('redirect')) ?? '/dashboard';
 
@@ -130,7 +135,13 @@ function LoginContent() {
               : `Welcome back! Logged in via ${provider || 'OAuth'}.`;
           toast({ title: newUser === 'true' ? 'Welcome!' : 'Welcome back!', description: message });
           router.replace(afterLoginPath);
-        } catch {
+        } catch (error) {
+          const approval = getApprovalState(error);
+          if (approval) {
+            // The provider proved the mailbox, not that the person is an alumnus: show the notice, not an error
+            setApprovalNotice(approval);
+            return;
+          }
           toast({
             variant: 'destructive',
             title: 'Login Failed',
@@ -166,6 +177,7 @@ function LoginContent() {
 
   const onSubmit = async (data: LoginFormData) => {
     setIsLoading(true);
+    setApprovalNotice(null);
     try {
       const response = await authApi.login(data);
       const result = response.data.data;
@@ -187,6 +199,12 @@ function LoginContent() {
         router.push(afterLoginPath);
       }
     } catch (error: any) {
+      const approval = getApprovalState(error);
+      if (approval) {
+        setUnverifiedEmail(null);
+        setApprovalNotice(approval);
+        return;
+      }
       if (getApiErrorCode(error) === 'EMAIL_NOT_VERIFIED') {
         setUnverifiedEmail(data.email);
         setResendNotice(null);
@@ -244,6 +262,15 @@ function LoginContent() {
       });
       router.push(afterLoginPath);
     } catch (error: any) {
+      const approval = getApprovalState(error);
+      if (approval) {
+        // Back to the sign-in form, where the notice is: there is no session to finish
+        setRequires2FA(false);
+        setTwoFactorToken(null);
+        setOtpCode('');
+        setApprovalNotice(approval);
+        return;
+      }
       toast({
         variant: 'destructive',
         title: 'Verification Failed',
@@ -438,9 +465,15 @@ function LoginContent() {
             </Link>
           </div>
 
-          {registered && (
+          {approvalNotice && <ApprovalNotice state={approvalNotice} className="mb-6" />}
+
+          {registered && !approvalNotice && (
             <div className="mb-6 rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-green-700 font-body">
-              Registration successful! Please check your email to verify your account.
+              <p className="font-medium">Registration received.</p>
+              <p className="mt-1 text-sm">
+                Verify your e-mail with the link we sent you. An administrator then checks that you are an alumnus of the college;
+                you can sign in as soon as you are approved, and we will tell you by e-mail.
+              </p>
             </div>
           )}
 

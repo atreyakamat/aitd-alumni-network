@@ -8,6 +8,7 @@ import {
   MIN_AUDIT_RETENTION_DAYS,
 } from '../../services/auditService';
 import { AppError } from '../../middleware/errorHandler';
+import { log } from '../../utils/logger';
 
 const DAY = 24 * 60 * 60 * 1000;
 
@@ -55,6 +56,32 @@ describe('logAuditAction', () => {
     await expect(logAuditAction(undefined as any)).resolves.toBeNull();
     await expect(logAuditAction({ entityType: 'POST' } as any)).resolves.toBeNull();
     expect(prismaMock.auditLog.create).not.toHaveBeenCalled();
+  });
+
+  it('reports a failed write through the structured logger, with the identifying fields only', async () => {
+    const error = jest.spyOn(log, 'error').mockImplementation(() => undefined);
+    try {
+      const failure = new Error('db down');
+      prismaMock.auditLog.create.mockRejectedValue(failure);
+      await logAuditAction({ action: 'DELETE', entityType: 'POST', entityId: 'p1', oldValues: { email: 'a@b.test' } });
+      expect(error).toHaveBeenCalledTimes(1);
+      const [message, fields] = error.mock.calls[0];
+      expect(message).toBe('Failed to create audit log');
+      expect(fields).toEqual({ action: 'DELETE', entityType: 'POST', entityId: 'p1', err: failure });
+    } finally {
+      error.mockRestore();
+    }
+  });
+
+  it('never writes the old/new values of an incomplete entry to the log', async () => {
+    const error = jest.spyOn(log, 'error').mockImplementation(() => undefined);
+    try {
+      await logAuditAction({ entityType: 'POST', newValues: { email: 'a@b.test' } } as any);
+      expect(error).toHaveBeenCalledWith('Refusing to write incomplete audit log entry', expect.any(Object));
+      expect(JSON.stringify(error.mock.calls)).not.toContain('a@b.test');
+    } finally {
+      error.mockRestore();
+    }
   });
 });
 

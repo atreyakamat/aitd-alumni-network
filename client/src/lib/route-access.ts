@@ -9,7 +9,8 @@ export type AccessDecision = { action: 'next' } | { action: 'redirect'; location
  * members-only app shell from being served to visitors who never signed in; the API and the client
  * layout (after `/auth/me`) remain the real authorization.
  *
- * Anonymous request to a member-only path -> 307 to `/login?next=<safe path>`.
+ * Anonymous request to a member-only path -> 307 to `/login?next=<safe path>`. Member-only means every path except the landing page
+ * and OPEN_PATH_PREFIXES (auth, legal and contact pages): the platform is private.
  */
 export function decideAccess(input: { pathname: string; search?: string; hasSessionHint: boolean }): AccessDecision {
   const { pathname, search = '', hasSessionHint } = input;

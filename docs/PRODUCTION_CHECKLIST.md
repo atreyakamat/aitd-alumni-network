@@ -108,6 +108,9 @@ Secrets and database-password checks still apply. Remove both lines for any real
   Every API response has an `X-Request-Id` and every request one access-log line (route pattern, status, duration, never the query string); set
   `LOG_LEVEL=warn` to keep only slow requests and errors. See [ROBUSTNESS.md](ROBUSTNESS.md).
   The audit log (`/api/admin/audit`) records security events (refresh-token reuse, role changes, deletions).
+* **Orphaned uploads (monthly):** `npm run uploads:cleanup -w server` is a dry run (the default) that lists local upload files nothing refers to
+  and that are older than 24 hours. Read the list, then run it again with `--delete`. Details and limits in
+  [ROBUSTNESS.md](ROBUSTNESS.md#cleaning-up-orphaned-uploads). Not needed when files live in S3 (use a bucket lifecycle rule instead).
 * **Logs** hold e-mail addresses and IPs: restrict access and set a retention period.
 * **Updates:** run `npm audit` on every release; patch releases of Next.js, Express and Prisma are routine, not optional.
 
@@ -140,6 +143,9 @@ that still behaves like a normal website. Revisit one only with the trigger give
 | 7 | Account deletion keeps some data | Unchanged and documented: sent messages, reactions and anonymised audit entries stay; the audit trail no longer keeps IP/user agent for deleted members | Stored files (photos) are not purged from storage | If your privacy policy promises full erasure |
 | 8 | Long-lived access tokens | **15 minutes** in production (was 24 h). The client refreshes automatically and sockets reconnect with the new token | none visible | n/a |
 | 9 | Next.js 14 advisories | **Gate for a public launch** (section 7) | See below | Before opening registration to the public |
+| 10 | Who may use the platform | **An administrator approves every registration** after checking that the person is an alumnus of the college (`approvalStatus`, [AUTHENTICATION.md](AUTHENTICATION.md#alumni-approval)). No session by any route until then; approving is refused for an unverified address while e-mail verification is on | Somebody has to work the queue: an unattended queue means nobody new gets in, and registrations wait indefinitely. Applicants are told by e-mail, so a working mail server is part of the process | If you want members admitted automatically (for example by college e-mail domain), change `approvalStatus` handling in `authService.register` in one place |
+| 11 | Anonymous access | **None except sign-in/registration, the landing page, its aggregate counts (`/users/stats`) and the admin-built landing blocks.** Events, news, gallery, chapters, jobs, search, profiles, posts, videos, magazine, requirements, marketplace, membership tiers and the donor wall all answer 401 to a visitor, and the pages redirect to sign-in | The public cannot see what the community does; shared post/event links open the sign-in page first | Re-open a section only by changing its route guard **and** `src/lib/public-paths.ts`; the RBAC matrix test fails until both agree |
+| 12 | Donating without an account | **Closed.** `POST /donations/order` and `/donations/verify` need an approved member. Guest orders opened earlier are still completed by their signed webhook | Outside donors cannot give through the site; they can be approved as members first | If outside giving matters, add a separate, rate-limited, CAPTCHA-protected public donation page; do not re-open the member routes |
 
 ## 7. Must be finished before a public launch
 
@@ -172,6 +178,10 @@ These are not configuration; they are engineering work. Do not open registration
 * CSP still needs `'unsafe-inline'` for scripts and styles (Next.js nonce support arrives with the upgrade).
 
 ## 9. After deploying
+
+**Approve the first members.** Sign in as the seeded administrator, open *Admin > Approvals*, and decide who may join. Check
+that the approval e-mail reaches a real mailbox before you tell members to register. Decide who works the queue (and how
+quickly) before launch; the summary on that page and `GET /api/admin/approvals/summary` show how many are waiting.
 
 ```bash
 npm run verify:deploy -w server -- --web https://alumni.example.edu

@@ -98,6 +98,26 @@ export function readRequests(body: any): { received: RequestEntry[]; sent: Reque
   return { received: requestEntries(data?.received), sent: requestEntries(data?.sent) };
 }
 
+/** Where a paged list stands: enough to show a total and to know whether "Load more" has anything to load. */
+export interface PageInfo {
+  total: number;
+  page: number;
+  hasNextPage: boolean;
+}
+
+const pageInfo = (raw: any): PageInfo | null =>
+  raw && typeof raw === 'object'
+    ? { total: Number(raw.total) || 0, page: Number(raw.page) || 1, hasNextPage: raw.hasNextPage === true }
+    : null;
+
+/**
+ * Page info of GET /network/requests (`pagination: { received, sent }`). `null` for a list the server did not page
+ * (the pre-pagination response, an error body, or the list that was not asked for).
+ */
+export function readRequestsPaging(body: any): { received: PageInfo | null; sent: PageInfo | null } {
+  return { received: pageInfo(body?.pagination?.received), sent: pageInfo(body?.pagination?.sent) };
+}
+
 /** `Class of 2018 • Computer Engineering`, skipping whatever is unknown. */
 export function batchLine(person: Pick<PersonView, 'batchYear' | 'department'>): string {
   return [person.batchYear ? `Class of ${person.batchYear}` : null, person.department].filter(Boolean).join(' • ');

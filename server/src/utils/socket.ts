@@ -3,7 +3,9 @@ import { Server as HttpServer } from 'http';
 import { verifyAccessToken } from './jwt';
 import prisma from '../config/database';
 import { isRevoked } from '../middleware/auth';
+import { isApproved } from './approval';
 import config from '../config';
+import { log } from './logger';
 
 let io: SocketServer | undefined;
 
@@ -47,9 +49,9 @@ export const socketAuthMiddleware = async (socket: Socket, next: (err?: Error) =
     }
     const user = await prisma.user.findUnique({
       where: { id: decoded.userId },
-      select: { id: true, isActive: true, tokenVersion: true },
+      select: { id: true, isActive: true, approvalStatus: true, tokenVersion: true },
     });
-    if (!user || !user.isActive || isRevoked(decoded, user.tokenVersion)) {
+    if (!user || !user.isActive || !isApproved(user) || isRevoked(decoded, user.tokenVersion)) {
       return next(new Error('Authentication error'));
     }
     (socket as any).userId = user.id;
@@ -102,7 +104,7 @@ export const canRelayTo = async (userId: string, otherId: string): Promise<boole
 
 export const registerConnectionHandlers = (socket: Socket) => {
   const userId: string = (socket as any).userId;
-  console.log(`Socket connected: ${socket.id} (User: ${userId})`);
+  log.debug('Socket connected', { socketId: socket.id, userId });
 
   // Join user-specific room for private notifications/messages
   socket.join(`user:${userId}`);
@@ -154,14 +156,14 @@ export const registerConnectionHandlers = (socket: Socket) => {
       try {
         if (await mayRelayTo(receiverId)) emitToUser(receiverId, outbound, { userId });
       } catch (error) {
-        console.warn('Socket relay check failed:', error);
+        log.warn('Socket relay check failed', { err: error });
       }
     });
   relayPresence('typing', 'user_typing');
   relayPresence('stop_typing', 'user_stop_typing');
 
   socket.on('disconnect', () => {
-    console.log(`Socket disconnected: ${socket.id}`);
+    log.debug('Socket disconnected', { socketId: socket.id });
   });
 };
 

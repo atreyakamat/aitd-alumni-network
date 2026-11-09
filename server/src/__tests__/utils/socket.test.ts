@@ -127,7 +127,15 @@ describe('socket util', () => {
       return next;
     };
     const arrangeUser = (overrides: Record<string, unknown> = {}) =>
-      prismaMock.user.findUnique.mockResolvedValue({ id: USER, isActive: true, tokenVersion: 0, ...overrides });
+      prismaMock.user.findUnique.mockResolvedValue({ id: USER, isActive: true, approvalStatus: 'APPROVED', tokenVersion: 0, ...overrides });
+
+    it('does not let a registration that is not approved open a real-time connection', async () => {
+      for (const approvalStatus of ['PENDING', 'REJECTED', undefined]) {
+        arrangeUser({ approvalStatus });
+        const next = await run(fakeSocket({ auth: { token: validToken() } }));
+        expect(next).toHaveBeenCalledWith(expect.objectContaining({ message: 'Authentication error' }));
+      }
+    });
 
     it('rejects a handshake without a token', async () => {
       const next = await run(fakeSocket());
@@ -162,7 +170,7 @@ describe('socket util', () => {
       expect(s.userId).toBe(USER);
       expect(prismaMock.user.findUnique).toHaveBeenCalledWith({
         where: { id: USER },
-        select: { id: true, isActive: true, tokenVersion: true },
+        select: { id: true, isActive: true, approvalStatus: true, tokenVersion: true },
       });
     });
 

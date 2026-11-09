@@ -2,6 +2,7 @@ import prisma from '../config/database';
 import { AppError } from '../middleware/errorHandler';
 import { sendEmail } from '../utils/email';
 import { BRAND } from '../config/brand';
+import { log } from '../utils/logger';
 import config from '../config';
 
 export interface DigestSections {
@@ -156,7 +157,7 @@ export class DigestService {
           await sendEmail({ to: u.email, subject: digest.subject, html: digest.html, text: digest.text });
           sent++;
         } catch (err) {
-          console.error('Digest send failed for', u.id, (err as Error).message);
+          log.error('Digest send failed', { userId: u.id, err });
         }
       }
       if (users.length < SEND_BATCH) break;

@@ -2,6 +2,7 @@ import type { Prisma, Transaction, TransactionType } from '@prisma/client';
 import prisma from '../config/database';
 import { AppError } from '../middleware/errorHandler';
 import { clientLinks } from '../utils/clientLinks';
+import { log } from '../utils/logger';
 import { logAuditAction } from './auditService';
 import { donationService } from './donationService';
 import { membershipService } from './membershipService';
@@ -86,8 +87,7 @@ export interface PaymentMismatch {
 
 export const SUPPORTED_WEBHOOK_EVENTS = ['payment.captured', 'order.paid', 'payment.failed'] as const;
 
-const log = (message: string, details: Record<string, unknown>) =>
-  console.log(`[razorpay-webhook] ${message}`, details);
+const note = (message: string, details: Record<string, unknown>) => log.info(`[razorpay-webhook] ${message}`, details);
 
 /** Amount Razorpay was asked to collect, in integer paise (server-side truth). */
 const expectedPaise = (transaction: Transaction) => Math.round(Number(transaction.amount) * 100);
@@ -122,7 +122,7 @@ export class PaymentWebhookService {
         return this.handleFailed(payment?.order_id, payment?.id, context);
 
       default:
-        log('ignoring unsupported event', { event: event.event, eventId: context.eventId });
+        note('ignoring unsupported event', { event: event.event, eventId: context.eventId });
         return { outcome: 'unsupported_event' };
     }
   }
@@ -130,7 +130,7 @@ export class PaymentWebhookService {
   private async handlePaid(notice: PaidNotice, eventName: string, context: WebhookContext): Promise<WebhookResult> {
     const { orderId, paymentId } = notice;
     if (!orderId) {
-      log('event without an order id', { event: eventName, eventId: context.eventId });
+      note('event without an order id', { event: eventName, eventId: context.eventId });
       return { outcome: 'ignored' };
     }
 
@@ -138,7 +138,7 @@ export class PaymentWebhookService {
     if (!transaction) {
       // Every order (member or guest) gets a PENDING row at order time, so this is a foreign
       // order or a guest order created before that; the latter is still recorded by client verify.
-      log('no transaction for order', { event: eventName, orderId, eventId: context.eventId });
+      note('no transaction for order', { event: eventName, orderId, eventId: context.eventId });
       return { outcome: 'unknown_order' };
     }
 
@@ -146,7 +146,7 @@ export class PaymentWebhookService {
       return { outcome: 'already_completed', transactionId: transaction.id };
     }
     if (transaction.status === 'REFUNDED') {
-      log('ignoring payment for a refunded transaction', { orderId, transactionId: transaction.id, eventId: context.eventId });
+      note('ignoring payment for a refunded transaction', { orderId, transactionId: transaction.id, eventId: context.eventId });
       return { outcome: 'ignored', transactionId: transaction.id };
     }
 
@@ -167,7 +167,7 @@ export class PaymentWebhookService {
         expectedCurrency: transaction.currency,
         receivedCurrency: notice.currency ?? null,
       };
-      console.warn('[razorpay-webhook] paid amount does not match transaction; left for reconciliation', {
+      log.warn('[razorpay-webhook] paid amount does not match transaction; left for reconciliation', {
         transactionId: transaction.id,
         ...mismatch,
       });
@@ -183,7 +183,7 @@ export class PaymentWebhookService {
       // Business-rule failures will not fix themselves on redelivery: acknowledge and log.
       // Anything else (e.g. database outage) propagates so Razorpay retries.
       if (error instanceof AppError) {
-        console.error('[razorpay-webhook] could not complete transaction', {
+        log.error('[razorpay-webhook] could not complete transaction', {
           orderId,
           transactionId: transaction.id,
           code: error.code,
@@ -239,17 +239,17 @@ export class PaymentWebhookService {
               link: clientLinks.adminAudit('PAYMENT_MISMATCH'),
               metadata: { transactionId, ...mismatch },
             })
-            .catch((error) => console.error('[razorpay-webhook] could not notify admin of mismatch', error))
+            .catch((error) => log.error('[razorpay-webhook] could not notify admin of mismatch', { transactionId, err: error }))
         )
       );
     } catch (error) {
-      console.error('[razorpay-webhook] could not record payment mismatch', { transactionId, error });
+      log.error('[razorpay-webhook] could not record payment mismatch', { transactionId, err: error });
     }
   }
 
   private async handleFailed(orderId: string | undefined, paymentId: string | undefined, context: WebhookContext) {
     if (!orderId) {
-      log('payment.failed without an order id', { eventId: context.eventId });
+      note('payment.failed without an order id', { eventId: context.eventId });
       return { outcome: 'ignored' } as WebhookResult;
     }
 
@@ -260,7 +260,7 @@ export class PaymentWebhookService {
       data: { status: 'FAILED', gatewayPaymentId: paymentId },
     });
     if (updated.count === 0) {
-      log('payment.failed did not match a pending transaction', { orderId, eventId: context.eventId });
+      note('payment.failed did not match a pending transaction', { orderId, eventId: context.eventId });
       return { outcome: 'ignored' } as WebhookResult;
     }
     return { outcome: 'marked_failed' } as WebhookResult;

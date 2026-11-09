@@ -15,6 +15,7 @@ import {
   verifyPaymentSignature,
 } from '../utils/razorpay';
 import { claimTransaction, CompletionOptions, GatewayPayment, runReceipt } from './paymentCompletion';
+import { log } from '../utils/logger';
 
 export interface CreateDonationInput {
   amount: number;
@@ -368,7 +369,7 @@ export class DonationService {
       await prisma.transaction.update({ where: { id: transaction.id }, data: { receiptUrl } });
     } catch (receiptError) {
       // Don't fail the payment if receipt generation fails
-      console.error('Failed to generate/upload receipt:', receiptError);
+      log.error('Failed to generate/upload donation receipt', { transactionId: transaction.id, err: receiptError });
     }
   }
 
@@ -389,7 +390,8 @@ export class DonationService {
         attachments: [{ filename: `${receiptNumber}.pdf`, content: receipt, contentType: 'application/pdf' }],
       });
     } catch (error) {
-      console.error('Failed to e-mail guest donation receipt:', error);
+      // the donor's address is personal data: the receipt number identifies the donation
+      log.error('Failed to e-mail guest donation receipt', { receiptNumber, err: error });
     }
   }
 

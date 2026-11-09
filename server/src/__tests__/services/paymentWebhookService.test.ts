@@ -11,6 +11,7 @@ jest.mock('../../utils/pdfReceipt', () => {
 });
 
 import { prismaMock } from '../../../tests/helpers';
+import { log } from '../../utils/logger';
 import { paymentWebhookService } from '../../services/paymentWebhookService';
 import { donationService } from '../../services/donationService';
 import { membershipService } from '../../services/membershipService';
@@ -63,6 +64,13 @@ const failed = (orderId: string) => ({
 
 // Webhook completions generate receipts in the background; let them settle inside the test that started them.
 afterEach(() => new Promise((resolve) => setImmediate(resolve)));
+
+// The service reports through the structured logger (silent under jest); watch it instead of the console.
+let logWarn: jest.SpyInstance;
+beforeEach(() => {
+  logWarn = jest.spyOn(log, 'warn').mockImplementation(() => undefined);
+});
+afterEach(() => logWarn.mockRestore());
 
 const arrangeDonation = (t = donationTxn()) => {
   prismaMock.transaction.findUnique.mockResolvedValue(t);
@@ -152,7 +160,10 @@ describe('payment.captured', () => {
     expect(prismaMock.transaction.updateMany).not.toHaveBeenCalled();
     expect(prismaMock.transaction.update).not.toHaveBeenCalled();
     expect(prismaMock.donation.create).not.toHaveBeenCalled();
-    expect(console.warn).toHaveBeenCalled();
+    expect(logWarn).toHaveBeenCalledWith(
+      expect.stringContaining('paid amount does not match transaction'),
+      expect.objectContaining({ transactionId: 'txn-d', expectedPaise: 50050, receivedPaise: 100 })
+    );
   });
 
   it('records a mismatch durably in the audit log and notifies active admins', async () => {

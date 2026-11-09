@@ -4,7 +4,7 @@ import { buildLoginHref } from '@/lib/public-paths';
 
 const linkClass = 'text-sm tracking-wide text-slate-500 transition-colors hover:text-blue-700 font-body';
 
-/** A link to a members-only page: goes through sign-in and says so. */
+/** A link to a members-only page (that is every page of the platform): goes through sign-in and says so. */
 function MemberLink({ path, children }: { path: string; children: React.ReactNode }) {
   return (
     <Link href={buildLoginHref(path)} className={linkClass}>
@@ -28,12 +28,8 @@ export function Footer() {
         <div className="grid grid-cols-2 gap-4">
           <div className="flex flex-col space-y-3">
             <span className="mb-2 text-xs font-bold uppercase tracking-widest text-primary font-label">Network</span>
-            <Link href="/events" className={linkClass}>
-              Events
-            </Link>
-            <Link href="/news" className={linkClass}>
-              News
-            </Link>
+            <MemberLink path="/events">Events</MemberLink>
+            <MemberLink path="/news">News</MemberLink>
             <MemberLink path="/directory">Directory</MemberLink>
             <MemberLink path="/yearbook">Yearbook</MemberLink>
             <MemberLink path="/jobs">Jobs</MemberLink>

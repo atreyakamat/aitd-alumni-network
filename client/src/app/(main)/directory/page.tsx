@@ -87,7 +87,8 @@ export default function DirectoryPage() {
 
   const { data: requestsData } = useQuery({
     queryKey: ['connection-requests'],
-    queryFn: async () => (await networkApi.getPendingRequests()).data,
+    // Up to 100 (the most the server returns): the cards show "pending" for people with a request in either direction
+    queryFn: async () => (await networkApi.getPendingRequests({ limit: 100 })).data,
     enabled: !!user,
   });
 

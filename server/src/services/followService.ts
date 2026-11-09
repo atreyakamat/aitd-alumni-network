@@ -11,7 +11,7 @@ const userNotFound = () => new AppError('User not found', 404, 'USER_NOT_FOUND')
 export class FollowService {
   async follow(viewer: ViewerInput, targetId: string) {
     if (viewer.id === targetId) throw badRequest('You cannot follow yourself', 'CANNOT_FOLLOW_SELF');
-    const target = await prisma.user.findUnique({ where: { id: targetId }, select: { id: true, isActive: true } });
+    const target = await prisma.user.findUnique({ where: { id: targetId, approvalStatus: 'APPROVED' }, select: { id: true, isActive: true } });
     if (!target || !target.isActive) throw userNotFound();
 
     let isNew = false;
@@ -31,6 +31,7 @@ export class FollowService {
           message: `${await actorName(viewer.id)} started following you`,
           link: clientLinks.profile(viewer.id),
           metadata: { followerId: viewer.id },
+          dedupeBy: ['followerId'],
         },
       ]);
     }
@@ -87,7 +88,7 @@ export class FollowService {
   }
 
   private async list(viewer: ViewerInput, userId: string, direction: 'followers' | 'following', query: { cursor?: unknown; limit?: unknown }) {
-    const user = await prisma.user.findUnique({ where: { id: userId }, select: { id: true, isActive: true } });
+    const user = await prisma.user.findUnique({ where: { id: userId, approvalStatus: 'APPROVED' }, select: { id: true, isActive: true } });
     if (!user || !user.isActive) throw userNotFound();
     const page = parsePage(query.cursor, query.limit);
 

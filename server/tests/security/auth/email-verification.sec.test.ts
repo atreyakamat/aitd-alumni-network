@@ -111,6 +111,9 @@ describe('pre-hijacking through the verification link', () => {
     // the owner verifies with their own password and can sign in
     const verified = await http().post('/api/auth/verify-email').send({ token: ownerToken, password: VICTIM_PASSWORD });
     expect(verified.status).toBe(200);
+    // verifying the address proves the mailbox; it does not make the person a member (an administrator does that)
+    expect((await login(address, VICTIM_PASSWORD)).body.error.code).toBe('ACCOUNT_PENDING_APPROVAL');
+    await prisma.user.update({ where: { email: address }, data: { approvalStatus: 'APPROVED', isVerified: true } });
     const session = await login(address, VICTIM_PASSWORD);
     expect(session.status).toBe(200);
     expect(session.body.data.accessToken).toEqual(expect.any(String));

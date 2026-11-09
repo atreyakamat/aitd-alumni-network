@@ -154,7 +154,7 @@ export class MessageService {
     const mediaUrl = optionalSafeMediaRef(data.mediaUrl, 'mediaUrl');
 
     const receiver = await prisma.user.findUnique({
-      where: { id: receiverId },
+      where: { id: receiverId, approvalStatus: 'APPROVED' },
       select: { id: true, isActive: true },
     });
     if (!receiver || !receiver.isActive) {

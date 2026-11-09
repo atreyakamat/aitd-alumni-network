@@ -55,6 +55,18 @@ describe('login `next` return path', () => {
     expect(setAuthData).toHaveBeenCalled();
   });
 
+  // The platform is private: a visitor who opens a shared link is sent to /login?next=<link> by the edge gate and lands on the link
+  // after signing in.
+  it.each(['/posts/123', '/search?q=x', '/events', '/events/42?tab=rsvp', '/gallery', '/news/some-slug', '/donations', '/chapters/c1', '/profile/abc'])(
+    'brings the visitor back to the shared link %s they asked for',
+    async (link) => {
+      search = new URLSearchParams({ next: link });
+      render(<LoginPage />);
+      await signIn();
+      await waitFor(() => expect(push).toHaveBeenCalledWith(link));
+    }
+  );
+
   it('ignores protocol-relative / absolute targets and falls back to the dashboard', async () => {
     search = new URLSearchParams('next=//evil.example.com');
     render(<LoginPage />);

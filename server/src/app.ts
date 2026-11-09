@@ -92,6 +92,8 @@ export const createApp = (options: AppOptions = {}) => {
       }
     },
     credentials: true,
+    // Cross-origin scripts can only read these (the CSV download names its file and flags a truncated export with them)
+    exposedHeaders: ['Content-Disposition', 'X-Export-Truncated', 'X-Request-Id'],
   }));
 
   // Initialize Passport

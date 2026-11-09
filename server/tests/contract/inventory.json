@@ -1,9 +1,84 @@
 [
   {
     "method": "get",
+    "path": "/admin/approvals",
+    "source": "client/src/lib/api.ts",
+    "line": 1234,
+    "caller": "adminApi.listApprovals",
+    "body": null,
+    "multipart": false,
+    "query": [
+      {
+        "name": "limit",
+        "optional": true
+      },
+      {
+        "name": "page",
+        "optional": true
+      },
+      {
+        "name": "search",
+        "optional": true
+      },
+      {
+        "name": "status",
+        "optional": true
+      }
+    ],
+    "responseType": "ApiPaginated<RegistrationApplication>",
+    "consumers": []
+  },
+  {
+    "method": "post",
+    "path": "/admin/approvals/:id/approve",
+    "source": "client/src/lib/api.ts",
+    "line": 1238,
+    "caller": "adminApi.approveRegistration",
+    "body": [
+      {
+        "name": "note",
+        "optional": false
+      }
+    ],
+    "multipart": false,
+    "query": null,
+    "responseType": "ApiSuccess<RegistrationApplication>",
+    "consumers": []
+  },
+  {
+    "method": "post",
+    "path": "/admin/approvals/:id/reject",
+    "source": "client/src/lib/api.ts",
+    "line": 1241,
+    "caller": "adminApi.rejectRegistration",
+    "body": [
+      {
+        "name": "reason",
+        "optional": false
+      }
+    ],
+    "multipart": false,
+    "query": null,
+    "responseType": "ApiSuccess<RegistrationApplication>",
+    "consumers": []
+  },
+  {
+    "method": "get",
+    "path": "/admin/approvals/summary",
+    "source": "client/src/lib/api.ts",
+    "line": 1235,
+    "caller": "adminApi.approvalSummary",
+    "body": null,
+    "multipart": false,
+    "query": null,
+    "responseType": "ApiSuccess<ApprovalSummary>",
+    "consumers": []
+  },
+  {
+    "method": "get",
     "path": "/admin/audit",
     "source": "client/src/lib/api.ts",
-    "line": 1119,
+    "line": 1249,
     "caller": "adminApi.getAuditLogs",
     "body": null,
     "multipart": false,
@@ -48,7 +123,7 @@
     "method": "get",
     "path": "/admin/audit/:entityType/:entityId",
     "source": "client/src/lib/api.ts",
-    "line": 1123,
+    "line": 1253,
     "caller": "adminApi.getEntityAuditHistory",
     "body": null,
     "multipart": false,
@@ -60,7 +135,7 @@
     "method": "get",
     "path": "/admin/audit/activity",
     "source": "client/src/lib/api.ts",
-    "line": 1121,
+    "line": 1251,
     "caller": "adminApi.getRecentAuditActivity",
     "body": null,
     "multipart": false,
@@ -77,7 +152,7 @@
     "method": "post",
     "path": "/admin/audit/cleanup",
     "source": "client/src/lib/api.ts",
-    "line": 1126,
+    "line": 1256,
     "caller": "adminApi.cleanupAuditLogs",
     "body": [
       {
@@ -167,7 +242,7 @@
     "method": "get",
     "path": "/admin/export/:entity",
     "source": "client/src/lib/api.ts",
-    "line": 1117,
+    "line": 1247,
     "caller": "adminApi.exportEntity",
     "body": null,
     "multipart": false,
@@ -179,7 +254,7 @@
     "method": "get",
     "path": "/admin/jobs/pending",
     "source": "client/src/lib/api.ts",
-    "line": 1113,
+    "line": 1243,
     "caller": "adminApi.getPendingJobs",
     "body": null,
     "multipart": false,
@@ -299,7 +374,7 @@
     "method": "get",
     "path": "/admin/mentorship/overview",
     "source": "client/src/lib/api.ts",
-    "line": 1114,
+    "line": 1244,
     "caller": "adminApi.getMentorshipOverview",
     "body": null,
     "multipart": false,
@@ -363,7 +438,7 @@
     "method": "get",
     "path": "/admin/stats",
     "source": "client/src/lib/api.ts",
-    "line": 1102,
+    "line": 1222,
     "caller": "adminApi.getStats",
     "body": null,
     "multipart": false,
@@ -375,7 +450,7 @@
     "method": "get",
     "path": "/admin/users",
     "source": "client/src/lib/api.ts",
-    "line": 1104,
+    "line": 1224,
     "caller": "adminApi.listUsers",
     "body": null,
     "multipart": false,
@@ -412,7 +487,7 @@
     "method": "patch",
     "path": "/admin/users/:id/role",
     "source": "client/src/lib/api.ts",
-    "line": 1106,
+    "line": 1226,
     "caller": "adminApi.updateUserRole",
     "body": [
       {
@@ -429,7 +504,7 @@
     "method": "patch",
     "path": "/admin/users/:id/status",
     "source": "client/src/lib/api.ts",
-    "line": 1108,
+    "line": 1228,
     "caller": "adminApi.updateUserStatus",
     "body": [
       {
@@ -450,7 +525,7 @@
     "method": "post",
     "path": "/auth/2fa/disable",
     "source": "client/src/lib/api.ts",
-    "line": 917,
+    "line": 996,
     "caller": "twoFactorApi.disable2FA",
     "body": [
       {
@@ -467,7 +542,7 @@
     "method": "post",
     "path": "/auth/2fa/enable",
     "source": "client/src/lib/api.ts",
-    "line": 915,
+    "line": 994,
     "caller": "twoFactorApi.enable2FA",
     "body": null,
     "multipart": false,
@@ -479,7 +554,7 @@
     "method": "post",
     "path": "/auth/change-password",
     "source": "client/src/lib/api.ts",
-    "line": 437,
+    "line": 511,
     "caller": "authApi.changePassword",
     "body": [
       {
@@ -500,7 +575,7 @@
     "method": "post",
     "path": "/auth/forgot-password",
     "source": "client/src/lib/api.ts",
-    "line": 427,
+    "line": 501,
     "caller": "authApi.forgotPassword",
     "body": [
       {
@@ -517,7 +592,7 @@
     "method": "post",
     "path": "/auth/login",
     "source": "client/src/lib/api.ts",
-    "line": 419,
+    "line": 493,
     "caller": "authApi.login",
     "body": [
       {
@@ -538,7 +613,7 @@
     "method": "post",
     "path": "/auth/logout",
     "source": "client/src/lib/api.ts",
-    "line": 433,
+    "line": 507,
     "caller": "authApi.logout",
     "body": [
       {
@@ -555,7 +630,7 @@
     "method": "get",
     "path": "/auth/me",
     "source": "client/src/lib/api.ts",
-    "line": 439,
+    "line": 513,
     "caller": "authApi.me",
     "body": null,
     "multipart": false,
@@ -567,7 +642,7 @@
     "method": "post",
     "path": "/auth/oauth/exchange",
     "source": "client/src/app/(auth)/login/page.tsx",
-    "line": 110,
+    "line": 115,
     "caller": "response",
     "body": [
       {
@@ -584,7 +659,7 @@
     "method": "get",
     "path": "/auth/oauth/providers",
     "source": "client/src/app/(auth)/login/page.tsx",
-    "line": 59,
+    "line": 64,
     "caller": "response",
     "body": null,
     "multipart": false,
@@ -596,7 +671,7 @@
     "method": "post",
     "path": "/auth/refresh-token",
     "source": "client/src/lib/api.ts",
-    "line": 130,
+    "line": 134,
     "caller": "refreshAccessToken",
     "body": [
       {
@@ -613,7 +688,7 @@
     "method": "post",
     "path": "/auth/register",
     "source": "client/src/lib/api.ts",
-    "line": 416,
+    "line": 490,
     "caller": "authApi.register",
     "body": [
       {
@@ -633,6 +708,10 @@
         "optional": false
       },
       {
+        "name": "enrollmentNumber",
+        "optional": true
+      },
+      {
         "name": "fullName",
         "optional": false
       },
@@ -643,18 +722,22 @@
       {
         "name": "roleType",
         "optional": true
+      },
+      {
+        "name": "verificationNote",
+        "optional": true
       }
     ],
     "multipart": false,
     "query": null,
-    "responseType": null,
+    "responseType": "ApiSuccess<RegistrationReceipt>",
     "consumers": []
   },
   {
     "method": "post",
     "path": "/auth/resend-2fa",
     "source": "client/src/lib/api.ts",
-    "line": 914,
+    "line": 993,
     "caller": "twoFactorApi.resend2FA",
     "body": [
       {
@@ -671,7 +754,7 @@
     "method": "post",
     "path": "/auth/resend-verification",
     "source": "client/src/lib/api.ts",
-    "line": 424,
+    "line": 498,
     "caller": "authApi.resendVerification",
     "body": [
       {
@@ -688,7 +771,7 @@
     "method": "post",
     "path": "/auth/reset-password",
     "source": "client/src/lib/api.ts",
-    "line": 430,
+    "line": 504,
     "caller": "authApi.resetPassword",
     "body": [
       {
@@ -709,7 +792,7 @@
     "method": "post",
     "path": "/auth/verify-2fa",
     "source": "client/src/lib/api.ts",
-    "line": 912,
+    "line": 991,
     "caller": "twoFactorApi.verify2FA",
     "body": [
       {
@@ -730,7 +813,7 @@
     "method": "post",
     "path": "/auth/verify-email",
     "source": "client/src/lib/api.ts",
-    "line": 422,
+    "line": 496,
     "caller": "authApi.verifyEmail",
     "body": [
       {
@@ -751,7 +834,7 @@
     "method": "get",
     "path": "/chapters",
     "source": "client/src/lib/api.ts",
-    "line": 803,
+    "line": 882,
     "caller": "chapterApi.getChapters",
     "body": null,
     "multipart": false,
@@ -772,7 +855,7 @@
     "method": "post",
     "path": "/chapters",
     "source": "client/src/lib/api.ts",
-    "line": 811,
+    "line": 890,
     "caller": "chapterApi.createChapter",
     "body": [
       {
@@ -805,7 +888,7 @@
     "method": "get",
     "path": "/chapters/:id",
     "source": "client/src/lib/api.ts",
-    "line": 804,
+    "line": 883,
     "caller": "chapterApi.getChapter",
     "body": null,
     "multipart": false,
@@ -817,7 +900,7 @@
     "method": "patch",
     "path": "/chapters/:id",
     "source": "client/src/lib/api.ts",
-    "line": 813,
+    "line": 892,
     "caller": "chapterApi.updateChapter",
     "body": [
       {
@@ -846,7 +929,7 @@
     "method": "put",
     "path": "/chapters/:id/admin",
     "source": "client/src/lib/api.ts",
-    "line": 815,
+    "line": 894,
     "caller": "chapterApi.assignAdmin",
     "body": [
       {
@@ -863,7 +946,7 @@
     "method": "post",
     "path": "/chapters/:id/join",
     "source": "client/src/lib/api.ts",
-    "line": 806,
+    "line": 885,
     "caller": "chapterApi.joinChapter",
     "body": null,
     "multipart": false,
@@ -875,7 +958,7 @@
     "method": "post",
     "path": "/chapters/:id/leave",
     "source": "client/src/lib/api.ts",
-    "line": 807,
+    "line": 886,
     "caller": "chapterApi.leaveChapter",
     "body": null,
     "multipart": false,
@@ -887,7 +970,7 @@
     "method": "get",
     "path": "/chapters/:id/members",
     "source": "client/src/lib/api.ts",
-    "line": 809,
+    "line": 888,
     "caller": "chapterApi.getMembers",
     "body": null,
     "multipart": false,
@@ -908,7 +991,7 @@
     "method": "get",
     "path": "/chapters/my",
     "source": "client/src/lib/api.ts",
-    "line": 805,
+    "line": 884,
     "caller": "chapterApi.getMyChapters",
     "body": null,
     "multipart": false,
@@ -945,7 +1028,7 @@
     "method": "delete",
     "path": "/comments/:id",
     "source": "client/src/lib/api.ts",
-    "line": 659,
+    "line": 733,
     "caller": "postApi.deleteComment",
     "body": null,
     "multipart": false,
@@ -969,7 +1052,7 @@
     "method": "patch",
     "path": "/comments/:id",
     "source": "client/src/lib/api.ts",
-    "line": 658,
+    "line": 732,
     "caller": "postApi.updateComment",
     "body": [
       {
@@ -1052,7 +1135,7 @@
     "method": "get",
     "path": "/donations/chapters",
     "source": "client/src/lib/api.ts",
-    "line": 865,
+    "line": 944,
     "caller": "donationApi.getChapterDonations",
     "body": null,
     "multipart": false,
@@ -1064,7 +1147,7 @@
     "method": "get",
     "path": "/donations/featured",
     "source": "client/src/lib/api.ts",
-    "line": 864,
+    "line": 943,
     "caller": "donationApi.getFeaturedDonors",
     "body": null,
     "multipart": false,
@@ -1076,7 +1159,7 @@
     "method": "get",
     "path": "/donations/leaderboard",
     "source": "client/src/lib/api.ts",
-    "line": 863,
+    "line": 942,
     "caller": "donationApi.getLeaderboard",
     "body": null,
     "multipart": false,
@@ -1088,7 +1171,7 @@
     "method": "get",
     "path": "/donations/my",
     "source": "client/src/lib/api.ts",
-    "line": 867,
+    "line": 946,
     "caller": "donationApi.getMyDonations",
     "body": null,
     "multipart": false,
@@ -1100,7 +1183,7 @@
     "method": "post",
     "path": "/donations/order",
     "source": "client/src/lib/api.ts",
-    "line": 869,
+    "line": 948,
     "caller": "donationApi.createOrder",
     "body": [
       {
@@ -1141,7 +1224,7 @@
     "method": "get",
     "path": "/donations/stats",
     "source": "client/src/lib/api.ts",
-    "line": 866,
+    "line": 945,
     "caller": "donationApi.getStats",
     "body": null,
     "multipart": false,
@@ -1153,7 +1236,7 @@
     "method": "post",
     "path": "/donations/verify",
     "source": "client/src/lib/api.ts",
-    "line": 872,
+    "line": 951,
     "caller": "donationApi.verifyPayment",
     "body": [
       {
@@ -1178,7 +1261,7 @@
     "method": "get",
     "path": "/donations/wall",
     "source": "client/src/lib/api.ts",
-    "line": 862,
+    "line": 941,
     "caller": "donationApi.getDonorsWall",
     "body": null,
     "multipart": false,
@@ -1199,7 +1282,7 @@
     "method": "get",
     "path": "/events",
     "source": "client/src/lib/api.ts",
-    "line": 690,
+    "line": 764,
     "caller": "eventApi.getEvents",
     "body": null,
     "multipart": false,
@@ -1228,7 +1311,7 @@
     "method": "post",
     "path": "/events",
     "source": "client/src/lib/api.ts",
-    "line": 695,
+    "line": 769,
     "caller": "eventApi.createEvent",
     "body": [
       {
@@ -1297,7 +1380,7 @@
     "method": "delete",
     "path": "/events/:id",
     "source": "client/src/lib/api.ts",
-    "line": 697,
+    "line": 771,
     "caller": "eventApi.deleteEvent",
     "body": null,
     "multipart": false,
@@ -1321,7 +1404,7 @@
     "method": "get",
     "path": "/events/:id",
     "source": "client/src/lib/api.ts",
-    "line": 691,
+    "line": 765,
     "caller": "eventApi.getEvent",
     "body": null,
     "multipart": false,
@@ -1333,7 +1416,7 @@
     "method": "patch",
     "path": "/events/:id",
     "source": "client/src/lib/api.ts",
-    "line": 696,
+    "line": 770,
     "caller": "eventApi.updateEvent",
     "body": [
       {
@@ -1402,7 +1485,7 @@
     "method": "get",
     "path": "/events/:id/attendees",
     "source": "client/src/lib/api.ts",
-    "line": 699,
+    "line": 773,
     "caller": "eventApi.getAttendees",
     "body": null,
     "multipart": false,
@@ -1414,7 +1497,7 @@
     "method": "post",
     "path": "/events/:id/rsvp",
     "source": "client/src/lib/api.ts",
-    "line": 698,
+    "line": 772,
     "caller": "eventApi.rsvpEvent",
     "body": null,
     "multipart": false,
@@ -1426,7 +1509,7 @@
     "method": "get",
     "path": "/events/upcoming",
     "source": "client/src/lib/api.ts",
-    "line": 693,
+    "line": 767,
     "caller": "eventApi.getUpcoming",
     "body": null,
     "multipart": false,
@@ -1472,7 +1555,7 @@
     "method": "get",
     "path": "/gallery/albums",
     "source": "client/src/lib/api.ts",
-    "line": 756,
+    "line": 835,
     "caller": "galleryApi.getAlbums",
     "body": null,
     "multipart": false,
@@ -1501,7 +1584,7 @@
     "method": "post",
     "path": "/gallery/albums",
     "source": "client/src/lib/api.ts",
-    "line": 761,
+    "line": 840,
     "caller": "galleryApi.createAlbum",
     "body": [
       {
@@ -1538,7 +1621,7 @@
     "method": "get",
     "path": "/gallery/albums/:id",
     "source": "client/src/lib/api.ts",
-    "line": 757,
+    "line": 836,
     "caller": "galleryApi.getAlbum",
     "body": null,
     "multipart": false,
@@ -1550,7 +1633,7 @@
     "method": "get",
     "path": "/gallery/recent",
     "source": "client/src/lib/api.ts",
-    "line": 759,
+    "line": 838,
     "caller": "galleryApi.getRecentPhotos",
     "body": null,
     "multipart": false,
@@ -1567,7 +1650,7 @@
     "method": "get",
     "path": "/geo/reverse",
     "source": "client/src/lib/api.ts",
-    "line": 581,
+    "line": 655,
     "caller": "geoApi.reverse",
     "body": null,
     "multipart": false,
@@ -1588,7 +1671,7 @@
     "method": "get",
     "path": "/geo/search",
     "source": "client/src/lib/api.ts",
-    "line": 579,
+    "line": 653,
     "caller": "geoApi.search",
     "body": null,
     "multipart": false,
@@ -1658,7 +1741,7 @@
     "method": "post",
     "path": "/invites/:token/accept",
     "source": "client/src/lib/api.ts",
-    "line": 894,
+    "line": 973,
     "caller": "inviteApi.acceptInvite",
     "body": null,
     "multipart": false,
@@ -1670,7 +1753,7 @@
     "method": "post",
     "path": "/invites/bulk",
     "source": "client/src/lib/api.ts",
-    "line": 887,
+    "line": 966,
     "caller": "inviteApi.sendBulkInvites",
     "body": [
       {
@@ -1703,7 +1786,7 @@
     "method": "post",
     "path": "/invites/generate-link",
     "source": "client/src/lib/api.ts",
-    "line": 889,
+    "line": 968,
     "caller": "inviteApi.generateShareableLink",
     "body": null,
     "multipart": false,
@@ -1744,7 +1827,7 @@
     "method": "post",
     "path": "/invites/send",
     "source": "client/src/lib/api.ts",
-    "line": 885,
+    "line": 964,
     "caller": "inviteApi.sendInvite",
     "body": [
       {
@@ -1773,7 +1856,7 @@
     "method": "get",
     "path": "/invites/sent",
     "source": "client/src/lib/api.ts",
-    "line": 891,
+    "line": 970,
     "caller": "inviteApi.getSentInvites",
     "body": null,
     "multipart": false,
@@ -1794,7 +1877,7 @@
     "method": "get",
     "path": "/invites/stats",
     "source": "client/src/lib/api.ts",
-    "line": 892,
+    "line": 971,
     "caller": "inviteApi.getStats",
     "body": null,
     "multipart": false,
@@ -1806,7 +1889,7 @@
     "method": "get",
     "path": "/invites/verify/:token",
     "source": "client/src/lib/api.ts",
-    "line": 893,
+    "line": 972,
     "caller": "inviteApi.verifyInvite",
     "body": null,
     "multipart": false,
@@ -1818,7 +1901,7 @@
     "method": "get",
     "path": "/jobs",
     "source": "client/src/lib/api.ts",
-    "line": 673,
+    "line": 747,
     "caller": "jobApi.getJobs",
     "body": null,
     "multipart": false,
@@ -1859,7 +1942,7 @@
     "method": "post",
     "path": "/jobs",
     "source": "client/src/lib/api.ts",
-    "line": 676,
+    "line": 750,
     "caller": "jobApi.createJob",
     "body": [
       {
@@ -1928,7 +2011,7 @@
     "method": "delete",
     "path": "/jobs/:id",
     "source": "client/src/lib/api.ts",
-    "line": 679,
+    "line": 753,
     "caller": "jobApi.deleteJob",
     "body": null,
     "multipart": false,
@@ -1940,7 +2023,7 @@
     "method": "get",
     "path": "/jobs/:id",
     "source": "client/src/lib/api.ts",
-    "line": 674,
+    "line": 748,
     "caller": "jobApi.getJob",
     "body": null,
     "multipart": false,
@@ -1952,7 +2035,7 @@
     "method": "patch",
     "path": "/jobs/:id",
     "source": "client/src/lib/api.ts",
-    "line": 678,
+    "line": 752,
     "caller": "jobApi.updateJob",
     "body": [
       {
@@ -2021,7 +2104,7 @@
     "method": "post",
     "path": "/jobs/:id/approve",
     "source": "client/src/lib/api.ts",
-    "line": 683,
+    "line": 757,
     "caller": "jobApi.approveJob",
     "body": null,
     "multipart": false,
@@ -2033,7 +2116,7 @@
     "method": "post",
     "path": "/jobs/:id/reject",
     "source": "client/src/lib/api.ts",
-    "line": 684,
+    "line": 758,
     "caller": "jobApi.rejectJob",
     "body": [
       {
@@ -2050,7 +2133,7 @@
     "method": "get",
     "path": "/jobs/my",
     "source": "client/src/lib/api.ts",
-    "line": 681,
+    "line": 755,
     "caller": "jobApi.getMyJobs",
     "body": null,
     "multipart": false,
@@ -2245,7 +2328,7 @@
     "method": "get",
     "path": "/marketplace",
     "source": "client/src/lib/api.ts",
-    "line": 821,
+    "line": 900,
     "caller": "marketplaceApi.getListings",
     "body": null,
     "multipart": false,
@@ -2282,7 +2365,7 @@
     "method": "post",
     "path": "/marketplace",
     "source": "client/src/lib/api.ts",
-    "line": 827,
+    "line": 906,
     "caller": "marketplaceApi.createListing",
     "body": [
       {
@@ -2335,7 +2418,7 @@
     "method": "delete",
     "path": "/marketplace/:id",
     "source": "client/src/lib/api.ts",
-    "line": 831,
+    "line": 910,
     "caller": "marketplaceApi.deleteListing",
     "body": null,
     "multipart": false,
@@ -2347,7 +2430,7 @@
     "method": "get",
     "path": "/marketplace/:id",
     "source": "client/src/lib/api.ts",
-    "line": 823,
+    "line": 902,
     "caller": "marketplaceApi.getListing",
     "body": null,
     "multipart": false,
@@ -2359,7 +2442,7 @@
     "method": "patch",
     "path": "/marketplace/:id",
     "source": "client/src/lib/api.ts",
-    "line": 829,
+    "line": 908,
     "caller": "marketplaceApi.updateListing",
     "body": [
       {
@@ -2420,7 +2503,7 @@
     "method": "get",
     "path": "/marketplace/categories",
     "source": "client/src/lib/api.ts",
-    "line": 824,
+    "line": 903,
     "caller": "marketplaceApi.getCategories",
     "body": null,
     "multipart": false,
@@ -2432,7 +2515,7 @@
     "method": "get",
     "path": "/marketplace/my",
     "source": "client/src/lib/api.ts",
-    "line": 826,
+    "line": 905,
     "caller": "marketplaceApi.getMyListings",
     "body": null,
     "multipart": false,
@@ -2444,7 +2527,7 @@
     "method": "post",
     "path": "/marketplace/upload-image",
     "source": "client/src/lib/api.ts",
-    "line": 836,
+    "line": 915,
     "caller": "res",
     "body": null,
     "multipart": true,
@@ -2456,7 +2539,7 @@
     "method": "get",
     "path": "/memberships/history",
     "source": "client/src/lib/api.ts",
-    "line": 848,
+    "line": 927,
     "caller": "membershipApi.getHistory",
     "body": null,
     "multipart": false,
@@ -2477,7 +2560,7 @@
     "method": "get",
     "path": "/memberships/my",
     "source": "client/src/lib/api.ts",
-    "line": 845,
+    "line": 924,
     "caller": "membershipApi.getMyMembership",
     "body": null,
     "multipart": false,
@@ -2489,7 +2572,7 @@
     "method": "post",
     "path": "/memberships/order",
     "source": "client/src/lib/api.ts",
-    "line": 850,
+    "line": 929,
     "caller": "membershipApi.createOrder",
     "body": [
       {
@@ -2506,7 +2589,7 @@
     "method": "get",
     "path": "/memberships/tiers",
     "source": "client/src/lib/api.ts",
-    "line": 843,
+    "line": 922,
     "caller": "membershipApi.getTiers",
     "body": null,
     "multipart": false,
@@ -2518,7 +2601,7 @@
     "method": "get",
     "path": "/memberships/tiers/:id",
     "source": "client/src/lib/api.ts",
-    "line": 844,
+    "line": 923,
     "caller": "membershipApi.getTier",
     "body": null,
     "multipart": false,
@@ -2530,7 +2613,7 @@
     "method": "post",
     "path": "/memberships/verify",
     "source": "client/src/lib/api.ts",
-    "line": 852,
+    "line": 931,
     "caller": "membershipApi.verifyPayment",
     "body": [
       {
@@ -2576,7 +2659,7 @@
     "method": "get",
     "path": "/mentorship/mentors",
     "source": "client/src/lib/api.ts",
-    "line": 924,
+    "line": 1003,
     "caller": "mentorshipApi.getMentors",
     "body": null,
     "multipart": false,
@@ -2609,7 +2692,7 @@
     "method": "delete",
     "path": "/mentorship/profile",
     "source": "client/src/lib/api.ts",
-    "line": 931,
+    "line": 1010,
     "caller": "mentorshipApi.deleteMentorProfile",
     "body": null,
     "multipart": false,
@@ -2633,7 +2716,7 @@
     "method": "get",
     "path": "/mentorship/profile",
     "source": "client/src/lib/api.ts",
-    "line": 926,
+    "line": 1005,
     "caller": "mentorshipApi.getMyMentorProfile",
     "body": null,
     "multipart": false,
@@ -2645,7 +2728,7 @@
     "method": "patch",
     "path": "/mentorship/profile",
     "source": "client/src/lib/api.ts",
-    "line": 930,
+    "line": 1009,
     "caller": "mentorshipApi.updateMentorProfile",
     "body": [
       {
@@ -2707,7 +2790,7 @@
     "method": "post",
     "path": "/mentorship/profile",
     "source": "client/src/lib/api.ts",
-    "line": 928,
+    "line": 1007,
     "caller": "mentorshipApi.createMentorProfile",
     "body": [
       {
@@ -2736,7 +2819,7 @@
     "method": "get",
     "path": "/mentorship/profile/:userId",
     "source": "client/src/lib/api.ts",
-    "line": 925,
+    "line": 1004,
     "caller": "mentorshipApi.getMentorProfile",
     "body": null,
     "multipart": false,
@@ -2765,7 +2848,7 @@
     "method": "post",
     "path": "/mentorship/request/:mentorId",
     "source": "client/src/lib/api.ts",
-    "line": 935,
+    "line": 1014,
     "caller": "mentorshipApi.requestMentorship",
     "body": [
       {
@@ -2782,7 +2865,7 @@
     "method": "post",
     "path": "/mentorship/request/:requestId/end",
     "source": "client/src/lib/api.ts",
-    "line": 943,
+    "line": 1022,
     "caller": "mentorshipApi.endMentorship",
     "body": null,
     "multipart": false,
@@ -2811,7 +2894,7 @@
     "method": "post",
     "path": "/mentorship/request/:requestId/respond",
     "source": "client/src/lib/api.ts",
-    "line": 937,
+    "line": 1016,
     "caller": "mentorshipApi.respondToRequest",
     "body": [
       {
@@ -2828,7 +2911,7 @@
     "method": "get",
     "path": "/mentorship/request/:requestId/sessions",
     "source": "client/src/lib/api.ts",
-    "line": 946,
+    "line": 1025,
     "caller": "mentorshipApi.getSessions",
     "body": null,
     "multipart": false,
@@ -2840,7 +2923,7 @@
     "method": "post",
     "path": "/mentorship/request/:requestId/sessions",
     "source": "client/src/lib/api.ts",
-    "line": 948,
+    "line": 1027,
     "caller": "mentorshipApi.scheduleSession",
     "body": [
       {
@@ -2873,7 +2956,7 @@
     "method": "get",
     "path": "/mentorship/requests/mentee",
     "source": "client/src/lib/api.ts",
-    "line": 941,
+    "line": 1020,
     "caller": "mentorshipApi.getMyMenteeRequests",
     "body": null,
     "multipart": false,
@@ -2902,7 +2985,7 @@
     "method": "get",
     "path": "/mentorship/requests/mentor",
     "source": "client/src/lib/api.ts",
-    "line": 939,
+    "line": 1018,
     "caller": "mentorshipApi.getMyMentorRequests",
     "body": null,
     "multipart": false,
@@ -2919,7 +3002,7 @@
     "method": "post",
     "path": "/mentorship/sessions/:sessionId/complete",
     "source": "client/src/lib/api.ts",
-    "line": 950,
+    "line": 1029,
     "caller": "mentorshipApi.completeSession",
     "body": [
       {
@@ -2936,7 +3019,7 @@
     "method": "get",
     "path": "/messages",
     "source": "client/src/lib/api.ts",
-    "line": 718,
+    "line": 797,
     "caller": "messageApi.getConversations",
     "body": null,
     "multipart": false,
@@ -2957,7 +3040,7 @@
     "method": "get",
     "path": "/messages/:partnerId",
     "source": "client/src/lib/api.ts",
-    "line": 720,
+    "line": 799,
     "caller": "messageApi.getMessages",
     "body": null,
     "multipart": false,
@@ -2978,7 +3061,7 @@
     "method": "post",
     "path": "/messages/:partnerId/read",
     "source": "client/src/lib/api.ts",
-    "line": 724,
+    "line": 803,
     "caller": "messageApi.markAsRead",
     "body": null,
     "multipart": false,
@@ -2990,7 +3073,7 @@
     "method": "post",
     "path": "/messages/:receiverId",
     "source": "client/src/lib/api.ts",
-    "line": 722,
+    "line": 801,
     "caller": "messageApi.sendMessage",
     "body": [
       {
@@ -3011,7 +3094,7 @@
     "method": "get",
     "path": "/messages/unread",
     "source": "client/src/lib/api.ts",
-    "line": 723,
+    "line": 802,
     "caller": "messageApi.getUnreadCount",
     "body": null,
     "multipart": false,
@@ -3023,7 +3106,7 @@
     "method": "delete",
     "path": "/network/connection/:id",
     "source": "client/src/lib/api.ts",
-    "line": 712,
+    "line": 791,
     "caller": "networkApi.removeConnection",
     "body": null,
     "multipart": false,
@@ -3035,7 +3118,7 @@
     "method": "get",
     "path": "/network/connections",
     "source": "client/src/lib/api.ts",
-    "line": 705,
+    "line": 779,
     "caller": "networkApi.getConnections",
     "body": null,
     "multipart": false,
@@ -3056,7 +3139,7 @@
     "method": "post",
     "path": "/network/request/:userId",
     "source": "client/src/lib/api.ts",
-    "line": 709,
+    "line": 788,
     "caller": "networkApi.sendRequest",
     "body": null,
     "multipart": false,
@@ -3068,11 +3151,24 @@
     "method": "get",
     "path": "/network/requests",
     "source": "client/src/lib/api.ts",
-    "line": 706,
+    "line": 785,
     "caller": "networkApi.getPendingRequests",
     "body": null,
     "multipart": false,
-    "query": null,
+    "query": [
+      {
+        "name": "limit",
+        "optional": true
+      },
+      {
+        "name": "page",
+        "optional": true
+      },
+      {
+        "name": "type",
+        "optional": true
+      }
+    ],
     "responseType": null,
     "consumers": []
   },
@@ -3080,7 +3176,7 @@
     "method": "post",
     "path": "/network/respond/:id",
     "source": "client/src/lib/api.ts",
-    "line": 711,
+    "line": 790,
     "caller": "networkApi.respondToRequest",
     "body": [
       {
@@ -3097,7 +3193,7 @@
     "method": "get",
     "path": "/network/suggestions",
     "source": "client/src/lib/api.ts",
-    "line": 708,
+    "line": 787,
     "caller": "networkApi.getSuggestions",
     "body": null,
     "multipart": false,
@@ -3114,7 +3210,7 @@
     "method": "get",
     "path": "/news",
     "source": "client/src/lib/api.ts",
-    "line": 776,
+    "line": 855,
     "caller": "newsApi.getArticles",
     "body": null,
     "multipart": false,
@@ -3143,7 +3239,7 @@
     "method": "get",
     "path": "/news/:slug",
     "source": "client/src/lib/api.ts",
-    "line": 778,
+    "line": 857,
     "caller": "newsApi.getArticle",
     "body": null,
     "multipart": false,
@@ -3155,7 +3251,7 @@
     "method": "get",
     "path": "/news/latest",
     "source": "client/src/lib/api.ts",
-    "line": 779,
+    "line": 858,
     "caller": "newsApi.getLatest",
     "body": null,
     "multipart": false,
@@ -3172,7 +3268,7 @@
     "method": "get",
     "path": "/notifications",
     "source": "client/src/lib/api.ts",
-    "line": 731,
+    "line": 810,
     "caller": "notificationApi.getNotifications",
     "body": null,
     "multipart": false,
@@ -3197,7 +3293,7 @@
     "method": "delete",
     "path": "/notifications/:id",
     "source": "client/src/lib/api.ts",
-    "line": 737,
+    "line": 816,
     "caller": "notificationApi.deleteNotification",
     "body": null,
     "multipart": false,
@@ -3209,7 +3305,7 @@
     "method": "post",
     "path": "/notifications/:id/read",
     "source": "client/src/lib/api.ts",
-    "line": 735,
+    "line": 814,
     "caller": "notificationApi.markAsRead",
     "body": null,
     "multipart": false,
@@ -3221,7 +3317,7 @@
     "method": "post",
     "path": "/notifications/read-all",
     "source": "client/src/lib/api.ts",
-    "line": 736,
+    "line": 815,
     "caller": "notificationApi.markAllAsRead",
     "body": null,
     "multipart": false,
@@ -3233,7 +3329,7 @@
     "method": "get",
     "path": "/notifications/unread",
     "source": "client/src/lib/api.ts",
-    "line": 734,
+    "line": 813,
     "caller": "notificationApi.getUnreadCount",
     "body": null,
     "multipart": false,
@@ -3245,7 +3341,7 @@
     "method": "get",
     "path": "/platform/readiness",
     "source": "client/src/lib/api.ts",
-    "line": 1161,
+    "line": 1291,
     "caller": "platformApi.getReadiness",
     "body": null,
     "multipart": false,
@@ -3257,7 +3353,7 @@
     "method": "get",
     "path": "/posts",
     "source": "client/src/lib/api.ts",
-    "line": 649,
+    "line": 723,
     "caller": "postApi.getFeed",
     "body": null,
     "multipart": false,
@@ -3278,7 +3374,7 @@
     "method": "post",
     "path": "/posts",
     "source": "client/src/lib/api.ts",
-    "line": 651,
+    "line": 725,
     "caller": "postApi.createPost",
     "body": [
       {
@@ -3351,7 +3447,7 @@
     "method": "delete",
     "path": "/posts/:id",
     "source": "client/src/lib/api.ts",
-    "line": 653,
+    "line": 727,
     "caller": "postApi.deletePost",
     "body": null,
     "multipart": false,
@@ -3375,7 +3471,7 @@
     "method": "get",
     "path": "/posts/:id",
     "source": "client/src/lib/api.ts",
-    "line": 650,
+    "line": 724,
     "caller": "postApi.getPost",
     "body": null,
     "multipart": false,
@@ -3402,7 +3498,7 @@
     "method": "patch",
     "path": "/posts/:id",
     "source": "client/src/lib/api.ts",
-    "line": 652,
+    "line": 726,
     "caller": "postApi.updatePost",
     "body": [
       {
@@ -3479,7 +3575,7 @@
     "method": "post",
     "path": "/posts/:id/like",
     "source": "client/src/lib/api.ts",
-    "line": 654,
+    "line": 728,
     "caller": "postApi.likePost",
     "body": null,
     "multipart": false,
@@ -3655,7 +3751,7 @@
     "method": "post",
     "path": "/posts/:postId/comments",
     "source": "client/src/lib/api.ts",
-    "line": 656,
+    "line": 730,
     "caller": "postApi.addComment",
     "body": [
       {
@@ -4034,7 +4130,7 @@
     "method": "get",
     "path": "/search",
     "source": "client/src/lib/api.ts",
-    "line": 967,
+    "line": 1046,
     "caller": "searchApi.globalSearch",
     "body": null,
     "multipart": false,
@@ -4051,7 +4147,7 @@
     "method": "get",
     "path": "/transactions/:id/receipt",
     "source": "client/src/lib/api.ts",
-    "line": 1156,
+    "line": 1286,
     "caller": "transactionApi.downloadReceipt",
     "body": null,
     "multipart": false,
@@ -4063,7 +4159,7 @@
     "method": "get",
     "path": "/transactions/my",
     "source": "client/src/lib/api.ts",
-    "line": 1153,
+    "line": 1283,
     "caller": "transactionApi.getMyTransactions",
     "body": null,
     "multipart": false,
@@ -4104,7 +4200,7 @@
     "method": "get",
     "path": "/users/:id",
     "source": "client/src/lib/api.ts",
-    "line": 586,
+    "line": 660,
     "caller": "userApi.getProfile",
     "body": null,
     "multipart": false,
@@ -4219,7 +4315,7 @@
     "method": "patch",
     "path": "/users/cover-photo",
     "source": "client/src/lib/api.ts",
-    "line": 592,
+    "line": 666,
     "caller": "userApi.uploadCoverPhoto",
     "body": null,
     "multipart": true,
@@ -4231,7 +4327,7 @@
     "method": "get",
     "path": "/users/directory",
     "source": "client/src/lib/api.ts",
-    "line": 594,
+    "line": 668,
     "caller": "userApi.getDirectory",
     "body": null,
     "multipart": false,
@@ -4264,7 +4360,7 @@
     "method": "post",
     "path": "/users/education",
     "source": "client/src/lib/api.ts",
-    "line": 637,
+    "line": 711,
     "caller": "userApi.addEducation",
     "body": [
       {
@@ -4309,7 +4405,7 @@
     "method": "delete",
     "path": "/users/education/:id",
     "source": "client/src/lib/api.ts",
-    "line": 640,
+    "line": 714,
     "caller": "userApi.deleteEducation",
     "body": null,
     "multipart": false,
@@ -4321,7 +4417,7 @@
     "method": "patch",
     "path": "/users/education/:id",
     "source": "client/src/lib/api.ts",
-    "line": 639,
+    "line": 713,
     "caller": "userApi.updateEducation",
     "body": [
       {
@@ -4366,7 +4462,7 @@
     "method": "get",
     "path": "/users/locations",
     "source": "client/src/lib/api.ts",
-    "line": 609,
+    "line": 683,
     "caller": "userApi.getLocations",
     "body": null,
     "multipart": false,
@@ -4411,7 +4507,7 @@
     "method": "delete",
     "path": "/users/me",
     "source": "client/src/lib/api.ts",
-    "line": 1135,
+    "line": 1265,
     "caller": "accountApi.deleteMyAccount",
     "body": [
       {
@@ -4432,7 +4528,7 @@
     "method": "get",
     "path": "/users/me/export",
     "source": "client/src/lib/api.ts",
-    "line": 1134,
+    "line": 1264,
     "caller": "accountApi.exportMyData",
     "body": null,
     "multipart": false,
@@ -4467,7 +4563,7 @@
     "method": "get",
     "path": "/users/nearby",
     "source": "client/src/lib/api.ts",
-    "line": 618,
+    "line": 692,
     "caller": "userApi.getNearby",
     "body": null,
     "multipart": false,
@@ -4508,7 +4604,7 @@
     "method": "get",
     "path": "/users/notable",
     "source": "client/src/lib/api.ts",
-    "line": 598,
+    "line": 672,
     "caller": "userApi.getNotable",
     "body": null,
     "multipart": false,
@@ -4525,7 +4621,7 @@
     "method": "patch",
     "path": "/users/profile",
     "source": "client/src/lib/api.ts",
-    "line": 587,
+    "line": 661,
     "caller": "userApi.updateProfile",
     "body": [
       {
@@ -4618,7 +4714,7 @@
     "method": "patch",
     "path": "/users/profile-photo",
     "source": "client/src/lib/api.ts",
-    "line": 590,
+    "line": 664,
     "caller": "userApi.uploadProfilePhoto",
     "body": null,
     "multipart": true,
@@ -4630,7 +4726,7 @@
     "method": "put",
     "path": "/users/skills",
     "source": "client/src/lib/api.ts",
-    "line": 643,
+    "line": 717,
     "caller": "userApi.updateSkills",
     "body": [
       {
@@ -4647,7 +4743,7 @@
     "method": "get",
     "path": "/users/stats",
     "source": "client/src/lib/api.ts",
-    "line": 597,
+    "line": 671,
     "caller": "userApi.getStats",
     "body": null,
     "multipart": false,
@@ -4659,7 +4755,7 @@
     "method": "post",
     "path": "/users/work-experience",
     "source": "client/src/lib/api.ts",
-    "line": 630,
+    "line": 704,
     "caller": "userApi.addWorkExperience",
     "body": [
       {
@@ -4700,7 +4796,7 @@
     "method": "delete",
     "path": "/users/work-experience/:id",
     "source": "client/src/lib/api.ts",
-    "line": 634,
+    "line": 708,
     "caller": "userApi.deleteWorkExperience",
     "body": null,
     "multipart": false,
@@ -4712,7 +4808,7 @@
     "method": "patch",
     "path": "/users/work-experience/:id",
     "source": "client/src/lib/api.ts",
-    "line": 632,
+    "line": 706,
     "caller": "userApi.updateWorkExperience",
     "body": [
       {
@@ -4753,7 +4849,7 @@
     "method": "get",
     "path": "/users/yearbook/:year",
     "source": "client/src/lib/api.ts",
-    "line": 596,
+    "line": 670,
     "caller": "userApi.getYearbook",
     "body": null,
     "multipart": false,

@@ -6,6 +6,7 @@ import { isOwnerOrAdmin, Actor } from '../config/permissions';
 import { notificationService } from './notificationService';
 import { clientLinks } from '../utils/clientLinks';
 import { normalizeUrlFields } from '../utils/safeUrl';
+import { log } from '../utils/logger';
 
 export interface CreateJobInput {
   title: string;
@@ -118,7 +119,7 @@ const notifySafely = async (payload: Parameters<typeof notificationService.creat
     await notificationService.createNotification(payload);
   } catch (err) {
     // The moderation decision is already committed; never fail it on a notification error
-    console.error('Job notification failed:', err);
+    log.error('Job notification failed', { userId: payload.userId, type: payload.type, err });
   }
 };
 

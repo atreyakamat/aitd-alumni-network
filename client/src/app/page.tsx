@@ -3,9 +3,6 @@ import { Button } from '@/components/ui/button';
 import { HeroSection } from '@/components/features/HeroSection';
 import { StatsSection } from '@/components/features/StatsSection';
 import { FeaturesSection } from '@/components/features/FeaturesSection';
-import { NotableAlumni } from '@/components/features/NotableAlumni';
-import { UpcomingEvents } from '@/components/features/UpcomingEvents';
-import { LatestNews } from '@/components/features/LatestNews';
 import { Footer } from '@/components/layout/Footer';
 import { PublicNav } from '@/components/layout/PublicNav';
 import { LandingBlocks } from '@/components/landing/LandingBlocks';
@@ -18,11 +15,9 @@ export default function HomePage() {
         <HeroSection />
         <StatsSection />
         <FeaturesSection />
-        {/* Admin-authored custom sections (landing page builder); renders nothing if unused */}
+        {/* Admin-authored custom sections (landing page builder); renders nothing if unused. The landing page only calls
+            /users/stats (aggregate counts) and /landing: everything else on the platform needs an approved account. */}
         <LandingBlocks />
-        <NotableAlumni />
-        <UpcomingEvents />
-        <LatestNews />
 
         <section className="bg-primary py-20">
           <div className="container text-center">

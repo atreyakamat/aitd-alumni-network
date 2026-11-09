@@ -5,6 +5,7 @@ import { AppError } from './errorHandler';
 import { UserRole } from '@prisma/client';
 import { hasMinRole } from '../config/permissions';
 import { verifyAccessToken } from '../utils/jwt';
+import { assertApproved, isApproved } from '../utils/approval';
 
 export interface JwtPayload {
   userId: string;
@@ -20,6 +21,7 @@ const AUTH_USER_SELECT = {
   fullName: true,
   userRole: true,
   isActive: true,
+  approvalStatus: true,
   tokenVersion: true,
 } as const;
 
@@ -38,6 +40,7 @@ declare global {
       userRole?: UserRole;
       profilePhotoUrl?: string;
       isNewUser?: boolean;
+      approvalStatus?: string;
     }
     interface Request {
       user?: User;
@@ -72,6 +75,9 @@ export const authenticate = async (
     if (!user.isActive) {
       throw new AppError('Account is deactivated', 401, 'ACCOUNT_DEACTIVATED');
     }
+
+    // A registration an administrator has not approved (or has rejected, also later) is not a member: 403 on every route
+    assertApproved(user);
 
     // Password reset / logout-everywhere / deactivation bump tokenVersion
     const { tokenVersion, ...authUser } = user;
@@ -115,7 +121,7 @@ export const optionalAuth = async (
       select: AUTH_USER_SELECT,
     });
 
-    if (user && user.isActive) {
+    if (user && user.isActive && isApproved(user)) {
       const { tokenVersion, ...authUser } = user;
       if (!isRevoked(decoded, tokenVersion)) {
         req.user = authUser;

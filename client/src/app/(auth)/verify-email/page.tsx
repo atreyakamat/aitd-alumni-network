@@ -13,6 +13,13 @@ import { BRAND } from '@/lib/brand';
 type Stage = 'confirm' | 'verified' | 'newLink';
 
 /**
+ * Said when the server sends no message of its own. Verifying the address does NOT make the person a member: an administrator
+ * still has to approve the registration, so this never says the account can be used.
+ */
+const FALLBACK_VERIFIED_MESSAGE =
+  'Your email address is verified. An administrator now checks your registration; you will be told by e-mail when it is approved.';
+
+/**
  * The page the link in the registration e-mail opens.
  *
  * Confirming needs the password chosen at registration. That is what stops somebody who registered YOUR address
@@ -26,6 +33,8 @@ function VerifyEmailContent() {
   const [password, setPassword] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // What the server says happens next (it differs for somebody who was approved already)
+  const [verifiedMessage, setVerifiedMessage] = useState<string | null>(null);
 
   const [email, setEmail] = useState('');
   const [isSending, setIsSending] = useState(false);
@@ -41,7 +50,9 @@ function VerifyEmailContent() {
     setIsSubmitting(true);
     setError(null);
     try {
-      await authApi.verifyEmail(token, password);
+      const response = await authApi.verifyEmail(token, password);
+      const message = response?.data?.data?.message;
+      setVerifiedMessage(typeof message === 'string' && message.trim() ? message : null);
       setPassword('');
       setStage('verified');
     } catch (err) {
@@ -79,11 +90,11 @@ function VerifyEmailContent() {
           <>
             <CardHeader>
               <CardTitle>Email verified</CardTitle>
-              <CardDescription>Your email address is verified. You can sign in now.</CardDescription>
+              <CardDescription>{verifiedMessage ?? FALLBACK_VERIFIED_MESSAGE}</CardDescription>
             </CardHeader>
             <CardContent>
               <Button asChild className="w-full">
-                <Link href="/login">Sign in</Link>
+                <Link href="/login">Back to sign in</Link>
               </Button>
             </CardContent>
           </>

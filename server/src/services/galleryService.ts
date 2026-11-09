@@ -6,6 +6,7 @@ import { Actor, isAdminRole } from '../config/permissions';
 import { GalleryAlbumType, Prisma } from '@prisma/client';
 import { assertSafeMediaRef, normalizeUrlFields, optionalSafeMediaRef } from '../utils/safeUrl';
 import { idText, optionalBoolean, optionalInt, optionalText } from '../utils/inputGuards';
+import { log } from '../utils/logger';
 
 interface CreateAlbumInput {
   title: string;
@@ -35,7 +36,7 @@ const removeFiles = async (urls: Array<string | null | undefined>) => {
   const unique = Array.from(new Set(urls.filter((u): u is string => !!u)));
   await Promise.all(
     unique.map(url =>
-      deleteFromStorage(url).catch(err => console.warn('Failed to delete gallery file', url, err))
+      deleteFromStorage(url).catch(err => log.warn('Failed to delete gallery file', { url, err }))
     )
   );
 };

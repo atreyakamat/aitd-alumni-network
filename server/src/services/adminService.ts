@@ -4,7 +4,7 @@ import { AppError } from '../middleware/errorHandler';
 import { Actor, ROLES, canAssignRole, canManageUser } from '../config/permissions';
 import { logAuditAction } from './auditService';
 import { buildPaginationResponse, paginationHelper, ilike } from '../utils/helpers';
-import { CsvColumn, toCsv } from '../utils/csv';
+import { CsvColumn, csvCell, csvHeaderLine, csvRowLine } from '../utils/csv';
 import { guestDonorFromMetadata } from './donationService';
 import { disconnectUser } from '../utils/socket';
 
@@ -47,15 +47,51 @@ const stamp = () => new Date().toISOString().slice(0, 10);
 
 const guestLabel = (metadata: unknown) => `${guestDonorFromMetadata(metadata).name} (guest)`;
 
+/** Rows read per query while exporting. */
+export const EXPORT_BATCH_SIZE = 1000;
+/** Hard upper bound of one export; EXPORT_MAX_ROWS overrides it. Past it the file ends with a marker row. */
+export const DEFAULT_EXPORT_MAX_ROWS = 100_000;
+
+const exportMaxRows = (): number => {
+  const configured = Number.parseInt(process.env.EXPORT_MAX_ROWS ?? '', 10);
+  return Number.isFinite(configured) && configured > 0 ? configured : DEFAULT_EXPORT_MAX_ROWS;
+};
+
+export interface ExportLimits {
+  batchSize?: number;
+  maxRows?: number;
+}
+
+/** Position of the last row written: exports are ordered newest first, the id breaks ties between equal timestamps. */
+type ExportCursor = { at: Date; id: string };
+
 type ExportDefinition = {
-  load: () => Promise<any[]>;
+  /** The timestamp column the rows are ordered by (descending). */
+  orderBy: 'createdAt' | 'startDate';
+  count: () => Promise<number>;
+  /** At most `take` rows strictly after `after` (the whole table from the top when omitted). */
+  load: (take: number, after?: ExportCursor) => Promise<any[]>;
   columns: CsvColumn<any>[];
 };
 
+/**
+ * Keyset condition for "strictly after this row" in (field desc, id desc) order. Unlike skip/offset it reads the same
+ * number of rows however deep the export is, and rows added or removed while it runs never shift the next batch.
+ */
+const after = (field: ExportDefinition['orderBy'], cursor?: ExportCursor): any =>
+  cursor ? { OR: [{ [field]: { lt: cursor.at } }, { [field]: cursor.at, id: { lt: cursor.id } }] } : undefined;
+
 const EXPORTS: Record<string, ExportDefinition> = {
   users: {
-    load: () =>
-      prisma.user.findMany({ select: ADMIN_USER_SELECT, orderBy: { createdAt: 'desc' } }),
+    orderBy: 'createdAt',
+    count: () => prisma.user.count(),
+    load: (take, cursor) =>
+      prisma.user.findMany({
+        where: after('createdAt', cursor),
+        select: ADMIN_USER_SELECT,
+        orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+        take,
+      }),
     columns: [
       { key: 'id', header: 'ID' },
       { key: 'fullName', header: 'Name' },
@@ -68,10 +104,14 @@ const EXPORTS: Record<string, ExportDefinition> = {
     ],
   },
   transactions: {
-    load: () =>
+    orderBy: 'createdAt',
+    count: () => prisma.transaction.count(),
+    load: (take, cursor) =>
       prisma.transaction.findMany({
+        where: after('createdAt', cursor),
         include: { user: { select: { fullName: true, email: true } } },
-        orderBy: { createdAt: 'desc' },
+        orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+        take,
       }),
     columns: [
       { key: 'id', header: 'ID' },
@@ -90,14 +130,18 @@ const EXPORTS: Record<string, ExportDefinition> = {
     ],
   },
   donations: {
-    load: () =>
+    orderBy: 'createdAt',
+    count: () => prisma.donation.count(),
+    load: (take, cursor) =>
       prisma.donation.findMany({
+        where: after('createdAt', cursor),
         include: {
           user: { select: { fullName: true, email: true } },
           chapter: { select: { name: true } },
           transaction: { select: { metadata: true } },
         },
-        orderBy: { createdAt: 'desc' },
+        orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+        take,
       }),
     columns: [
       { key: 'id', header: 'ID' },
@@ -117,10 +161,14 @@ const EXPORTS: Record<string, ExportDefinition> = {
     ],
   },
   jobs: {
-    load: () =>
+    orderBy: 'createdAt',
+    count: () => prisma.jobOpportunity.count(),
+    load: (take, cursor) =>
       prisma.jobOpportunity.findMany({
+        where: after('createdAt', cursor),
         include: { postedBy: { select: { fullName: true } } },
-        orderBy: { createdAt: 'desc' },
+        orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+        take,
       }),
     columns: [
       { key: 'id', header: 'ID' },
@@ -134,8 +182,14 @@ const EXPORTS: Record<string, ExportDefinition> = {
     ],
   },
   events: {
-    load: () =>
-      prisma.event.findMany({ orderBy: { startDate: 'desc' } }),
+    orderBy: 'startDate',
+    count: () => prisma.event.count(),
+    load: (take, cursor) =>
+      prisma.event.findMany({
+        where: after('startDate', cursor),
+        orderBy: [{ startDate: 'desc' }, { id: 'desc' }],
+        take,
+      }),
     columns: [
       { key: 'id', header: 'ID' },
       { key: 'title', header: 'Title' },
@@ -303,24 +357,82 @@ export class AdminService {
     };
   }
 
-  async exportEntity(actor: Actor, entity: string, meta: RequestMeta = {}) {
+  /**
+   * Starts a CSV export. Validates the entity and returns the file name plus the CSV as an async sequence of text chunks
+   * (read from the database in batches of EXPORT_BATCH_SIZE, at most EXPORT_MAX_ROWS rows). `mayBeTruncated` is true
+   * when the table holds more rows than the limit; a truncated file ends with an "EXPORT TRUNCATED" row.
+   * The caller must consume `chunks`: the audit entry is written when it ends.
+   */
+  async exportEntity(actor: Actor, entity: string, meta: RequestMeta = {}, limits: ExportLimits = {}) {
     const definition = Object.prototype.hasOwnProperty.call(EXPORTS, entity) ? EXPORTS[entity] : undefined;
     if (!definition) {
       throw new AppError(`Unsupported export. Choose one of: ${Object.keys(EXPORTS).join(', ')}`, 400, 'INVALID_EXPORT');
     }
 
-    const rows = await definition.load();
-    const csv = toCsv(rows, definition.columns);
+    const batchSize = Math.max(1, Math.floor(limits.batchSize ?? EXPORT_BATCH_SIZE));
+    const maxRows = Math.max(1, Math.floor(limits.maxRows ?? exportMaxRows()));
 
-    await logAuditAction({
-      userId: actor.id,
-      action: 'EXPORT_DATA',
-      entityType: 'SYSTEM',
-      newValues: { entity, rows: rows.length },
-      ...meta,
-    });
+    // Known before the first byte, so the response can say so in a header; the marker row at the end of the file is the
+    // authoritative signal (the table may change while the export runs).
+    const total = await definition.count();
 
-    return { filename: `${entity}-${stamp()}.csv`, csv };
+    return {
+      filename: `${entity}-${stamp()}.csv`,
+      mayBeTruncated: typeof total === 'number' && total > maxRows,
+      chunks: this.exportChunks(actor, entity, definition, meta, batchSize, maxRows),
+    };
+  }
+
+  /**
+   * The CSV as text chunks, one per database batch. Memory use is one batch, whatever the table size. The audit entry is
+   * written when the sequence ends, however it ends, so an export that fails or is abandoned half-way is still on record.
+   * The header row goes out with the first batch: a failing first read then leaves nothing sent and the caller can still
+   * answer with a clean error.
+   */
+  private async *exportChunks(
+    actor: Actor,
+    entity: string,
+    definition: ExportDefinition,
+    meta: RequestMeta,
+    batchSize: number,
+    maxRows: number
+  ): AsyncGenerator<string, void, undefined> {
+    let rows = 0;
+    let truncated = false;
+    let finished = false;
+    try {
+      let pending = csvHeaderLine(definition.columns);
+      let cursor: ExportCursor | undefined;
+      for (;;) {
+        const size = Math.min(batchSize, maxRows - rows);
+        // one row more than will be written tells whether anything follows
+        const batch = await definition.load(size + 1, cursor);
+        const page = batch.slice(0, size);
+        const more = batch.length > size;
+        rows += page.length;
+
+        let text = pending + page.map((row) => `\r\n${csvRowLine(row, definition.columns)}`).join('');
+        pending = '';
+        if (more && rows >= maxRows) {
+          truncated = true;
+          text += `\r\n${csvCell(`EXPORT TRUNCATED: this file holds only the first ${maxRows} rows`)}`;
+        }
+        if (text) yield text;
+        if (!more || truncated) break;
+
+        const last = page[page.length - 1];
+        cursor = { at: last[definition.orderBy], id: last.id };
+      }
+      finished = true;
+    } finally {
+      await logAuditAction({
+        userId: actor.id,
+        action: 'EXPORT_DATA',
+        entityType: 'SYSTEM',
+        newValues: { entity, rows, truncated, ...(finished ? {} : { aborted: true }) },
+        ...meta,
+      });
+    }
   }
 }
 

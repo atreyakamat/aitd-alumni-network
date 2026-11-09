@@ -20,8 +20,9 @@ describe('jobs & events routes', () => {
   it('GET /api/jobs maps client params (type, search) into the published-only query', async () => {
     prismaMock.jobOpportunity.findMany.mockResolvedValue([]);
     prismaMock.jobOpportunity.count.mockResolvedValue(0);
+    const { header } = authAs('MEMBER');
 
-    const res = await api().get('/api/jobs?type=INTERNSHIP&search=react&status=DRAFT');
+    const res = await api().get('/api/jobs?type=INTERNSHIP&search=react&status=DRAFT').set('Authorization', header);
 
     expect(res.status).toBe(200);
     const { where } = prismaMock.jobOpportunity.findMany.mock.calls[0][0];
@@ -31,15 +32,25 @@ describe('jobs & events routes', () => {
   });
 
   it('GET /api/jobs rejects an invalid type with 400', async () => {
-    const res = await api().get('/api/jobs?type=WIZARD');
+    const { header } = authAs('MEMBER');
+    const res = await api().get('/api/jobs?type=WIZARD').set('Authorization', header);
     expect(res.status).toBe(400);
   });
 
-  it('GET /api/jobs/:id hides a pending job from anonymous users but shows it to the owner', async () => {
+  it('the job board is private: anonymous visitors get 401', async () => {
+    expect((await api().get('/api/jobs')).status).toBe(401);
+    expect((await api().get('/api/jobs/j1')).status).toBe(401);
+    expect((await api().get('/api/events')).status).toBe(401);
+    expect((await api().get('/api/events/e1')).status).toBe(401);
+  });
+
+  it('GET /api/jobs/:id hides a pending job from other members but shows it to the owner', async () => {
+    const stranger = authAs('MEMBER', { id: '00000000-0000-4000-8000-0000000000aa' });
+    prismaMock.jobOpportunity.findUnique.mockResolvedValue({ id: 'j1', postedById: '00000000-0000-4000-8000-000000000001', status: 'PENDING_REVIEW', viewCount: 0 });
+    expect((await api().get('/api/jobs/j1').set('Authorization', stranger.header)).status).toBe(404);
+
     const { user, header } = authAs('MEMBER');
     prismaMock.jobOpportunity.findUnique.mockResolvedValue({ id: 'j1', postedById: user.id, status: 'PENDING_REVIEW', viewCount: 0 });
-
-    expect((await api().get('/api/jobs/j1')).status).toBe(404);
     const res = await api().get('/api/jobs/j1').set('Authorization', header);
     expect(res.status).toBe(200);
     expect(res.body.data.id).toBe('j1');
@@ -68,16 +79,13 @@ describe('jobs & events routes', () => {
     expect(prismaMock.jobOpportunity.create).not.toHaveBeenCalled();
   });
 
-  it('GET /api/events shows members-only events to signed-in members only', async () => {
+  it('GET /api/events shows members-only events to the signed-in members it is now limited to', async () => {
     prismaMock.event.findMany.mockResolvedValue([]);
     prismaMock.event.count.mockResolvedValue(0);
 
-    await api().get('/api/events?upcoming=false');
-    expect(prismaMock.event.findMany.mock.calls[0][0].where).toEqual({ status: 'PUBLISHED', isPublic: true });
-
     const { header } = authAs('MEMBER');
     await api().get('/api/events').set('Authorization', header);
-    expect(prismaMock.event.findMany.mock.calls[1][0].where).toEqual({ status: 'PUBLISHED' });
+    expect(prismaMock.event.findMany.mock.calls[0][0].where).toEqual({ status: 'PUBLISHED' });
   });
 
   it('POST /api/events/:id/rsvp returns 409 when the event is full', async () => {

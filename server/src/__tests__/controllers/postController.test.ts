@@ -266,10 +266,16 @@ describe('post routes (through real services)', () => {
     expect(res.status).toBe(404);
   });
 
-  it('GET /api/posts/:id → 404 for an unpublished post viewed anonymously', async () => {
+  it('GET /api/posts/:id → 404 for an unpublished post viewed by somebody else', async () => {
     prismaMock.post.findUnique.mockResolvedValue({ id: POST_ID, userId: 'x', isPublished: false, _count: { likes: 0, comments: 0 } });
-    const res = await api().get(`/api/posts/${POST_ID}`);
+    const { header } = authAs('MEMBER');
+    const res = await api().get(`/api/posts/${POST_ID}`).set('Authorization', header);
     expect(res.status).toBe(404);
+  });
+
+  it('GET /api/posts/:id and the feed are closed to anonymous visitors (shared links open the sign-in page)', async () => {
+    expect((await api().get(`/api/posts/${POST_ID}`)).status).toBe(401);
+    expect((await api().get('/api/posts')).status).toBe(401);
   });
 
   it('DELETE /api/comments/:id → 401 without a token', async () => {

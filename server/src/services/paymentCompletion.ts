@@ -1,4 +1,5 @@
 import type { Prisma, TransactionStatus } from '@prisma/client';
+import { log } from '../utils/logger';
 
 /**
  * Shared pieces of the payment completion path used by both the client-side
@@ -48,7 +49,7 @@ export const claimTransaction = async (
 export const runReceipt = async (task: () => Promise<void>, options: CompletionOptions = {}) => {
   if (options.deferReceipt) {
     // The task swallows its own errors; this catch only guards against bugs.
-    task().catch((error) => console.error('Deferred receipt generation failed:', error));
+    task().catch((error) => log.error('Deferred receipt generation failed', { err: error }));
     return;
   }
   await task();

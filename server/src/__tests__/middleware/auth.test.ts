@@ -191,3 +191,52 @@ describe('role guards', () => {
     expect(guard(mw, { userRole: 'SUPER_ADMIN' })).toBeUndefined();
   });
 });
+
+describe('alumni approval in the authentication middleware', () => {
+  const rejectedFor = async (approvalStatus: string | undefined) => {
+    const { header } = authAs('MEMBER', { approvalStatus: approvalStatus as never });
+    const { req, res, next } = withHeader(header);
+    await authenticate(req, res, next);
+    return { err: next.mock.calls[0][0], req };
+  };
+
+  it('lets an approved member through', async () => {
+    const { header } = authAs('MEMBER', { approvalStatus: 'APPROVED' });
+    const { req, res, next } = withHeader(header);
+    await authenticate(req, res, next);
+    expect(next).toHaveBeenCalledWith();
+    expect(req.user).toBeDefined();
+  });
+
+  it('refuses a token that belongs to a registration still waiting for approval', async () => {
+    const { err, req } = await rejectedFor('PENDING');
+    expect(err).toMatchObject({ statusCode: 403, code: 'ACCOUNT_PENDING_APPROVAL' });
+    expect(req.user).toBeUndefined();
+  });
+
+  it('refuses a token that belongs to a rejected registration (also one approved earlier and revoked since)', async () => {
+    const { err, req } = await rejectedFor('REJECTED');
+    expect(err).toMatchObject({ statusCode: 403, code: 'ACCOUNT_REJECTED' });
+    expect(req.user).toBeUndefined();
+  });
+
+  it('fails closed when the row has no approval status', async () => {
+    const { err } = await rejectedFor(undefined);
+    expect(err).toMatchObject({ statusCode: 403, code: 'ACCOUNT_PENDING_APPROVAL' });
+  });
+
+  it('asks the database for the status (it is not a claim in the token)', async () => {
+    authAs('MEMBER');
+    const { req, res, next } = withHeader(`Bearer ${tokenFor(makeUser())}`);
+    await authenticate(req, res, next);
+    expect(prismaMock.user.findUnique.mock.calls[0][0].select.approvalStatus).toBe(true);
+  });
+
+  it('optionalAuth treats somebody who is not approved as a stranger, not as a member', async () => {
+    const { header } = authAs('MEMBER', { approvalStatus: 'PENDING' });
+    const { req, res, next } = withHeader(header);
+    await optionalAuth(req, res, next);
+    expect(req.user).toBeUndefined();
+    expect(next).toHaveBeenCalledWith();
+  });
+});

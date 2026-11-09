@@ -66,6 +66,9 @@ interface RegisterData {
   department: string;
   degree: string;
   roleType?: string;
+  /** Optional: help the administrator who approves the registration. */
+  enrollmentNumber?: string;
+  verificationNote?: string;
 }
 
 const AuthContext = React.createContext<AuthContextType | undefined>(undefined);

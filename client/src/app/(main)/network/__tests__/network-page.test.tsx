@@ -123,6 +123,77 @@ describe('NetworkPage (/network)', () => {
     expect(networkApi.respondToRequest).toHaveBeenCalledWith('req-1', true);
   });
 
+  describe('pending requests are paged', () => {
+    const request = (id: string, name: string) => ({
+      connectionId: id,
+      user: { id: `user-${id}`, fullName: name, profilePhotoUrl: null, batchYear: 2020, department: 'Civil' },
+      createdAt: '2026-10-20T10:00:00.000Z',
+    });
+    const page = (received: unknown[], info: { total: number; page: number; hasNextPage: boolean }) => ({
+      data: {
+        data: { received, sent: [] },
+        pagination: { received: { ...info, limit: 2, totalPages: 2, hasPrevPage: info.page > 1 } },
+      },
+    });
+
+    it('asks for the first page of received requests only, shows the real total and loads the next page on demand', async () => {
+      const user = userEvent.setup();
+      networkApi.getConnections.mockResolvedValue({ data: { data: [] } });
+      networkApi.getSuggestions.mockResolvedValue({ data: { data: [] } });
+      networkApi.getPendingRequests
+        .mockResolvedValueOnce(page([request('r1', 'Alice One'), request('r2', 'Bob Two')], { total: 3, page: 1, hasNextPage: true }))
+        .mockResolvedValueOnce(page([request('r3', 'Carol Three')], { total: 3, page: 2, hasNextPage: false }));
+
+      render(<NetworkPage />);
+
+      await user.click(await screen.findByRole('tab', { name: /Requests/i }));
+      expect(await screen.findByText('Alice One')).toBeInTheDocument();
+      expect(screen.getByText('Bob Two')).toBeInTheDocument();
+      expect(screen.queryByText('Carol Three')).not.toBeInTheDocument();
+      // the badge counts what is waiting, not what is loaded so far
+      expect(screen.getByRole('tab', { name: /Requests/i })).toHaveTextContent('3');
+      expect(networkApi.getPendingRequests).toHaveBeenNthCalledWith(1, { type: 'received', page: 1, limit: 20 });
+
+      await user.click(screen.getByRole('button', { name: /Load more/i }));
+
+      expect(await screen.findByText('Carol Three')).toBeInTheDocument();
+      expect(screen.getByText('Alice One')).toBeInTheDocument();
+      expect(networkApi.getPendingRequests).toHaveBeenNthCalledWith(2, { type: 'received', page: 2, limit: 20 });
+      expect(screen.queryByRole('button', { name: /Load more/i })).not.toBeInTheDocument();
+    });
+
+    it('offers no "Load more" when everything fits on one page', async () => {
+      const user = userEvent.setup();
+      networkApi.getConnections.mockResolvedValue({ data: { data: [] } });
+      networkApi.getSuggestions.mockResolvedValue({ data: { data: [] } });
+      networkApi.getPendingRequests.mockResolvedValue(page([request('r1', 'Alice One')], { total: 1, page: 1, hasNextPage: false }));
+
+      render(<NetworkPage />);
+
+      await user.click(await screen.findByRole('tab', { name: /Requests/i }));
+      expect(await screen.findByText('Alice One')).toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: /Load more/i })).not.toBeInTheDocument();
+    });
+
+    it('keeps what is already shown and says so when a further page fails to load', async () => {
+      const user = userEvent.setup();
+      networkApi.getConnections.mockResolvedValue({ data: { data: [] } });
+      networkApi.getSuggestions.mockResolvedValue({ data: { data: [] } });
+      networkApi.getPendingRequests
+        .mockResolvedValueOnce(page([request('r1', 'Alice One')], { total: 2, page: 1, hasNextPage: true }))
+        .mockRejectedValueOnce(new Error('offline'));
+
+      render(<NetworkPage />);
+
+      await user.click(await screen.findByRole('tab', { name: /Requests/i }));
+      await user.click(await screen.findByRole('button', { name: /Load more/i }));
+
+      await waitFor(() => expect(toast).toHaveBeenCalledWith(expect.objectContaining({ variant: 'destructive' })));
+      expect(screen.getByText('Alice One')).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /Load more/i })).toBeInTheDocument();
+    });
+  });
+
   it('renders suggestions and allows sending connection requests', async () => {
     const user = userEvent.setup();
     networkApi.getConnections.mockResolvedValue({

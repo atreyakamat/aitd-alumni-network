@@ -38,6 +38,19 @@ describe('repostService.repost', () => {
     );
   });
 
+  it('does not notify the author again for a repost the same member already made within a day', async () => {
+    prismaMock.notification.findFirst.mockResolvedValue({ id: 'n-earlier' });
+
+    await repostService.repost({ id: OTHER }, 'orig');
+
+    expect(createNotification).not.toHaveBeenCalled();
+    expect(prismaMock.notification.findFirst.mock.calls[0][0].where).toMatchObject({
+      userId: OWNER,
+      type: 'POST_REPOSTED',
+      AND: [{ metadata: { path: ['postId'], equals: 'orig' } }, { metadata: { path: ['reposterId'], equals: OTHER } }],
+    });
+  });
+
   it('creates a quote post with its own text, hashtags and visibility', async () => {
     prismaMock.hashtag.findMany.mockResolvedValue([{ id: 'h1' }]);
 

@@ -30,6 +30,15 @@ export type Users = Awaited<ReturnType<typeof makeUsers>>;
 
 export const newUser = (role: UserRole = 'MEMBER' as UserRole) => createUser(role);
 
+/** A registration that is waiting for an administrator (verified e-mail, not approved, invisible in every list). */
+export const newPendingUser = () =>
+  createUser('MEMBER' as UserRole, {
+    approvalStatus: 'PENDING',
+    isVerified: false,
+    enrollmentNumber: '12CE045',
+    verificationNote: 'Class of 2018, contract test',
+  });
+
 export const newPost = (userId: string, overrides: Record<string, unknown> = {}) =>
   prisma.post.create({ data: { userId, content: `Contract post ${uniq()}`, ...overrides } as any });
 

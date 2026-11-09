@@ -5,6 +5,8 @@ import { transactionService } from '../services/transactionService';
 import { chapterService } from '../services/chapterService';
 import { logAuditAction } from '../services/auditService';
 import { queryText } from '../utils/inputGuards';
+import { writeChunks } from '../utils/streamResponse';
+import { log } from '../utils/logger';
 
 const requestMeta = (req: Request): RequestMeta => ({
   ipAddress: req.ip,
@@ -75,12 +77,25 @@ export const adminUserController = {
 
   async exportEntity(req: Request, res: Response, next: NextFunction) {
     try {
-      const { filename, csv } = await adminService.exportEntity(actorOf(req), req.params.entity, requestMeta(req));
+      const { filename, mayBeTruncated, chunks } = await adminService.exportEntity(actorOf(req), req.params.entity, requestMeta(req));
       res.setHeader('Content-Type', 'text/csv; charset=utf-8');
       res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
-      res.send(csv);
+      if (mayBeTruncated) res.setHeader('X-Export-Truncated', 'true');
+      // Written batch by batch: the server never holds the whole table. The file ends with an "EXPORT TRUNCATED" row when
+      // the row limit cut it short (utils/streamResponse.ts, adminService.exportEntity).
+      await writeChunks(res, chunks);
     } catch (error) {
-      next(error);
+      if (!res.headersSent) {
+        // nothing was sent yet (bad entity, failing first read): a normal JSON error, without the CSV headers set above
+        res.removeHeader('Content-Type');
+        res.removeHeader('Content-Disposition');
+        res.removeHeader('X-Export-Truncated');
+        return next(error);
+      }
+      // Part of the file is already on its way: a clean ending would pass a short file off as complete. Cutting the
+      // connection makes the download fail visibly instead.
+      log.error('CSV export failed part-way; the connection was closed', { id: req.id, entity: req.params.entity, err: error });
+      res.destroy();
     }
   },
 

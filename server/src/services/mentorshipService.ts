@@ -3,6 +3,7 @@ import { AppError } from '../middleware/errorHandler';
 import { paginationHelper, buildPaginationResponse } from '../utils/helpers';
 import { notificationService } from './notificationService';
 import { clientLinks } from '../utils/clientLinks';
+import { log } from '../utils/logger';
 
 export interface CreateMentorProfileInput {
   focusAreas: string[];
@@ -32,6 +33,8 @@ export const MIN_MENTEES = 1;
 export const MAX_MENTEES = 20;
 export const DEFAULT_MAX_MENTEES = 5;
 export const MAX_FOCUS_AREAS = 10;
+/** Mentor profiles scanned when a text/availability filter has to run in memory (newest first). */
+export const MAX_MENTOR_SCAN = 2000;
 export const REQUEST_STATUSES = ['PENDING', 'ACCEPTED', 'DECLINED', 'COMPLETED'] as const;
 
 const badRequest = (message: string) => new AppError(message, 400, 'VALIDATION_ERROR');
@@ -78,7 +81,7 @@ const notifySafely = async (payload: Parameters<typeof notificationService.creat
   try {
     await notificationService.createNotification(payload);
   } catch (err) {
-    console.error('Mentorship notification failed:', err);
+    log.error('Mentorship notification failed', { userId: payload.userId, type: payload.type, err });
   }
 };
 
@@ -136,7 +139,7 @@ export class MentorshipService {
       return buildPaginationResponse(mentors, total, safePage, safeLimit);
     }
 
-    const all = await prisma.mentorProfile.findMany(query);
+    const all = await prisma.mentorProfile.findMany({ ...query, take: MAX_MENTOR_SCAN });
     const areasOf = (m: { focusAreas: unknown }) =>
       (Array.isArray(m.focusAreas) ? m.focusAreas : []).filter((a): a is string => typeof a === 'string');
 

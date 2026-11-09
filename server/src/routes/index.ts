@@ -16,11 +16,12 @@ import { mentorshipController } from '../controllers/mentorshipController';
 import { adminController } from '../controllers/adminController';
 import { platformController } from '../controllers/platformController';
 import { adminUserController, accountController } from '../controllers/adminUserController';
+import { memberApprovalController } from '../controllers/memberApprovalController';
 import { geoController } from '../controllers/geoController';
 import { socialFeedController as social } from '../controllers/socialFeedController';
 import { collegeVideoController, collegeMagazineController } from '../controllers/collegeContentController';
 import { requirementController, referralController, digestController, landingController } from '../controllers/engagementController';
-import { authenticate, authenticateIfPresent, optionalAuth, isAdmin, isSuperAdmin, isChapterAdmin } from '../middleware/auth';
+import { authenticate, optionalAuth, isAdmin, isSuperAdmin, isChapterAdmin } from '../middleware/auth';
 import { validate } from '../middleware/validate';
 import { issueOAuthState, verifyOAuthState } from '../middleware/oauthState';
 import { cacheMiddleware } from '../middleware/cache';
@@ -119,14 +120,14 @@ if (isLinkedInOAuthConfigured) {
 }
 
 // ============== SEARCH ROUTES ==============
-router.get('/search', authenticateIfPresent, searchController.globalSearch);
+router.get('/search', authenticate, searchController.globalSearch);
 
 // Multer parses multipart text fields (captions, titles) AFTER the app-wide sanitizeInput ran, so every upload route
 // runs it again on the fields multer produced.
 
 // ============== USER ROUTES ==============
 router.get('/users/stats', userController.getPublicStats);
-router.get('/users/notable', userController.getNotableAlumni);
+router.get('/users/notable', authenticate, userController.getNotableAlumni);
 router.get('/users/directory', authenticate, userController.searchDirectory);
 router.get('/users/yearbook/:year', authenticate, userController.getYearbook);
 router.get('/users/locations', authenticate, userController.getAlumniLocations);
@@ -138,12 +139,12 @@ router.get('/geo/reverse', authenticate, geoController.reverse);
 router.get('/users/me/export', authenticate, accountController.exportMyData);
 router.delete('/users/me', authenticate, accountController.deleteMyAccount);
 router.get('/users/mention-search', authenticate, social.mentionSearch);
-router.get('/users/:id', optionalAuth, userController.getProfile);
+router.get('/users/:id', authenticate, userController.getProfile);
 router.post('/users/:id/follow', authenticate, social.follow);
 router.delete('/users/:id/follow', authenticate, social.unfollow);
 router.get('/users/:id/followers', authenticate, social.listFollowers);
 router.get('/users/:id/following', authenticate, social.listFollowing);
-router.get('/users/:id/posts', optionalAuth, social.getUserPosts);
+router.get('/users/:id/posts', authenticate, social.getUserPosts);
 router.patch('/users/profile', authenticate, validate(updateProfileSchema), userController.updateProfile);
 router.patch('/users/profile-photo', authenticate, upload.single('photo'), sanitizeInput, userController.updateProfilePhoto);
 router.patch('/users/cover-photo', authenticate, upload.single('photo'), sanitizeInput, userController.updateCoverPhoto);
@@ -167,8 +168,8 @@ router.delete('/users/education/:id', authenticate, validate(idParamSchema), use
 router.put('/users/skills', authenticate, validate(updateSkillsSchema), userController.updateSkills);
 
 // ============== POST ROUTES ==============
-router.get('/posts', optionalAuth, cacheMiddleware({ ttl: config.cache.feedTtlSeconds }), postController.getFeed);
-router.get('/posts/:id', optionalAuth, postController.getPost);
+router.get('/posts', authenticate, cacheMiddleware({ ttl: config.cache.feedTtlSeconds }), postController.getFeed);
+router.get('/posts/:id', authenticate, postController.getPost);
 router.post('/posts', authenticate, validate(createPostSchema), postController.createPost);
 router.post('/posts/media', authenticate, upload.array('media', 5), sanitizeInput, postController.uploadMedia);
 router.patch('/posts/:id', authenticate, postController.updatePost);
@@ -181,26 +182,26 @@ router.delete('/comments/:id', authenticate, postController.deleteComment);
 // ============== SOCIAL (docs/SOCIAL_API.md) ==============
 router.get('/feed', authenticate, social.getFeed);
 router.get('/saved', authenticate, social.getSaved);
-router.get('/hashtags/trending', optionalAuth, social.getTrendingHashtags);
-router.get('/hashtags/:tag/posts', optionalAuth, social.getHashtagPosts);
+router.get('/hashtags/trending', authenticate, social.getTrendingHashtags);
+router.get('/hashtags/:tag/posts', authenticate, social.getHashtagPosts);
 // Bound lazily so suites that mock utils/storage without videoUpload can still build the router
 router.post('/posts/video', authenticate, (req, res, next) => videoUpload(req, res, next), sanitizeInput, social.uploadVideo);
 router.post('/posts/:id/react', authenticate, social.reactToPost);
 router.get('/posts/:id/reactions', authenticate, social.listPostReactions);
-router.get('/posts/:id/comments', optionalAuth, social.listComments);
+router.get('/posts/:id/comments', authenticate, social.listComments);
 router.post('/posts/:id/repost', authenticate, social.repost);
 router.delete('/posts/:id/repost', authenticate, social.undoRepost);
 router.post('/posts/:id/save', authenticate, social.toggleSave);
-router.post('/posts/:id/view', optionalAuth, social.recordView);
+router.post('/posts/:id/view', authenticate, social.recordView);
 router.post('/posts/:id/report', authenticate, social.reportPost);
-router.get('/comments/:id/replies', optionalAuth, social.listReplies);
+router.get('/comments/:id/replies', authenticate, social.listReplies);
 router.post('/comments/:id/react', authenticate, social.reactToComment);
 router.post('/comments/:id/report', authenticate, social.reportComment);
 
 // ============== JOB ROUTES ==============
-router.get('/jobs', optionalAuth, jobController.getJobs);
+router.get('/jobs', authenticate, jobController.getJobs);
 router.get('/jobs/my', authenticate, jobController.getMyJobs);
-router.get('/jobs/:id', optionalAuth, jobController.getJob);
+router.get('/jobs/:id', authenticate, jobController.getJob);
 router.post('/jobs', authenticate, validate(createJobSchema), jobController.createJob);
 router.patch('/jobs/:id', authenticate, jobController.updateJob);
 router.delete('/jobs/:id', authenticate, jobController.deleteJob);
@@ -208,9 +209,9 @@ router.post('/jobs/:id/approve', authenticate, isAdmin, jobController.approveJob
 router.post('/jobs/:id/reject', authenticate, isAdmin, jobController.rejectJob);
 
 // ============== EVENT ROUTES ==============
-router.get('/events', optionalAuth, eventController.getEvents);
-router.get('/events/upcoming', eventController.getUpcomingEvents);
-router.get('/events/:id', optionalAuth, eventController.getEvent);
+router.get('/events', authenticate, eventController.getEvents);
+router.get('/events/upcoming', authenticate, eventController.getUpcomingEvents);
+router.get('/events/:id', authenticate, eventController.getEvent);
 router.get('/events/:id/attendees', authenticate, eventController.getEventAttendees);
 router.post('/events', authenticate, isChapterAdmin, validate(createEventSchema), eventController.createEvent);
 router.patch('/events/:id', authenticate, eventController.updateEvent);
@@ -241,9 +242,9 @@ router.post('/notifications/:id/read', authenticate, notificationController.mark
 router.delete('/notifications/:id', authenticate, notificationController.deleteNotification);
 
 // ============== GALLERY ROUTES ==============
-router.get('/gallery/albums', galleryController.getAlbums);
-router.get('/gallery/albums/:id', optionalAuth, galleryController.getAlbum);
-router.get('/gallery/recent', galleryController.getRecentPhotos);
+router.get('/gallery/albums', authenticate, galleryController.getAlbums);
+router.get('/gallery/albums/:id', authenticate, galleryController.getAlbum);
+router.get('/gallery/recent', authenticate, galleryController.getRecentPhotos);
 router.post('/gallery/albums', authenticate, isAdmin, galleryController.createAlbum);
 router.patch('/gallery/albums/:id', authenticate, isAdmin, galleryController.updateAlbum);
 router.delete('/gallery/albums/:id', authenticate, isAdmin, galleryController.deleteAlbum);
@@ -257,9 +258,9 @@ router.post('/gallery/photos/admin', authenticate, isAdmin, galleryController.ad
 router.delete('/gallery/photos/admin/:id', authenticate, isAdmin, galleryController.deletePhoto);
 
 // ============== NEWS ROUTES ==============
-router.get('/news', optionalAuth, newsController.getArticles);
-router.get('/news/latest', newsController.getLatestNews);
-router.get('/news/:slug', optionalAuth, newsController.getArticle);
+router.get('/news', authenticate, newsController.getArticles);
+router.get('/news/latest', authenticate, newsController.getLatestNews);
+router.get('/news/:slug', authenticate, newsController.getArticle);
 router.post('/news', authenticate, isAdmin, newsController.createArticle);
 router.patch('/news/:id', authenticate, isAdmin, newsController.updateArticle);
 router.post('/news/:id/publish', authenticate, isAdmin, newsController.publishArticle);
@@ -268,9 +269,9 @@ router.delete('/news/:id', authenticate, isAdmin, newsController.deleteArticle);
 
 // ============== COLLEGE VIDEO ROUTES ==============
 // Public listing is APPROVED-only; members can submit, admins moderate.
-router.get('/videos', optionalAuth, collegeVideoController.list);
+router.get('/videos', authenticate, collegeVideoController.list);
 router.get('/videos/mine', authenticate, collegeVideoController.mySubmissions);
-router.get('/videos/:id', optionalAuth, collegeVideoController.get);
+router.get('/videos/:id', authenticate, collegeVideoController.get);
 router.post('/videos/upload', authenticate, (req, res, next) => videoUpload(req, res, next), sanitizeInput, collegeVideoController.uploadFile);
 router.post('/videos/upload-thumbnail', authenticate, upload.single('image'), sanitizeInput, collegeVideoController.uploadThumbnail);
 router.post('/videos', authenticate, collegeVideoController.create);
@@ -280,8 +281,8 @@ router.post('/videos/:id/reject', authenticate, isAdmin, collegeVideoController.
 router.delete('/videos/:id', authenticate, collegeVideoController.remove);
 
 // ============== COLLEGE MAGAZINE ROUTES ==============
-router.get('/magazine', optionalAuth, collegeMagazineController.list);
-router.get('/magazine/:id', optionalAuth, collegeMagazineController.get);
+router.get('/magazine', authenticate, collegeMagazineController.list);
+router.get('/magazine/:id', authenticate, collegeMagazineController.get);
 // Bound lazily so suites that mock utils/storage without documentUpload can still build the router
 router.post('/magazine/upload-file', authenticate, isAdmin, (req, res, next) => documentUpload.single('file')(req, res, next), sanitizeInput, collegeMagazineController.uploadFile);
 router.post('/magazine/upload-cover', authenticate, isAdmin, upload.single('image'), sanitizeInput, collegeMagazineController.uploadCover);
@@ -290,9 +291,9 @@ router.patch('/magazine/:id', authenticate, isAdmin, collegeMagazineController.u
 router.delete('/magazine/:id', authenticate, isAdmin, collegeMagazineController.remove);
 
 // ============== COLLEGE REQUIREMENTS (college posts needs; alumni offer to help) ==============
-router.get('/requirements', optionalAuth, requirementController.list);
+router.get('/requirements', authenticate, requirementController.list);
 router.post('/requirements/responses/:responseId/review', authenticate, isAdmin, requirementController.reviewResponse);
-router.get('/requirements/:id', optionalAuth, requirementController.get);
+router.get('/requirements/:id', authenticate, requirementController.get);
 router.post('/requirements', authenticate, isAdmin, requirementController.create);
 router.patch('/requirements/:id', authenticate, isAdmin, requirementController.update);
 router.delete('/requirements/:id', authenticate, isAdmin, requirementController.remove);
@@ -320,9 +321,9 @@ router.patch('/admin/landing/:id', authenticate, isAdmin, landingController.upda
 router.delete('/admin/landing/:id', authenticate, isAdmin, landingController.remove);
 
 // ============== CHAPTER ROUTES ==============
-router.get('/chapters', chapterController.getChapters);
+router.get('/chapters', authenticate, chapterController.getChapters);
 router.get('/chapters/my', authenticate, chapterController.getUserChapters);
-router.get('/chapters/:id', chapterController.getChapter);
+router.get('/chapters/:id', authenticate, chapterController.getChapter);
 router.get('/chapters/:id/members', authenticate, chapterController.getChapterMembers);
 router.post('/chapters', authenticate, isAdmin, chapterController.createChapter);
 router.patch('/chapters/:id', authenticate, isChapterAdmin, chapterController.updateChapter);
@@ -332,18 +333,18 @@ router.post('/chapters/:id/join', authenticate, chapterController.joinChapter);
 router.post('/chapters/:id/leave', authenticate, chapterController.leaveChapter);
 
 // ============== MARKETPLACE ROUTES ==============
-router.get('/marketplace', optionalAuth, marketplaceController.getListings);
-router.get('/marketplace/categories', marketplaceController.getCategories);
+router.get('/marketplace', authenticate, marketplaceController.getListings);
+router.get('/marketplace/categories', authenticate, marketplaceController.getCategories);
 router.get('/marketplace/my', authenticate, marketplaceController.getMyListings);
-router.get('/marketplace/:id', optionalAuth, marketplaceController.getListing);
+router.get('/marketplace/:id', authenticate, marketplaceController.getListing);
 router.post('/marketplace/upload-image', authenticate, upload.single('image'), sanitizeInput, marketplaceController.uploadImage);
 router.post('/marketplace', authenticate, validate(createMarketplaceListingSchema), marketplaceController.createListing);
 router.patch('/marketplace/:id', authenticate, validate(updateMarketplaceListingSchema), marketplaceController.updateListing);
 router.delete('/marketplace/:id', authenticate, marketplaceController.deleteListing);
 
 // ============== MEMBERSHIP ROUTES ==============
-router.get('/memberships/tiers', membershipController.getTiers);
-router.get('/memberships/tiers/:id', membershipController.getTier);
+router.get('/memberships/tiers', authenticate, membershipController.getTiers);
+router.get('/memberships/tiers/:id', authenticate, membershipController.getTier);
 router.get('/memberships/my', authenticate, membershipController.getMyMembership);
 router.get('/memberships/history', authenticate, membershipController.getMembershipHistory);
 router.post('/memberships/order', authenticate, membershipController.createOrder);
@@ -355,14 +356,14 @@ router.patch('/memberships/tiers/:id', authenticate, isAdmin, membershipControll
 router.get('/memberships/members', authenticate, isAdmin, membershipController.getPaidMembers);
 
 // ============== DONATION ROUTES ==============
-router.get('/donations/wall', donationController.getDonorsWall);
-router.get('/donations/featured', donationController.getFeaturedDonors);
-router.get('/donations/chapters', donationController.getChapterDonations);
-router.get('/donations/stats', donationController.getStats);
-router.get('/donations/leaderboard', donationController.getLeaderboard);
+router.get('/donations/wall', authenticate, donationController.getDonorsWall);
+router.get('/donations/featured', authenticate, donationController.getFeaturedDonors);
+router.get('/donations/chapters', authenticate, donationController.getChapterDonations);
+router.get('/donations/stats', authenticate, donationController.getStats);
+router.get('/donations/leaderboard', authenticate, donationController.getLeaderboard);
 router.get('/donations/my', authenticate, donationController.getMyDonations);
-router.post('/donations/order', optionalAuth, donationController.createOrder);
-router.post('/donations/verify', optionalAuth, donationController.verifyPayment);
+router.post('/donations/order', authenticate, donationController.createOrder);
+router.post('/donations/verify', authenticate, donationController.verifyPayment);
 
 // ============== TRANSACTION ROUTES ==============
 router.get('/transactions/my', authenticate, accountController.getMyTransactions);
@@ -406,6 +407,12 @@ router.post('/mentorship/sessions/:sessionId/complete', authenticate, mentorship
 // ============== ADMIN ROUTES ==============
 router.get('/admin/stats', authenticate, isAdmin, adminController.getStats);
 router.get('/platform/readiness', authenticate, isAdmin, platformController.getReadiness);
+// Alumni approval: the administrator's review queue (a registration is a claim until it is checked)
+router.get('/admin/approvals', authenticate, isAdmin, memberApprovalController.list);
+router.get('/admin/approvals/summary', authenticate, isAdmin, memberApprovalController.summary);
+router.post('/admin/approvals/:id/approve', authenticate, isAdmin, memberApprovalController.approve);
+router.post('/admin/approvals/:id/reject', authenticate, isAdmin, memberApprovalController.reject);
+
 router.get('/admin/users', authenticate, isAdmin, adminUserController.listUsers);
 router.patch('/admin/users/:id/role', authenticate, isAdmin, adminUserController.updateUserRole);
 router.patch('/admin/users/:id/status', authenticate, isAdmin, adminUserController.updateUserStatus);

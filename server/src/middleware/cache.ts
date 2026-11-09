@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import redis from '../config/redis';
+import { log } from '../utils/logger';
 
 interface CacheOptions {
   ttl?: number; // Time to live in seconds
@@ -38,7 +39,7 @@ export const cacheMiddleware = (options: CacheOptions = {}) => {
       next();
     } catch (error) {
       // If cache fails, continue without caching
-      console.error('Cache error:', error);
+      log.warn('Cache read failed; continuing without the cache', { err: error });
       next();
     }
   };
@@ -52,7 +53,7 @@ export const invalidateCache = async (pattern: string) => {
       await redis.del(...keys);
     }
   } catch (error) {
-    console.error('Cache invalidation error:', error);
+    log.warn('Cache invalidation failed', { pattern, err: error });
   }
 };
 

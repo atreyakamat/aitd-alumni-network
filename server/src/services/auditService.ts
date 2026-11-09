@@ -2,6 +2,7 @@ import prisma from '../config/database';
 import { Prisma } from '@prisma/client';
 import { AppError } from '../middleware/errorHandler';
 import { paginationHelper } from '../utils/helpers';
+import { log } from '../utils/logger';
 
 /** Audit logs younger than this can never be purged (retention floor). */
 export const MIN_AUDIT_RETENTION_DAYS = 30;
@@ -70,7 +71,12 @@ interface AuditLogParams {
 export async function logAuditAction(params: AuditLogParams) {
   try {
     if (!params || !params.action || !params.entityType) {
-      console.error('Refusing to write incomplete audit log entry:', params);
+      // only the identifying fields: the old/new values can hold personal data
+      log.error('Refusing to write incomplete audit log entry', {
+        action: params?.action,
+        entityType: params?.entityType,
+        entityId: params?.entityId,
+      });
       return null;
     }
     return await prisma.auditLog.create({
@@ -87,7 +93,7 @@ export async function logAuditAction(params: AuditLogParams) {
     });
   } catch (error) {
     // Log but don't throw - audit logging should not break the main flow
-    console.error('Failed to create audit log:', error);
+    log.error('Failed to create audit log', { action: params.action, entityType: params.entityType, entityId: params.entityId, err: error });
     return null;
   }
 }
@@ -103,7 +109,7 @@ export interface AuditActor {
  * user is resolved with one batched lookup. Best-effort: a failed lookup leaves `user: null`.
  */
 async function attachActors<T extends { userId?: string | null }>(logs: T[]): Promise<Array<T & { user: AuditActor | null }>> {
-  const ids = Array.from(new Set(logs.map((log) => log.userId).filter((v): v is string => typeof v === 'string' && v !== '')));
+  const ids = Array.from(new Set(logs.map((entry) => entry.userId).filter((v): v is string => typeof v === 'string' && v !== '')));
   const byId = new Map<string, AuditActor>();
   if (ids.length > 0) {
     try {
@@ -113,10 +119,10 @@ async function attachActors<T extends { userId?: string | null }>(logs: T[]): Pr
       })) || [];
       for (const user of users) byId.set(user.id, user);
     } catch (error) {
-      console.error('Failed to resolve audit log actors:', error);
+      log.error('Failed to resolve audit log actors', { err: error });
     }
   }
-  return logs.map((log) => ({ ...log, user: (log.userId && byId.get(log.userId)) || null }));
+  return logs.map((entry) => ({ ...entry, user: (entry.userId && byId.get(entry.userId)) || null }));
 }
 
 /**

@@ -33,6 +33,11 @@ describe('AU-01: OAuth linking must not preserve credentials of an unverified lo
     });
     expect(reg.status).toBe(201);
 
+    // On its own the registration gets no session at all (it waits for an administrator). Assume the worst case, that an
+    // administrator approved the unverified address, and check that linking still removes everything the attacker holds.
+    expect((await http().post('/api/auth/login').send({ email, password: PASSWORD })).status).toBe(403);
+    await prisma.user.update({ where: { email }, data: { approvalStatus: 'APPROVED' } });
+
     const attackerLogin = await http().post('/api/auth/login').send({ email, password: PASSWORD });
     expect(attackerLogin.status).toBe(200);
     const { accessToken, refreshToken } = attackerLogin.body.data;

@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import { jobService, JobFilters } from '../services/jobService';
 import { logAuditAction } from '../services/auditService';
 import { isAdminRole } from '../config/permissions';
+import { log } from '../utils/logger';
 
 const str = (value: unknown): string | undefined =>
   typeof value === 'string' && value.trim() ? value.trim() : undefined;
@@ -93,7 +94,7 @@ export class JobController {
         newValues: { status: 'PUBLISHED' },
         ipAddress: req.ip,
         userAgent: req.headers['user-agent'],
-      }).catch(err => console.error('Audit log failed:', err));
+      }).catch(err => log.error('Audit log failed', { action: 'APPROVE', jobId: id, err }));
 
       res.json({ success: true, data: result });
     } catch (error) {
@@ -117,7 +118,7 @@ export class JobController {
         newValues: { status: 'REJECTED', reason: result.rejectionReason },
         ipAddress: req.ip,
         userAgent: req.headers['user-agent'],
-      }).catch(err => console.error('Audit log failed:', err));
+      }).catch(err => log.error('Audit log failed', { action: 'REJECT', jobId: id, err }));
 
       res.json({ success: true, data: result });
     } catch (error) {

@@ -19,7 +19,7 @@ import { config } from '../../config';
 import { prismaMock } from '../../../tests/helpers';
 import { hashPassword } from '../../utils/password';
 import { hashToken, verifyTwoFactorToken } from '../../utils/jwt';
-import { sendVerificationEmail, sendWelcomeEmail } from '../../utils/email';
+import { sendVerificationEmail, sendApplicationReceivedEmail } from '../../utils/email';
 
 const PASSWORD = 'Correct#Pass1';
 let passwordHash: string;
@@ -42,6 +42,7 @@ const dbUser = (overrides: Record<string, unknown> = {}) => ({
   profilePhotoUrl: null,
   userRole: 'MEMBER',
   isActive: true,
+  approvalStatus: 'APPROVED',
   isVerified: false,
   emailVerifiedAt: null,
   lastLoginAt: null,
@@ -108,15 +109,15 @@ describe('verifyEmail with the registration password (policy on)', () => {
   });
 
   it('verifies when the token and the registration password both match', async () => {
-    arrangeOneTimeToken();
+    arrangeOneTimeToken(dbUser({ approvalStatus: 'PENDING' }));
 
-    await expect(authService.verifyEmail('raw-token', PASSWORD)).resolves.toEqual({ message: 'Email verified successfully' });
+    await expect(authService.verifyEmail('raw-token', PASSWORD)).resolves.toEqual({ message: expect.stringMatching(/administrator/i) });
 
     expect(prismaMock.user.update).toHaveBeenCalledWith({
       where: { id: 'u1' },
-      data: { isVerified: true, emailVerifiedAt: expect.any(Date) },
+      data: { emailVerifiedAt: expect.any(Date) },
     });
-    expect(sendWelcomeEmail).toHaveBeenCalled();
+    expect(sendApplicationReceivedEmail).toHaveBeenCalled();
   });
 
   it('refuses a link opened without a password and leaves the token unspent', async () => {
@@ -234,7 +235,7 @@ describe('register over an address whose account is still unverified (policy on)
     const rawToken = (sendVerificationEmail as jest.Mock).mock.calls[0][2];
     expect(tokenData.token).toBe(hashToken(rawToken));
 
-    expect(result).toMatchObject({ id: 'u1', message: expect.stringContaining('Registration successful') });
+    expect(result).toMatchObject({ id: 'u1', approvalStatus: 'PENDING', message: expect.stringContaining('Registration received') });
   });
 
   it.each([

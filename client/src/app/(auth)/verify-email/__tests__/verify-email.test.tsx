@@ -2,8 +2,10 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 
 let search = new URLSearchParams();
+const push = vi.fn();
+const replace = vi.fn();
 vi.mock('next/navigation', () => ({
-  useRouter: () => ({ push: vi.fn(), replace: vi.fn() }),
+  useRouter: () => ({ push, replace }),
   useSearchParams: () => search,
 }));
 
@@ -26,22 +28,70 @@ import VerifyEmailPage from '@/app/(auth)/verify-email/page';
 const apiError = (code: string, message = 'nope') => ({ response: { status: 400, data: { success: false, error: { code, message } } } });
 
 beforeEach(() => {
+  push.mockReset();
+  replace.mockReset();
   verifyEmail.mockReset();
   resendVerification.mockReset();
   search = new URLSearchParams('token=abc123');
 });
 
 describe('/verify-email (the link in the registration e-mail)', () => {
-  it('asks for the registration password and sends it with the token', async () => {
-    verifyEmail.mockResolvedValue({ data: { data: { message: 'Email verified successfully' } } });
-    render(<VerifyEmailPage />);
+  const REVIEW_MESSAGE =
+    'Email verified. An administrator now checks that you are an alumnus of the college; you will be told by e-mail when your account is approved.';
 
+  const confirmWithPassword = async () => {
     fireEvent.change(screen.getByLabelText(/password/i), { target: { value: 'My#Passw0rd1' } });
     fireEvent.click(screen.getByRole('button', { name: /confirm email/i }));
+  };
+
+  it('asks for the registration password and sends it with the token', async () => {
+    verifyEmail.mockResolvedValue({ data: { data: { message: REVIEW_MESSAGE } } });
+    render(<VerifyEmailPage />);
+
+    await confirmWithPassword();
 
     await waitFor(() => expect(verifyEmail).toHaveBeenCalledWith('abc123', 'My#Passw0rd1'));
-    expect(await screen.findByText(/email address is verified/i)).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: /sign in/i })).toHaveAttribute('href', '/login');
+    expect(await screen.findByText(REVIEW_MESSAGE)).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /back to sign in/i })).toHaveAttribute('href', '/login');
+  });
+
+  it('shows what the server says comes next: an administrator reviews the registration', async () => {
+    verifyEmail.mockResolvedValue({ data: { success: true, data: { message: REVIEW_MESSAGE } } });
+    render(<VerifyEmailPage />);
+    await confirmWithPassword();
+
+    expect(await screen.findByRole('heading', { name: /email verified/i })).toBeInTheDocument();
+    expect(screen.getByText(/administrator now checks/i)).toBeInTheDocument();
+  });
+
+  it('does not claim the account is active, and does not send the person to the dashboard (there is no session)', async () => {
+    verifyEmail.mockResolvedValue({ data: { data: { message: REVIEW_MESSAGE } } });
+    render(<VerifyEmailPage />);
+    await confirmWithPassword();
+    await screen.findByText(REVIEW_MESSAGE);
+
+    expect(screen.queryByText(/you can sign in now/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/account is (now )?active/i)).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: /dashboard/i })).not.toBeInTheDocument();
+    expect(push).not.toHaveBeenCalled();
+    expect(replace).not.toHaveBeenCalled();
+    expect(localStorage.getItem('accessToken')).toBeNull();
+  });
+
+  it('shows the server message as plain text, never as HTML', async () => {
+    verifyEmail.mockResolvedValue({ data: { data: { message: '<img src=x onerror=alert(1)> Email verified' } } });
+    const { container } = render(<VerifyEmailPage />);
+    await confirmWithPassword();
+    await screen.findByText('<img src=x onerror=alert(1)> Email verified');
+    expect(container.querySelector('img')).toBeNull();
+  });
+
+  it('falls back to a message about the review when the server sends none', async () => {
+    verifyEmail.mockResolvedValue({ data: { data: {} } });
+    render(<VerifyEmailPage />);
+    await confirmWithPassword();
+    expect(await screen.findByText(/administrator/i)).toBeInTheDocument();
+    expect(screen.queryByText(/you can sign in now/i)).not.toBeInTheDocument();
   });
 
   it('does not call the API without a password', async () => {

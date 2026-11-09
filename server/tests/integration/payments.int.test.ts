@@ -86,22 +86,39 @@ const waitForReceipt = async (transactionId: string) => {
 const createChapter = () =>
   prisma.chapter.create({ data: { name: `Payments Chapter ${crypto.randomUUID()}`, region: 'West' } });
 
+/**
+ * The platform is private, so nobody can open a guest donation order any more (the route answers 401). Orders opened
+ * before that are still pending in the database, and their signed webhooks must keep completing them: this creates
+ * exactly what the old route created.
+ */
+const legacyGuestOrder = async (amount: number, metadata: Record<string, unknown> = {}) => {
+  const orderId = `order_legacy_${crypto.randomUUID()}`;
+  await prisma.transaction.create({
+    data: {
+      userId: null,
+      type: 'DONATION',
+      amount,
+      status: 'PENDING',
+      gatewayOrderId: orderId,
+      metadata: { isAnonymous: false, amountPaise: Math.round(amount * 100), ...metadata } as object,
+    },
+  });
+  return orderId;
+};
+
 describe('guest donations', () => {
   it('creates a PENDING guest transaction that a signed webhook completes from server-side data', async () => {
     const mail = sendMail();
     const chapter = await createChapter();
 
-    const order = await http().post('/api/donations/order').send({
-      amount: 250.5,
-      isAnonymous: false,
+    const viewer = await createUser('MEMBER');
+    expect((await http().post('/api/donations/order').send({ amount: 250.5, donorName: 'Guest Donor', donorEmail: 'guest@example.com' })).status).toBe(401);
+    const orderId = await legacyGuestOrder(250.5, {
       message: 'For the library',
       chapterId: chapter.id,
       donorName: 'Guest Donor',
-      donorEmail: 'Guest.Donor@Example.com',
+      donorEmail: 'guest.donor@example.com',
     });
-    expect(order.status).toBe(200);
-    const { orderId, amount } = order.body.data;
-    expect(amount).toBe(25050);
 
     const pending = await prisma.transaction.findUnique({ where: { gatewayOrderId: orderId } });
     expect(pending).toMatchObject({ userId: null, type: 'DONATION', status: 'PENDING' });
@@ -139,7 +156,7 @@ describe('guest donations', () => {
 
     // Redelivery and the late client verify are both idempotent.
     expect((await deliver(captured(orderId, 25050, paymentId))).status).toBe(200);
-    const verify = await http().post('/api/donations/verify').send({
+    const verify = await http().post('/api/donations/verify').set('Authorization', viewer.auth).send({
       razorpay_order_id: orderId,
       razorpay_payment_id: paymentId,
       razorpay_signature: checkoutSignature(orderId, paymentId),
@@ -149,18 +166,18 @@ describe('guest donations', () => {
     expect(await prisma.donation.count({ where: { transactionId: pending!.id } })).toBe(1);
     expect(Number((await prisma.chapter.findUnique({ where: { id: chapter.id } }))!.totalDonations)).toBe(250.5);
 
-    // Public stats count the guest donation.
-    const wall = await http().get('/api/donations/wall?limit=100');
+    // Members' stats count the guest donation.
+    const wall = await http().get('/api/donations/wall?limit=100').set('Authorization', viewer.auth);
     expect(wall.body.data.some((d: { id: string }) => d.id === donations[0].id)).toBe(true);
   });
 
   it('completes through the client verify path when the webhook has not arrived', async () => {
     sendMail();
-    const order = await http().post('/api/donations/order').send({ amount: 100, isAnonymous: true });
-    const { orderId } = order.body.data;
+    const viewer = await createUser('MEMBER');
+    const orderId = await legacyGuestOrder(100, { isAnonymous: true });
     const paymentId = 'pay_guest_int_2';
 
-    const verify = await http().post('/api/donations/verify').send({
+    const verify = await http().post('/api/donations/verify').set('Authorization', viewer.auth).send({
       razorpay_order_id: orderId,
       razorpay_payment_id: paymentId,
       razorpay_signature: checkoutSignature(orderId, paymentId),
@@ -182,7 +199,8 @@ describe('guest donations', () => {
 describe('payment mismatches', () => {
   it('leaves the transaction PENDING, audits the mismatch once and notifies admins', async () => {
     const superAdmin = await createUser('SUPER_ADMIN');
-    const order = await http().post('/api/donations/order').send({ amount: 500 });
+    const donor = await createUser('MEMBER');
+    const order = await http().post('/api/donations/order').set('Authorization', donor.auth).send({ amount: 500 });
     const { orderId } = order.body.data;
     const t = await prisma.transaction.findUnique({ where: { gatewayOrderId: orderId } });
 
@@ -231,13 +249,19 @@ describe('member donations and user deletion', () => {
     expect(t).toMatchObject({ userId: member.user.id, status: 'PENDING' });
     expect((t!.metadata as Record<string, unknown>).donorName).toBeUndefined();
 
-    // A guest cannot verify a member's order.
+    // A visitor cannot reach the payment code, and another member cannot verify a member's order.
     const paymentId = 'pay_member_int';
     const signature = checkoutSignature(orderId, paymentId);
     const asGuest = await http()
       .post('/api/donations/verify')
       .send({ razorpay_order_id: orderId, razorpay_payment_id: paymentId, razorpay_signature: signature });
-    expect(asGuest.status).toBe(403);
+    expect(asGuest.status).toBe(401);
+    const stranger = await createUser('MEMBER');
+    const asStranger = await http()
+      .post('/api/donations/verify')
+      .set('Authorization', stranger.auth)
+      .send({ razorpay_order_id: orderId, razorpay_payment_id: paymentId, razorpay_signature: signature });
+    expect(asStranger.status).toBe(403);
 
     expect((await deliver(captured(orderId, 30000, paymentId))).status).toBe(200);
     await waitForReceipt(t!.id);

@@ -1,4 +1,5 @@
 import { randomBytes } from 'crypto';
+import { log } from '../utils/logger';
 
 const toInt = (value: string | undefined, fallback: number) => {
   const parsed = Number.parseInt(value || '', 10);
@@ -22,7 +23,7 @@ const requiredSecret = (name: 'JWT_SECRET' | 'JWT_REFRESH_SECRET'): string => {
   if (process.env.NODE_ENV === 'production') {
     throw new Error(`${name} must be set in production`);
   }
-  console.warn(`[config] ${name} is not set: using a random per-process secret (sessions reset on restart)`);
+  log.warn('Signing secret is not set: using a random per-process secret (sessions reset on restart)', { variable: name });
   return randomBytes(48).toString('hex');
 };
 

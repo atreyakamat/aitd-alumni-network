@@ -44,12 +44,15 @@ import {
   Handshake,
   Mail,
   LayoutTemplate,
+  UserCheck,
 } from 'lucide-react';
 import { getInitials } from '@/lib/utils';
 import { isAdmin as hasAdminRole } from '@/lib/roles';
 import { NotificationBell } from '@/components/notifications/NotificationBell';
 import { HeaderSearch, MobileSearchLink } from '@/components/layout/HeaderSearch';
 import { useState } from 'react';
+import { usePendingApprovals } from '@/hooks/use-pending-approvals';
+import { PendingApprovalsBadge } from '@/components/admin/PendingApprovalsBadge';
 
 export const navItems = [
   { href: '/dashboard', label: 'Home', icon: Home },
@@ -77,6 +80,7 @@ export const moreItems = [
 /** Only rendered for ADMIN / SUPER_ADMIN (UX gate; the API enforces). */
 export const adminItems = [
   { href: '/admin', label: 'Admin', icon: Shield },
+  { href: '/admin/approvals', label: 'Approvals', icon: UserCheck },
   { href: '/admin/users', label: 'Manage Users', icon: UserCog },
   { href: '/admin/moderation', label: 'Moderation', icon: ClipboardCheck },
   { href: '/admin/videos', label: 'College Videos', icon: Clapperboard },
@@ -95,6 +99,8 @@ export function MainNav() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const isAdmin = hasAdminRole(user);
+  // Best effort: for an administrator only, and a failing call just means no badge
+  const pendingApprovals = usePendingApprovals(isAdmin);
 
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
@@ -138,7 +144,12 @@ export function MainNav() {
                   pathname?.startsWith('/admin') && 'text-primary border-b-2 border-primary rounded-none'
                 )}
               >
-                <Shield className="h-5 w-5" />
+                <span className="relative">
+                  <Shield className="h-5 w-5" />
+                  {pendingApprovals ? (
+                    <PendingApprovalsBadge count={pendingApprovals} className="absolute -right-4 -top-2 ml-0" />
+                  ) : null}
+                </span>
                 <span className="text-xs">Admin</span>
               </Button>
             </Link>
@@ -167,6 +178,7 @@ export function MainNav() {
                     <DropdownMenuItem key={item.href} onClick={() => router.push(item.href)}>
                       <item.icon className="mr-2 h-4 w-4" />
                       {item.label}
+                      {item.href === '/admin/approvals' && <PendingApprovalsBadge count={pendingApprovals} />}
                     </DropdownMenuItem>
                   ))}
                 </>
@@ -231,6 +243,8 @@ export function MainNav() {
             variant="ghost"
             size="icon"
             className="lg:hidden"
+            aria-label={mobileMenuOpen ? 'Close menu' : 'Open menu'}
+            aria-expanded={mobileMenuOpen}
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
           >
             {mobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
@@ -253,7 +267,10 @@ export function MainNav() {
                 )}
               >
                 <item.icon className="h-5 w-5" />
-                {item.label}
+                <span className="flex items-center">
+                  {item.label}
+                  {item.href === '/admin/approvals' && <PendingApprovalsBadge count={pendingApprovals} />}
+                </span>
               </Link>
             ))}
           </div>

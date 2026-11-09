@@ -14,6 +14,8 @@
  *    for trying the production build on one machine, never for a real deployment.
  */
 
+import { log as logger } from '../utils/logger';
+
 export interface ConfigFinding {
   code: string;
   level: 'error' | 'warning';
@@ -207,9 +209,9 @@ export const evaluateProductionConfig = (env: NodeJS.ProcessEnv): ConfigEvaluati
 };
 
 /** Start-up guard: throws (so the process exits) when the production configuration has errors. */
-export const assertProductionConfig = (env: NodeJS.ProcessEnv, log: (line: string) => void = console.warn): void => {
+export const assertProductionConfig = (env: NodeJS.ProcessEnv, emit: (line: string) => void = (line) => logger.warn(line)): void => {
   const { errors, warnings } = evaluateProductionConfig(env);
-  for (const w of warnings) log(`[config] warning ${w.code}: ${w.message} ${w.fix}`);
+  for (const w of warnings) emit(`[config] warning ${w.code}: ${w.message} ${w.fix}`);
   if (errors.length > 0) {
     const lines = errors.map((e) => `  - ${e.code}: ${e.message}\n      fix: ${e.fix}`);
     throw new Error(`Unsafe production configuration, refusing to start:\n${lines.join('\n')}\nRun "npm run preflight -w server" for the full report.`);

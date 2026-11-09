@@ -1,3 +1,4 @@
+import { log } from '../../utils/logger';
 import { authService, REFRESH_REUSE_GRACE_MS, TOKEN_TYPES } from '../../services/authService';
 import * as socketUtil from '../../utils/socket';
 import { prismaMock } from '../../../tests/helpers';
@@ -15,7 +16,7 @@ import {
   sendPasswordChangedEmail,
   sendPasswordResetEmail,
   sendVerificationEmail,
-  sendWelcomeEmail,
+  sendApplicationReceivedEmail,
 } from '../../utils/email';
 
 const PASSWORD = 'Correct#Pass1';
@@ -36,6 +37,7 @@ const dbUser = (overrides: Record<string, unknown> = {}) => ({
   profilePhotoUrl: null,
   userRole: 'MEMBER',
   isActive: true,
+  approvalStatus: 'APPROVED',
   isVerified: true,
   twoFactorEnabled: false,
   profileCompleteness: 40,
@@ -93,7 +95,8 @@ describe('authService', () => {
         id: 'u1',
         email: 'alum@aitd.edu',
         fullName: 'Ada Alum',
-        message: expect.stringContaining('Registration successful'),
+        approvalStatus: 'PENDING',
+        message: expect.stringContaining('Registration received'),
       });
       expect(JSON.stringify(result)).not.toContain('passwordHash');
     });
@@ -246,10 +249,10 @@ describe('authService', () => {
   });
 
   describe('verifyEmail', () => {
-    it('looks up the hashed token by type, claims it once, verifies the user and sends a welcome email', async () => {
-      arrangeOneTimeToken();
+    it('looks up the hashed token by type, claims it once, proves the mailbox and tells a pending applicant that an administrator reviews next', async () => {
+      arrangeOneTimeToken(dbUser({ approvalStatus: 'PENDING' }));
 
-      await expect(authService.verifyEmail('raw-token')).resolves.toEqual({ message: 'Email verified successfully' });
+      await expect(authService.verifyEmail('raw-token')).resolves.toEqual({ message: expect.stringMatching(/administrator/i) });
 
       const where = prismaMock.verificationToken.findFirst.mock.calls[0][0].where;
       expect(where).toMatchObject({ token: hashToken('raw-token'), type: TOKEN_TYPES.EMAIL_VERIFY, isUsed: false });
@@ -260,9 +263,9 @@ describe('authService', () => {
       });
       expect(prismaMock.user.update).toHaveBeenCalledWith({
         where: { id: 'u1' },
-        data: { isVerified: true, emailVerifiedAt: expect.any(Date) },
+        data: { emailVerifiedAt: expect.any(Date) },
       });
-      expect(sendWelcomeEmail).toHaveBeenCalledWith('alum@aitd.edu', 'Ada Alum');
+      expect(sendApplicationReceivedEmail).toHaveBeenCalledWith('alum@aitd.edu', 'Ada Alum');
     });
 
     it('rejects unknown/expired/wrong-type tokens with 400 INVALID_TOKEN', async () => {
@@ -287,9 +290,9 @@ describe('authService', () => {
       expect(prismaMock.refreshToken.findUnique).not.toHaveBeenCalled();
     });
 
-    it('tolerates a failing welcome email', async () => {
-      arrangeOneTimeToken();
-      (sendWelcomeEmail as jest.Mock).mockRejectedValueOnce(new Error('smtp'));
+    it('tolerates a failing notification email', async () => {
+      arrangeOneTimeToken(dbUser({ approvalStatus: 'PENDING' }));
+      (sendApplicationReceivedEmail as jest.Mock).mockRejectedValueOnce(new Error('smtp'));
       await expect(authService.verifyEmail('raw')).resolves.toBeDefined();
     });
   });
@@ -475,9 +478,10 @@ describe('authService', () => {
     it('still succeeds when the notification email fails', async () => {
       arrangeUser();
       (sendPasswordChangedEmail as jest.Mock).mockRejectedValueOnce(new Error('smtp down'));
+      const logged = jest.spyOn(log, 'error').mockImplementation(() => undefined);
       await expect(authService.changePassword('u1', PASSWORD, NEW)).resolves.toHaveProperty('accessToken');
       await new Promise((r) => setImmediate(r));
-      expect(console.error).toHaveBeenCalled();
+      expect(logged).toHaveBeenCalledWith('Failed to send password changed email', expect.objectContaining({ err: expect.any(Error) }));
     });
   });
 
@@ -533,6 +537,7 @@ describe('authService', () => {
 
     it('treats a replayed (already revoked) token as theft: revokes the whole family with REFRESH_TOKEN_REUSED', async () => {
       const presented = generateRefreshToken('u1');
+      const warned = jest.spyOn(log, 'warn').mockImplementation(() => undefined);
       arrangeStored(presented, { revokedAt: past() });
 
       await expect(authService.refreshToken(presented)).rejects.toMatchObject({
@@ -545,7 +550,7 @@ describe('authService', () => {
         data: { revokedAt: expect.any(Date) },
       });
       expect(prismaMock.refreshToken.create).not.toHaveBeenCalled();
-      expect(console.warn).toHaveBeenCalled();
+      expect(warned).toHaveBeenCalledWith('Refresh token reuse detected; family revoked', expect.objectContaining({ userId: 'u1', familyId: 'fam-1' }));
       expect(prismaMock.auditLog.create).toHaveBeenCalledWith({
         data: expect.objectContaining({
           userId: 'u1',

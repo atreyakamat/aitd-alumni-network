@@ -31,6 +31,14 @@ const register = async (address: string) =>
     degree: 'B.E.',
   });
 
+/**
+ * These tests are about sessions (rotation, reuse detection, revocation, 2FA), not about who is admitted. A registration
+ * gets no session until an administrator approves it, so the fixture does what the administrator does; the approval
+ * flow itself is covered by alumni-approval.int.test.ts.
+ */
+const approve = (address: string) =>
+  prisma.user.update({ where: { email: address.toLowerCase() }, data: { approvalStatus: 'APPROVED', isVerified: true } });
+
 describe('auth lifecycle', () => {
   it('registers, verifies email, logs in, rotates refresh tokens and logs out', async () => {
     const verifyMail = spy('sendVerificationEmail');
@@ -52,10 +60,14 @@ describe('auth lifecycle', () => {
     if (rawToken) {
       const verified = await http().post('/api/auth/verify-email').send({ token: rawToken });
       expect(verified.status).toBe(200);
-      expect((await prisma.user.findUnique({ where: { email: address } }))!.isVerified).toBe(true);
+      // The mailbox is proven, but the person is not a member until an administrator approves the registration
+      expect(await prisma.user.findUnique({ where: { email: address }, select: { isVerified: true, approvalStatus: true } })).toEqual({ isVerified: false, approvalStatus: 'PENDING' });
+      expect((await prisma.user.findUnique({ where: { email: address } }))!.emailVerifiedAt).not.toBeNull();
       // Single use
       expect((await http().post('/api/auth/verify-email').send({ token: rawToken })).status).toBeGreaterThanOrEqual(400);
     }
+    expect((await http().post('/api/auth/login').send({ email: address, password: PASSWORD })).status).toBe(403);
+    await approve(address);
 
     const bad = await http().post('/api/auth/login').send({ email: address, password: 'Wrong#Pass1' });
     expect(bad.status).toBe(401);
@@ -96,6 +108,7 @@ describe('auth lifecycle', () => {
     spy('sendVerificationEmail');
     const address = uniqueEmail('reset');
     await register(address);
+    await approve(address);
 
     const login = await http().post('/api/auth/login').send({ email: address, password: PASSWORD });
     const oldRefresh = login.body.data.refreshToken;
@@ -127,6 +140,7 @@ describe('auth lifecycle', () => {
     spy('sendVerificationEmail');
     const address = uniqueEmail('reuse');
     await register(address);
+    await approve(address);
 
     const login = await http().post('/api/auth/login').send({ email: address, password: PASSWORD });
     const original = login.body.data.refreshToken;
@@ -161,6 +175,7 @@ describe('auth lifecycle', () => {
     spy('sendVerificationEmail');
     const address = uniqueEmail('race');
     await register(address);
+    await approve(address);
 
     const { refreshToken } = (await http().post('/api/auth/login').send({ email: address, password: PASSWORD })).body.data;
     const winner = await http().post('/api/auth/refresh-token').send({ refreshToken });
@@ -181,6 +196,7 @@ describe('auth lifecycle', () => {
     const changedMail = spy('sendPasswordChangedEmail');
     const address = uniqueEmail('change');
     await register(address);
+    await approve(address);
 
     const here = (await http().post('/api/auth/login').send({ email: address, password: PASSWORD })).body.data;
     const other = (await http().post('/api/auth/login').send({ email: address, password: PASSWORD })).body.data;
@@ -235,6 +251,7 @@ describe('auth lifecycle', () => {
     spy('sendVerificationEmail');
     const address = uniqueEmail('revoke');
     await register(address);
+    await approve(address);
 
     const login = await http().post('/api/auth/login').send({ email: address, password: PASSWORD });
     const oldAccess = login.body.data.accessToken;
@@ -257,6 +274,7 @@ describe('auth lifecycle', () => {
     spy('sendVerificationEmail');
     const address = uniqueEmail('logoutall');
     await register(address);
+    await approve(address);
 
     const a = (await http().post('/api/auth/login').send({ email: address, password: PASSWORD })).body.data;
     const b = (await http().post('/api/auth/login').send({ email: address, password: PASSWORD })).body.data;
@@ -272,6 +290,7 @@ describe('auth lifecycle', () => {
     const otpMail = jest.spyOn(email, 'sendEmail').mockResolvedValue(undefined);
     const address = uniqueEmail('twofa');
     await register(address);
+    await approve(address);
     await prisma.user.update({ where: { email: address }, data: { twoFactorEnabled: true } });
 
     const login = await http().post('/api/auth/login').send({ email: address, password: PASSWORD });

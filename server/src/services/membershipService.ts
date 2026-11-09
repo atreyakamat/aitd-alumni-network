@@ -7,6 +7,7 @@ import { buildOrderReceipt, getRazorpayClient, toPaise, verifyPaymentSignature }
 import { buildPaginationResponse, paginationHelper } from '../utils/helpers';
 import config from '../config';
 import { claimTransaction, CompletionOptions, GatewayPayment, runReceipt } from './paymentCompletion';
+import { log } from '../utils/logger';
 
 export interface TierInput {
   name: string;
@@ -327,7 +328,7 @@ export class MembershipService {
         );
         await prisma.transaction.update({ where: { id: transaction.id }, data: { receiptUrl } });
       } catch (receiptError) {
-        console.error('Failed to generate/upload membership receipt:', receiptError);
+        log.error('Failed to generate/upload membership receipt', { transactionId: transaction.id, err: receiptError });
       }
     }, options);
 

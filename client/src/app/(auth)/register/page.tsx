@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import Image from 'next/image';
 import { Suspense, useState } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useSearchParams } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -13,10 +13,11 @@ import { buildLoginHref, getSafeNextPath } from '@/lib/public-paths';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
-import { Eye, EyeOff, Loader2 } from 'lucide-react';
+import { CheckCircle2, Eye, EyeOff, Loader2 } from 'lucide-react';
 
 const departments = [
   'Computer Science',
@@ -33,6 +34,9 @@ const degrees = ['B.Tech', 'M.Tech', 'B.E.', 'M.E.', 'PhD'];
 const currentYear = new Date().getFullYear();
 const batchYears = Array.from({ length: 50 }, (_, i) => currentYear - i);
 
+const ENROLMENT_MAX = 50;
+const NOTE_MAX = 1000;
+
 const registerSchema = z.object({
   fullName: z.string().min(2, 'Full name must be at least 2 characters'),
   email: z.string().email('Please enter a valid email'),
@@ -42,6 +46,9 @@ const registerSchema = z.object({
   department: z.string({ required_error: 'Please select your department' }),
   degree: z.string({ required_error: 'Please select your degree' }),
   roleType: z.enum(['ALUMNI', 'STUDENT']).default('ALUMNI'),
+  // Optional, and only there to help the administrator who checks the registration (mirrors the server limits)
+  enrollmentNumber: z.string().trim().max(ENROLMENT_MAX, 'Enrolment number is too long').optional(),
+  verificationNote: z.string().trim().max(NOTE_MAX, `Please keep this under ${NOTE_MAX} characters`).optional(),
 }).refine((data) => data.password === data.confirmPassword, {
   message: 'Passwords do not match',
   path: ['confirmPassword'],
@@ -51,11 +58,56 @@ type RegisterFormData = z.infer<typeof registerSchema>;
 
 const registerSchemaShape = registerSchema._def.schema.shape;
 
+/** Shown instead of the form once the registration is accepted. There is no session: the person has to wait for an administrator. */
+function WhatHappensNext({ email, loginHref }: { email: string; loginHref: string }) {
+  return (
+    <>
+      <CardHeader className="text-center">
+        <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-full bg-green-100">
+          <CheckCircle2 className="h-7 w-7 text-green-700" aria-hidden />
+        </div>
+        <CardTitle className="font-headline text-3xl text-primary">Registration received</CardTitle>
+        <CardDescription className="font-body">
+          You can sign in as soon as an administrator has approved your registration.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-6">
+        <div>
+          <h2 className="mb-3 text-lg font-semibold text-primary">What happens next</h2>
+          <ol aria-label="What happens next" className="list-decimal space-y-3 pl-5 text-sm font-body">
+            <li>
+              <strong>Verify your e-mail.</strong> Open the link we sent to <strong className="break-all">{email}</strong> and
+              confirm with your password.
+            </li>
+            <li>
+              <strong>An administrator checks that you are an alumnus of the college.</strong> This is done by a person, so it
+              can take a little while.
+            </li>
+            <li>
+              <strong>You get an e-mail when you are approved.</strong> Then you can sign in and join the network.
+            </li>
+          </ol>
+        </div>
+        <Button asChild className="w-full">
+          <Link href={loginHref}>Go to sign in</Link>
+        </Button>
+        <p className="text-center text-sm text-muted-foreground font-body">
+          Did not get the e-mail?{' '}
+          <Link href="/verify-email" className="text-primary hover:underline">
+            Request a new link
+          </Link>
+        </p>
+      </CardContent>
+    </>
+  );
+}
+
 function RegisterForm() {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const router = useRouter();
+  // Set once the registration was accepted: the form is replaced by the "what happens next" screen
+  const [submittedEmail, setSubmittedEmail] = useState<string | null>(null);
   const searchParams = useSearchParams();
   // Where to land once signed in; carried through the login page. Only safe relative paths survive.
   const nextPath = getSafeNextPath(searchParams?.get('next'));
@@ -75,10 +127,14 @@ function RegisterForm() {
     },
   });
 
+  const noteLength = watch('verificationNote')?.length ?? 0;
+
   const onSubmit = async (data: RegisterFormData) => {
     setIsLoading(true);
     try {
-      await authApi.register({
+      const enrollmentNumber = data.enrollmentNumber?.trim();
+      const verificationNote = data.verificationNote?.trim();
+      const response = await authApi.register({
         email: data.email,
         password: data.password,
         fullName: data.fullName,
@@ -86,12 +142,12 @@ function RegisterForm() {
         department: data.department,
         degree: data.degree,
         roleType: data.roleType,
+        ...(enrollmentNumber ? { enrollmentNumber } : {}),
+        ...(verificationNote ? { verificationNote } : {}),
       });
-      toast({
-        title: 'Registration successful!',
-        description: 'Please check your email to verify your account.',
-      });
-      router.push(buildLoginHref(nextPath, { registered: 'true' }));
+      // No session exists yet (an administrator has to approve first), so there is nothing to sign in to and nowhere to
+      // redirect: tell the person what happens next.
+      setSubmittedEmail(response?.data?.data?.email ?? data.email);
     } catch (error: any) {
       const fieldErrors = getApiFieldErrors(error);
       for (const [field, message] of Object.entries(fieldErrors)) {
@@ -150,11 +206,19 @@ function RegisterForm() {
           </div>
 
           <Card className="border-slate-200 shadow-xl shadow-primary/5">
+            {submittedEmail ? (
+              <WhatHappensNext email={submittedEmail} loginHref={buildLoginHref(nextPath)} />
+            ) : (
+            <>
             <CardHeader className="text-center">
               <CardTitle className="font-headline text-3xl text-primary">Create Account</CardTitle>
               <CardDescription className="font-body">Join the alumni network today</CardDescription>
             </CardHeader>
             <CardContent>
+            <p className="mb-4 rounded-md bg-blue-50 px-3 py-2 text-sm text-blue-900 font-body">
+              An administrator checks every registration to make sure you are an alumnus of the college. You can use the
+              network once your registration is approved.
+            </p>
             <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="fullName">Full Name</Label>
@@ -288,6 +352,42 @@ function RegisterForm() {
                 )}
               </div>
 
+              <div className="space-y-2">
+                <Label htmlFor="enrollmentNumber">Enrolment / roll number at the college (optional)</Label>
+                <Input
+                  id="enrollmentNumber"
+                  autoComplete="off"
+                  maxLength={ENROLMENT_MAX}
+                  placeholder="e.g. AIEM/2019/042"
+                  {...register('enrollmentNumber')}
+                  disabled={isLoading}
+                />
+                {errors.enrollmentNumber && (
+                  <p className="text-sm text-destructive">{errors.enrollmentNumber.message}</p>
+                )}
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="verificationNote">Anything that helps us verify you (optional)</Label>
+                <Textarea
+                  id="verificationNote"
+                  rows={3}
+                  maxLength={NOTE_MAX}
+                  placeholder="e.g. B.Tech Computer Science, 2015 to 2019. Prof. Rao taught my batch."
+                  {...register('verificationNote')}
+                  disabled={isLoading}
+                />
+                <div className="flex items-start justify-between gap-3 text-xs text-muted-foreground">
+                  <span>Your programme and year, or the name of a contact who knows you.</span>
+                  <span className="shrink-0" aria-live="polite">
+                    {noteLength} / {NOTE_MAX}
+                  </span>
+                </div>
+                {errors.verificationNote && (
+                  <p className="text-sm text-destructive">{errors.verificationNote.message}</p>
+                )}
+              </div>
+
               <Button type="submit" className="w-full" disabled={isLoading}>
                 {isLoading ? (
                   <>
@@ -307,6 +407,8 @@ function RegisterForm() {
               </Link>
             </p>
           </CardContent>
+            </>
+            )}
         </Card>
         </div>
       </div>

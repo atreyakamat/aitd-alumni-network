@@ -75,6 +75,7 @@ export class ReactionService {
           message: reactionMessage(await actorName(viewer.id), type, 'post'),
           link: clientLinks.post(postId),
           metadata: { postId, reactorId: viewer.id, reaction: type },
+          dedupeBy: ['postId', 'reactorId'],
         },
       ]);
     }
@@ -154,6 +155,7 @@ export class ReactionService {
           message: reactionMessage(await actorName(viewer.id), type, 'comment'),
           link: clientLinks.post(comment.postId, commentId),
           metadata: { postId: comment.postId, commentId, reactorId: viewer.id, reaction: type },
+          dedupeBy: ['commentId', 'reactorId'],
         },
       ]);
     }

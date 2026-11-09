@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { batchLine, readConnections, readDirectory, readRequests, readYearbook, toPerson } from '@/lib/people';
+import { batchLine, readConnections, readDirectory, readRequests, readRequestsPaging, readYearbook, toPerson } from '@/lib/people';
 
 // Shapes copied from the server's responses (server/tests/contract/response-shape.contract.test.ts)
 const directoryRow = {
@@ -90,6 +90,25 @@ describe('network payloads', () => {
 
   it('readRequests copes with an error body', () => {
     expect(readRequests(undefined)).toEqual({ received: [], sent: [] });
+  });
+
+  it('readRequestsPaging reads the page info of each list, and says nothing when the server sent none', () => {
+    expect(
+      readRequestsPaging({
+        data: { received: [], sent: [] },
+        pagination: {
+          received: { total: 45, page: 2, limit: 20, totalPages: 3, hasNextPage: true, hasPrevPage: true },
+          sent: { total: 1, page: 1, limit: 20, totalPages: 1, hasNextPage: false, hasPrevPage: false },
+        },
+      })
+    ).toEqual({
+      received: { total: 45, page: 2, hasNextPage: true },
+      sent: { total: 1, page: 1, hasNextPage: false },
+    });
+    // the pre-pagination shape and an error body: no page info, so no "load more"
+    expect(readRequestsPaging({ data: { received: [], sent: [] } })).toEqual({ received: null, sent: null });
+    expect(readRequestsPaging(undefined)).toEqual({ received: null, sent: null });
+    expect(readRequestsPaging({ pagination: { received: { total: 'x' } } }).received).toEqual({ total: 0, page: 1, hasNextPage: false });
   });
 });
 

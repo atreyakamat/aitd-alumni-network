@@ -13,6 +13,8 @@ lives in `server/src/services/authService.ts` (rules), `controllers/authControll
 | Second factor | Optional, an e-mailed 6-digit code; applies to password **and** OAuth sign-ins |
 | Session | Short-lived access token (JWT) + rotating refresh token |
 | Verified e-mail required? | Yes in production (`REQUIRE_EMAIL_VERIFICATION`), off in development and tests |
+| Who is admitted? | Only people an **administrator has approved** after checking that they are alumni of the college (see [Alumni approval](#alumni-approval)). No session by any route before that |
+| Anonymous access | Sign-in/registration, the landing page and its two data feeds. Everything else answers 401 |
 | Account lockout? | No, deliberately (it would let anyone lock out any alumnus). Rate limits and per-account budgets instead |
 | Where tokens live in the browser | `localStorage` (a known limitation: see [PRODUCTION_CHECKLIST.md](PRODUCTION_CHECKLIST.md) section 7) |
 
@@ -41,7 +43,48 @@ register ──► account created (unverified) ──► e-mail with link /veri
 5. `POST /api/auth/resend-verification` sends a new link. It answers identically for every address (unknown, verified,
    deactivated), sends at most one mail per account per minute, and is rate limited per address.
 
-Provider sign-ups (Google/LinkedIn) are verified by the provider: their `emailVerifiedAt` is set and the policy lets them in.
+Provider sign-ups (Google/LinkedIn) are verified by the provider: their `emailVerifiedAt` is set and the policy lets them in
+as far as the **e-mail** goes. They still wait for approval (below).
+
+## Alumni approval
+
+The platform is for alumni of the college only, and anybody can type a name into a registration form, so a registration is only
+a **claim**. An administrator checks it before the person is admitted.
+
+```
+register -> PENDING -> (verify e-mail) -> administrator reviews -+-> APPROVED -> e-mail "you can sign in" -> sign in
+                                                                 +-> REJECTED -> e-mail with the reason
+```
+
+* **State** lives on the user: `approvalStatus` (`PENDING` | `APPROVED` | `REJECTED`), who decided (`approvalReviewedById`),
+  when, and the note or reason (`approvalNote`). New registrations are `PENDING` by the database default; nothing in the
+  registration or OAuth code can set anything else (the register validator drops unknown fields, tests assert it).
+* **What the applicant gives the reviewer:** the existing batch year, department and degree, plus two optional fields on the
+  form: an enrolment / roll number (`enrollmentNumber`) and a free note (`verificationNote`). Both are personal data: only
+  administrators see them, they are part of the member's data export, and account deletion wipes them. A Google/LinkedIn
+  sign-up has no form, so the reviewer works from the name, the e-mail and the LinkedIn address, and contacts the person.
+* **No session until approved, by any route.** `login`, the 2FA step, the OAuth code exchange and the refresh-token call all
+  answer `403 ACCOUNT_PENDING_APPROVAL` (or `403 ACCOUNT_REJECTED`) and issue nothing. The check sits in one helper
+  (`src/utils/approval.ts`) used by `issueSession`, those routes, the `authenticate` middleware and the socket handshake, and it
+  **fails closed**: a row without a status counts as not approved. Because `authenticate` checks it on every request, rejecting
+  somebody who is already signed in takes effect on their next call, not when the token expires.
+* **Said only after the password is proven**, like the e-mail check, so the response tells a stranger nothing.
+* **Invisible until approved.** Approving sets `approvalStatus = APPROVED` **and** `isVerified = true`; `isVerified` is what the
+  directory, search, digests and follow suggestions already filter on, so an applicant appears in no list. Lookups by id
+  (profile, message, connection request, follow, referral) also treat an unapproved account as nonexistent.
+  *(`isVerified` used to mean "e-mail verified"; it now means "approved member". The e-mail is tracked by `emailVerifiedAt`.)*
+* **The review queue** (ADMIN and above): `GET /admin/approvals?status=&search=&page=`, `GET /admin/approvals/summary`,
+  `POST /admin/approvals/:id/approve {note?}`, `POST /admin/approvals/:id/reject {reason}`. The queue is worked oldest first.
+  Approval is refused (`409 EMAIL_NOT_VERIFIED`) for an address nobody has proven to own while `REQUIRE_EMAIL_VERIFICATION` is
+  on; a second administrator acting at the same moment gets `409`; a member who is already approved is deactivated, not
+  "rejected". A rejection needs a reason (3 to 500 characters) because the person is told. A rejected registration can still be
+  approved later. Every decision is written to the audit log (`APPROVE` / `REJECT`).
+* **E-mails:** after the address is verified, "we received your registration"; on approval, "you can sign in"; on rejection, the
+  reason (escaped). A failing mail server never blocks a decision.
+* **Existing members are not locked out.** The migration (`20261108020000_alumni_approval`) marks every account that exists as
+  `APPROVED` and `isVerified` (including Google/LinkedIn members who were invisible before), except an account that never verified,
+  never signed in and holds no role: that goes to the queue.
+* **The first administrator** (`SEED_ADMIN_*`) is created `APPROVED`; everybody after is approved by an administrator.
 
 ## Signing in
 
@@ -91,7 +134,7 @@ login ─► password ok? ─► active? ─► verified? ─► 2FA on? ─┬�
 
 | Endpoint | Purpose | Limit |
 |---|---|---|
-| `POST /auth/register` | create an account, mail the verification link | 10 / 15 min / address |
+| `POST /auth/register` | create a **pending** account (+ optional `enrollmentNumber`, `verificationNote`), mail the verification link | 10 / 15 min / address |
 | `POST /auth/verify-email` | `{ token, password }` confirm the address | 10 / 15 min |
 | `POST /auth/resend-verification` | new link, identical answer for every address | 10 / 15 min + 1 mail / minute / account |
 | `POST /auth/login` | `{ email, password }` → session or 2FA challenge | 10 / 15 min |
@@ -99,6 +142,7 @@ login ─► password ok? ─► active? ─► verified? ─► 2FA on? ─┬�
 | `POST /auth/refresh-token` | rotate the refresh token | 60 / 15 min |
 | `POST /auth/logout` | revoke this device's refresh token | |
 | `GET /auth/me` | the signed-in member | |
+| `GET /admin/approvals`, `/admin/approvals/summary`, `POST /admin/approvals/:id/approve`, `/reject` | the review queue (admin) | |
 | `POST /auth/forgot-password`, `/reset-password` | reset by e-mail (identical answer for every address) | 10 / 15 min |
 | `POST /auth/change-password` | signed in; revokes the other sessions | 10 / 15 min |
 | `POST /auth/2fa/enable`, `/2fa/disable` | manage the second factor | 10 / 15 min |
@@ -120,14 +164,21 @@ Full request/response shapes: [API_REFERENCE.md](API_REFERENCE.md).
 | `PASSWORD_ATTEMPTS_EXCEEDED` | 429 | too many wrong passwords for this account; wait 15 minutes |
 | `INVALID_OTP`, `INVALID_2FA_SESSION` | 400 / 401 | wrong or expired second-factor code / challenge: restart the sign-in |
 | `INVALID_REFRESH_TOKEN`, `REFRESH_TOKEN_REUSED` | 401 | the session ended: sign in again |
+| `ACCOUNT_PENDING_APPROVAL` | 403 | the registration is waiting for an administrator; nothing to do but wait for the e-mail |
+| `ACCOUNT_REJECTED` | 403 | the registration was not approved; the reason was e-mailed |
 | `RATE_LIMITED` | 429 | too many requests from this address |
 
 ## The browser side
 
 * `src/middleware.ts` redirects visitors without the `aitd_session` hint cookie away from member pages
   (`/dashboard`, `/admin/*`, `/directory`, ...) to `/login?next=…`. The cookie is only a hint; **the API is the authority** and
-  the member layout re-checks the session. Open pages are listed in `src/lib/public-paths.ts` (`/login`, `/register`,
-  `/verify-email`, `/forgot-password`, `/reset-password`, the legal pages and the public sections).
+  the member layout re-checks the session. Open pages are listed in `src/lib/public-paths.ts` (`/`, `/login`, `/register`,
+  `/verify-email`, `/forgot-password`, `/reset-password` and the legal pages). **There are no public sections any more:** events, news,
+  gallery, chapters, donations, search and shared post links all send a visitor to `/login?next=...`.
+* After a registration there is **no redirect and no session**: the page shows "What happens next" (verify the e-mail, an
+  administrator checks, you are told by e-mail). A sign-in refused with `ACCOUNT_PENDING_APPROVAL` / `ACCOUNT_REJECTED` shows a calm
+  notice instead of an error (`/login?approval=pending|rejected` shows the same notice). If one of those codes comes back on a call of an
+  existing session, the client ends the session and announces it through the `api:account_not_approved` event.
 * `?next=` is honoured only for same-origin relative paths.
 * Tokens are kept in `localStorage` by `auth-context`/`api.ts`. A strict CSP, URL allowlists and output encoding are the
   compensating controls until they move to httpOnly cookies.

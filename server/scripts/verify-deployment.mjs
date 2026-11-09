@@ -60,13 +60,27 @@ check('API sends X-Content-Type-Options: nosniff', (health.headers.get('x-conten
 
 const search = await get(`${API}/api/search?q=alumni`);
 check('API answers rate-limit headers (limits are active)', Boolean(search.headers.get('ratelimit-limit') || search.headers.get('x-ratelimit-limit')));
-const searchBody = await json(search);
-check('anonymous search is limited to the public scope', search.status === 200 && searchBody?.data?.scope === 'public', `scope ${searchBody?.data?.scope}`);
+check('anonymous search is refused (the community is private)', search.status === 401, `status ${search.status}`);
 
 // ---- access control ----
-for (const path of ['/api/users/directory', '/api/users/nearby', '/api/users/me/export', '/api/admin/users', '/api/admin/stats', '/api/notifications', '/api/messages/conversations']) {
+// The platform is private: every route that returns community content needs an approved member. Only the sign-in routes,
+// the landing page's two pieces (/api/landing, /api/users/stats) and the payment webhook are open.
+const PRIVATE_API = [
+  '/api/users/directory', '/api/users/nearby', '/api/users/me/export', '/api/users/notable', '/api/admin/users', '/api/admin/stats',
+  '/api/admin/approvals', '/api/notifications', '/api/messages/conversations',
+  '/api/events', '/api/events/upcoming', '/api/news', '/api/news/latest', '/api/gallery/albums', '/api/gallery/recent',
+  '/api/chapters', '/api/jobs', '/api/posts', '/api/hashtags/trending', '/api/videos', '/api/magazine', '/api/requirements',
+  '/api/marketplace', '/api/memberships/tiers', '/api/donations/wall', '/api/donations/stats',
+];
+for (const path of PRIVATE_API) {
   const res = await get(`${API}${path}`);
   check(`anonymous ${path} is refused`, res.status === 401, `status ${res.status}`);
+}
+const donation = await fetch(`${API}/api/donations/order`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ amount: 100 }), redirect: 'manual' });
+check('anonymous donation orders are refused', donation.status === 401, `status ${donation.status}`);
+for (const path of ['/api/landing', '/api/users/stats']) {
+  const res = await get(`${API}${path}`);
+  check(`${path} (landing page) is open`, res.status === 200, `status ${res.status}`);
 }
 const forgedToken = await get(`${API}/api/search?q=a`, { headers: { Authorization: 'Bearer not-a-real-token' } });
 check('a bad token is a 401, never a silent logged-out view', forgedToken.status === 401, `status ${forgedToken.status}`);
@@ -94,12 +108,12 @@ if (WEB.startsWith('https://')) {
   check('web sends Strict-Transport-Security', /max-age=\d{7,}/.test(home.headers.get('strict-transport-security') || ''), 'add it at the TLS terminator');
 }
 
-for (const path of ['/dashboard', '/admin/users', '/directory', '/messages', '/profile/x.png']) {
+for (const path of ['/dashboard', '/admin/users', '/admin/approvals', '/directory', '/messages', '/profile/x.png', '/search', '/events', '/news', '/gallery', '/chapters', '/donations', '/posts/x']) {
   const res = await get(`${WEB}${path}`);
   const location = res.headers.get('location') || '';
   check(`anonymous ${path} is sent to sign-in`, [302, 303, 307, 308].includes(res.status) && /\/login/.test(location), `status ${res.status}`);
 }
-for (const path of ['/search', '/events', '/news', '/login', '/register', '/verify-email']) {
+for (const path of ['/login', '/register', '/verify-email']) {
   const res = await get(`${WEB}${path}`);
   check(`${path} is open to visitors`, res.status === 200, `status ${res.status}`);
 }

@@ -31,7 +31,16 @@ export function ExportPanel() {
         `${entity}-${today}.csv`
       );
       saveBlob(response.data, filename);
-      toast({ title: 'Export ready', description: `${LABELS[entity]} exported to ${filename}.` });
+      if (String(response.headers?.['x-export-truncated'] ?? '').toLowerCase() === 'true') {
+        // The server stops at its row limit and ends the file with an "EXPORT TRUNCATED" row
+        toast({
+          title: 'Export is incomplete',
+          description: `${LABELS[entity]} saved to ${filename}, but the table is larger than the export row limit, so the file holds only the first rows.`,
+          variant: 'destructive',
+        });
+      } else {
+        toast({ title: 'Export ready', description: `${LABELS[entity]} exported to ${filename}.` });
+      }
     } catch (err) {
       toast({
         title: `Could not export ${LABELS[entity].toLowerCase()}`,

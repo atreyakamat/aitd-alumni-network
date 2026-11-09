@@ -77,30 +77,31 @@ describe('search: nothing non-public is reachable by a visitor, and members only
     }
   });
 
-  const search = (q: string, auth?: string) => {
+  // The platform is private: searching needs an approved member, so the default searcher is a signed-in stranger
+  // (not connected to anybody). `anonymous` is the visitor.
+  const search = (q: string, auth: string | null = stranger.auth) => {
     const req = http().get('/api/search').query({ q });
     return auth ? req.set('Authorization', auth) : req;
   };
   const titles = (rows: Array<Record<string, unknown>>) => rows.map((r) => String(r.title ?? r.name ?? r.fullName ?? r.content));
 
-  it('a visitor gets only public events, published news and active chapters - and nothing else', async () => {
-    const res = await search(TAG);
-    expect(res.status).toBe(200);
-    expect(res.body.data.scope).toBe('public');
-    expect(titles(res.body.data.events)).toEqual([`Open meetup ${TAG}`]);
-    expect(titles(res.body.data.news)).toEqual([`Public news ${TAG}`]);
-    expect(titles(res.body.data.chapters)).toEqual([`Active chapter ${TAG}`]);
-    for (const section of ['users', 'jobs', 'posts'] as const) expect(res.body.data[section]).toEqual([]);
-    expect(JSON.stringify(res.body)).not.toMatch(/secret (draft|excerpt)/i);
+  it('a visitor gets nothing at all: 401, no results, no hint that anything matched', async () => {
+    const res = await search(TAG, null);
+    expect(res.status).toBe(401);
+    expect(res.body.data).toBeUndefined();
+    expect(JSON.stringify(res.body)).not.toContain(TAG);
   });
 
-  it('a visitor learns nothing about private rows from counts, ordering or hashtags', async () => {
+  it('a member learns nothing about private rows from counts, ordering or hashtags', async () => {
     const res = await search(`secret draft text ${TAG}`);
     expect(res.body.data.news).toEqual([]);
-    const tag = await http().get(`/api/hashtags/r2private${TAG.slice(-4)}/posts`);
+    const tag = await http().get(`/api/hashtags/r2private${TAG.slice(-4)}/posts`).set('Authorization', stranger.auth);
     expect(JSON.stringify(tag.body)).not.toContain('connections only');
-    const trending = await http().get('/api/hashtags/trending');
+    const trending = await http().get('/api/hashtags/trending').set('Authorization', stranger.auth);
     expect(JSON.stringify(trending.body)).not.toContain(`r2private${TAG.slice(-4)}`);
+    // ...and a visitor cannot even ask
+    expect((await http().get(`/api/hashtags/r2private${TAG.slice(-4)}/posts`)).status).toBe(401);
+    expect((await http().get('/api/hashtags/trending')).status).toBe(401);
   });
 
   it('a signed-in stranger sees members-only events but no drafts, no unverified or deactivated people, no hidden posts', async () => {
@@ -152,8 +153,8 @@ describe('search: nothing non-public is reachable by a visitor, and members only
   });
 
   it('odd query shapes (arrays, objects, wildcards) neither error nor match everything', async () => {
-    expect((await http().get('/api/search?q=a&q=b')).body.data.events).toEqual([]);
-    expect((await http().get('/api/search?q[x]=zz')).status).toBe(200);
+    expect((await http().get('/api/search?q=a&q=b').set('Authorization', stranger.auth)).body.data.events).toEqual([]);
+    expect((await http().get('/api/search?q[x]=zz').set('Authorization', stranger.auth)).status).toBe(200);
     for (const wildcard of ['%%', '__', '%_%', '\\']) {
       const res = await search(wildcard);
       expect(res.status).toBe(200);
@@ -162,7 +163,7 @@ describe('search: nothing non-public is reachable by a visitor, and members only
       expect(res.body.data.chapters).toEqual([]);
     }
     // NUL bytes in a query STRING are stripped by sanitizeInput (only a NUL in the path is rejected)
-    const nul = await http().get('/api/search?q=abc%00def');
+    const nul = await http().get('/api/search?q=abc%00def').set('Authorization', stranger.auth);
     expect(nul.status).toBe(200);
   });
 });
@@ -323,8 +324,9 @@ describe('the NUL-byte path guard', () => {
   });
 
   it('does not reject legitimate non-ASCII or encoded identifiers (unicode slugs, emoji, spaces)', async () => {
+    const member = await createUser('MEMBER'); // news is for approved members
     for (const slug of ['%E0%A4%B8%E0%A4%AE%E0%A4%BE%E0%A4%9A%E0%A4%BE%E0%A4%B0', 'caf%C3%A9', '%F0%9F%8E%89', 'a%20b', 'a%2Fb']) {
-      const res = await http().get(`/api/news/${slug}`);
+      const res = await http().get(`/api/news/${slug}`).set('Authorization', member.auth);
       expect({ slug, status: res.status }).toEqual({ slug, status: 404 }); // not found - but a clean 404, not a 400/500
     }
   });

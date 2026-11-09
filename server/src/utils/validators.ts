@@ -40,6 +40,9 @@ export const registerSchema = z.object({
     department: z.string().trim().min(1, 'Department is required').max(100),
     degree: z.string().trim().min(1, 'Degree is required').max(100),
     roleType: z.enum(['STUDENT', 'ALUMNI', 'FACULTY']).optional(),
+    // What the applicant tells the administrator who checks that they are an alumnus of the college
+    enrollmentNumber: z.string().trim().max(50, 'Enrolment number is too long').optional(),
+    verificationNote: z.string().trim().max(1000, 'Please keep this under 1000 characters').optional(),
   }),
 });
 

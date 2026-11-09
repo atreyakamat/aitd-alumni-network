@@ -77,9 +77,15 @@ describe('the gate is the same for every spelling of a members-only path', () =>
     expect(['redirected', 'skipped']).toContain(anonymousOutcome(url));
   });
 
-  it('public pages stay public in every spelling', () => {
-    for (const url of ['/', '/events', '/events/', '/events/42', '/news/some-slug', '/posts/p1', '/search?q=ab', '/login', '/register?next=%2Fjobs']) {
+  it('the pages open to visitors are only the landing page, the auth screens and the legal pages', () => {
+    for (const url of ['/', '/login', '/register?next=%2Fjobs', '/verify-email?token=t', '/forgot-password', '/reset-password?token=t', '/privacy', '/terms', '/contact', '/cookies']) {
       expect({ url, outcome: anonymousOutcome(url) }).toEqual({ url, outcome: 'served' });
+    }
+  });
+
+  it('what used to be browsable without an account is behind the login now', () => {
+    for (const url of ['/events', '/events/', '/events/42', '/news', '/news/some-slug', '/gallery', '/donations', '/chapters', '/chapters/c1', '/posts/p1', '/search?q=ab']) {
+      expect({ url, outcome: anonymousOutcome(url) }).toEqual({ url, outcome: 'redirected' });
     }
   });
 

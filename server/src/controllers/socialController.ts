@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import { networkService } from '../services/networkService';
 import { messageService } from '../services/messageService';
 import { notificationService } from '../services/notificationService';
+import { queryText } from '../utils/inputGuards';
 
 // Network Controller
 export class NetworkController {
@@ -18,8 +19,12 @@ export class NetworkController {
 
   async getPendingRequests(req: Request, res: Response, next: NextFunction) {
     try {
-      const result = await networkService.getPendingRequests(req.user!.id);
-      res.json({ success: true, data: result });
+      const page = parseInt(req.query.page as string) || 1;
+      const limit = parseInt(req.query.limit as string) || 20;
+      const type = queryText(req.query.type);
+      // { data: { received, sent }, pagination: { received, sent } }
+      const result = await networkService.getPendingRequests(req.user!.id, page, limit, type);
+      res.json({ success: true, ...result });
     } catch (error) {
       next(error);
     }

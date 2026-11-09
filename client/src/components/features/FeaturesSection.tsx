@@ -3,7 +3,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Users, Briefcase, BookOpen, CalendarDays, ArrowRight } from 'lucide-react';
 import { buildLoginHref } from '@/lib/public-paths';
 
-// Members-only features send visitors to sign in first (and back afterwards); public ones link directly.
+// The platform is private: every feature sends visitors to sign in first (and back afterwards).
 const features = [
   {
     icon: Users,
@@ -30,8 +30,8 @@ const features = [
     icon: CalendarDays,
     title: 'Events',
     description: 'From gala dinners to digital seminars, stay connected with our curated global calendar.',
-    href: '/events',
-    cta: 'Browse Calendar',
+    href: buildLoginHref('/events'),
+    cta: 'Sign in to see the calendar',
   },
 ];
 

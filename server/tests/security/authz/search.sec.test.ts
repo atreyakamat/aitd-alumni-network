@@ -73,17 +73,18 @@ describe('search visibility', () => {
     }
   });
 
-  it('an anonymous visitor gets 200 with public content only: no people, jobs or posts', async () => {
+  it('a visitor learns nothing: the community is private, so search answers 401 and runs no query', async () => {
     const res = await search();
-    expect(res.status).toBe(200);
-    expect(res.body.data.scope).toBe('public');
-    expect(res.body.data.users).toEqual([]);
-    expect(res.body.data.jobs).toEqual([]);
-    expect(res.body.data.posts).toEqual([]);
-    const titles = res.body.data.events.map((e: { title: string }) => e.title);
-    expect(titles).toContain(`Open ${TOKEN} meetup`);
-    expect(titles).not.toContain(`Members ${TOKEN} dinner`); // members-only events stay hidden
+    expect(res.status).toBe(401);
     expect(JSON.stringify(res.body)).not.toContain(author.user.email);
+    expect(JSON.stringify(res.body)).not.toContain(TOKEN);
+  });
+
+  it('a registration that is not approved learns nothing either (403)', async () => {
+    const pending = await createUser('MEMBER', { approvalStatus: 'PENDING', isVerified: false });
+    const res = await search(pending.auth);
+    expect(res.status).toBe(403);
+    expect(JSON.stringify(res.body)).not.toContain(TOKEN);
   });
 
   it('a member also finds members-only events', async () => {

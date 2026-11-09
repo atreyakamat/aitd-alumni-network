@@ -1,6 +1,6 @@
 import axios from 'axios';
 import type { Role } from '@/lib/roles';
-import { buildLoginHref, isPublicPath } from '@/lib/public-paths';
+import { buildLoginHref, isMemberOnlyPath } from '@/lib/public-paths';
 import { clearSessionHint, setSessionHint } from '@/lib/session-hint';
 import type { Notification as AppNotification } from '@/types';
 import type { EducationInput, ProfileUpdatePayload, WorkExperienceInput } from '@/lib/profile';
@@ -151,6 +151,51 @@ export function refreshAccessToken(): Promise<string> {
   return refreshPromise;
 }
 
+// ---------------------------------------------------------------------------
+// Ending a session the server no longer accepts
+// ---------------------------------------------------------------------------
+
+/**
+ * 403 codes meaning "this account is not (or no longer) approved". The server sends them for a sign-in of a registration
+ * nobody has approved yet (or that was rejected) and for any call of an account whose approval was taken back.
+ */
+export type ApprovalState = 'pending' | 'rejected';
+
+const APPROVAL_CODES: Record<string, ApprovalState> = {
+  ACCOUNT_PENDING_APPROVAL: 'pending',
+  ACCOUNT_REJECTED: 'rejected',
+};
+
+/** 'pending' / 'rejected' when the error is the server saying the account is not approved; null for anything else. */
+export function getApprovalState(err: unknown): ApprovalState | null {
+  const anyErr = err as any;
+  if (anyErr?.response?.status !== 403) return null;
+  const code = anyErr?.response?.data?.error?.code;
+  return typeof code === 'string' && Object.prototype.hasOwnProperty.call(APPROVAL_CODES, code) ? APPROVAL_CODES[code] : null;
+}
+
+/**
+ * Drop the session and tell the person why: an expired session, or an account that is not approved (any more).
+ * Member pages go to the login page (which shows the matching notice); the pages that are open to visitors (landing,
+ * auth, legal) stay where they are: they work without a session, so there is nothing to bounce from.
+ */
+function endSession(reason: 'expired' | ApprovalState, serverMessage?: string | null) {
+  localStorage.removeItem('accessToken');
+  localStorage.removeItem('refreshToken');
+  clearSessionHint();
+  if (reason === 'expired') {
+    window.dispatchEvent(
+      new CustomEvent('api:session_expired', { detail: { message: 'Your session has expired. Please log in again.' } })
+    );
+  } else {
+    window.dispatchEvent(new CustomEvent('api:account_not_approved', { detail: { state: reason, message: serverMessage ?? null } }));
+  }
+  const { pathname, search } = window.location;
+  if (!isMemberOnlyPath(pathname)) return;
+  window.location.href =
+    reason === 'expired' ? buildLoginHref(`${pathname}${search}`) : buildLoginHref(null, { approval: reason });
+}
+
 // Request interceptor to add auth token
 api.interceptors.request.use(
   (config) => {
@@ -246,23 +291,25 @@ api.interceptors.response.use(
           originalRequest.headers = originalRequest.headers || {};
           originalRequest.headers.Authorization = `Bearer ${accessToken}`;
           return api(originalRequest);
-        } catch {
-          // Refresh failed: the session is gone. Clear tokens and send to login.
-          localStorage.removeItem('accessToken');
-          localStorage.removeItem('refreshToken');
-          clearSessionHint();
-          window.dispatchEvent(new CustomEvent('api:session_expired', {
-            detail: { message: 'Your session has expired. Please log in again.' }
-          }));
-          const { pathname, search } = window.location;
-          if (isPublicPath(pathname)) {
-            // Public sections stay browsable: reload so the page renders anonymously.
-            window.location.href = `${pathname}${search}`;
-          } else if (!pathname.startsWith('/login')) {
-            window.location.href = buildLoginHref(`${pathname}${search}`);
-          }
+        } catch (refreshError) {
+          // Refresh failed: the session is gone. Clear tokens and send to login (member pages only; see endSession).
+          // An account whose approval was taken back is told so instead of "your session has expired".
+          const approval = getApprovalState(refreshError);
+          endSession(approval ?? 'expired', approval ? pickMessage((refreshError as any)?.response?.data) : null);
         }
       }
+    }
+
+    // 403 because the account is not (or no longer) approved: a call of a signed-in member means the administrator took
+    // the approval back, so the session ends here. The sign-in calls themselves are the login page's business (it shows
+    // the notice), and stale tokens of an older session must not be touched by somebody else's failed sign-in.
+    const approvalState = getApprovalState(error);
+    if (approvalState) {
+      const isAuthCall = NO_REFRESH_PATHS.some((p) => String(originalRequest?.url ?? '').includes(p));
+      if (isBrowser && !isAuthCall && localStorage.getItem('accessToken')) {
+        endSession(approvalState, pickMessage(error.response.data));
+      }
+      return Promise.reject(error);
     }
 
     // Handle 403 Forbidden
@@ -417,6 +464,16 @@ export function readPaginated<T = any>(body: any): PageOf<T> {
 }
 
 // Auth API
+
+/** What POST /auth/register answers: the account exists but is PENDING. No session is issued until an administrator approves it. */
+export interface RegistrationReceipt {
+  id: string;
+  email: string;
+  fullName: string;
+  approvalStatus: 'PENDING';
+  message: string;
+}
+
 export const authApi = {
   register: (data: {
     email: string;
@@ -426,7 +483,11 @@ export const authApi = {
     department: string;
     degree: string;
     roleType?: string;
-  }) => api.post('/auth/register', data),
+    /** Optional, max 50: the number the college knows the applicant by. Helps the administrator who approves. */
+    enrollmentNumber?: string;
+    /** Optional, max 1000: anything that helps verify the applicant (programme, year, a contact). */
+    verificationNote?: string;
+  }) => api.post<ApiSuccess<RegistrationReceipt>>('/auth/register', data),
 
   login: (data: { email: string; password: string }) =>
     api.post('/auth/login', data),
@@ -716,7 +777,12 @@ export const eventApi = {
 export const networkApi = {
   getConnections: (page?: number, limit?: number) =>
     api.get('/network/connections', { params: { page, limit } }),
-  getPendingRequests: () => api.get('/network/requests'),
+  /**
+   * Pending connection requests, one page of each list: `{ data: { received, sent }, pagination: { received, sent } }`.
+   * `type` reads just one list (the other comes back empty).
+   */
+  getPendingRequests: (params?: { page?: number; limit?: number; type?: 'received' | 'sent' }) =>
+    api.get('/network/requests', { params }),
   getSuggestions: (limit?: number) =>
     api.get('/network/suggestions', { params: { limit } }),
   sendRequest: (userId: string) => api.post(`/network/request/${userId}`),
@@ -1005,6 +1071,47 @@ export interface AdminUserFilters {
   limit?: number;
 }
 
+/** Where a registration stands: nobody gets a session before an administrator has approved it. */
+export type ApprovalStatus = 'PENDING' | 'APPROVED' | 'REJECTED';
+
+/** One registration as the reviewing administrator sees it (GET /admin/approvals). */
+export interface RegistrationApplication {
+  id: string;
+  fullName: string;
+  email: string;
+  batchYear?: number | null;
+  department?: string | null;
+  degree?: string | null;
+  roleType?: string | null;
+  /** What the applicant typed: the number the college knows them by. Free text, never trusted as HTML. */
+  enrollmentNumber: string | null;
+  /** What the applicant typed to help the verification. Free text, never trusted as HTML. */
+  verificationNote: string | null;
+  linkedinUrl: string | null;
+  isActive: boolean;
+  createdAt: string;
+  /** Null until the applicant used the link in the verification e-mail. Approving is refused before that. */
+  emailVerifiedAt: string | null;
+  approvalStatus: ApprovalStatus;
+  approvalReviewedAt: string | null;
+  /** The administrator's note on approval, or the reason given on rejection. */
+  approvalNote: string | null;
+  approvalReviewedBy: { id: string; fullName: string } | null;
+}
+
+export interface ApprovalFilters {
+  status?: ApprovalStatus;
+  search?: string;
+  page?: number;
+  limit?: number;
+}
+
+export interface ApprovalSummary {
+  pending: number;
+  approved: number;
+  rejected: number;
+}
+
 export interface PendingJob {
   id: string;
   title: string;
@@ -1122,6 +1229,16 @@ export const adminApi = {
       `/admin/users/${seg(id)}/status`,
       reason && reason.trim() ? { isActive, reason: reason.trim() } : { isActive }
     ),
+  /** Registrations by status (default PENDING, oldest first), searchable by name, e-mail or enrolment number. */
+  listApprovals: (params?: ApprovalFilters) =>
+    api.get<ApiPaginated<RegistrationApplication>>('/admin/approvals', { params: cleanParams(params) }),
+  approvalSummary: () => api.get<ApiSuccess<ApprovalSummary>>('/admin/approvals/summary'),
+  /** 409 ALREADY_APPROVED, 409 EMAIL_NOT_VERIFIED (the applicant has not used the verification link), 404. */
+  approveRegistration: (id: string, note?: string) =>
+    api.post<ApiSuccess<RegistrationApplication>>(`/admin/approvals/${seg(id)}/approve`, note && note.trim() ? { note: note.trim() } : {}),
+  /** The applicant is told the reason by e-mail (3 to 500 characters). 409 NOT_PENDING. */
+  rejectRegistration: (id: string, reason: string) =>
+    api.post<ApiSuccess<RegistrationApplication>>(`/admin/approvals/${seg(id)}/reject`, { reason: reason.trim() }),
   getPendingJobs: (params?: { page?: number; limit?: number }) =>
     api.get<ApiPaginated<PendingJob>>('/admin/jobs/pending', { params: cleanParams(params) }),
   getMentorshipOverview: () => api.get<ApiSuccess<MentorshipOverview>>('/admin/mentorship/overview'),

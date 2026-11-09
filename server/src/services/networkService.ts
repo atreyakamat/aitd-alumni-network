@@ -2,10 +2,13 @@ import prisma from '../config/database';
 import { AppError } from '../middleware/errorHandler';
 import { paginationHelper, buildPaginationResponse } from '../utils/helpers';
 import { ConnectionStatus, Prisma } from '@prisma/client';
-import { notificationService } from './notificationService';
 import { clientLinks } from '../utils/clientLinks';
+import { notifyOnce } from './socialNotifications';
 
 const MAX_SUGGESTIONS = 50;
+export const DEFAULT_PENDING_PAGE_SIZE = 20;
+/** Relationships read to keep existing contacts out of the suggestions; bounds the work for a very well connected member. */
+export const MAX_SUGGESTION_EXCLUSIONS = 5000;
 
 export class NetworkService {
   async getConnections(userId: string, page: number = 1, limit: number = 20) {
@@ -75,53 +78,62 @@ export class NetworkService {
     return buildPaginationResponse(connectedUsers, total, page, limit);
   }
 
-  async getPendingRequests(userId: string) {
-    const [received, sent] = await Promise.all([
-      prisma.connection.findMany({
-        where: { addresseeId: userId, status: 'PENDING' },
-        include: {
-          requester: {
-            select: {
-              id: true,
-              fullName: true,
-              profilePhotoUrl: true,
-              currentDesignation: true,
-              batchYear: true,
-              department: true,
-            },
-          },
-        },
-        orderBy: { createdAt: 'desc' },
-      }),
-      prisma.connection.findMany({
-        where: { requesterId: userId, status: 'PENDING' },
-        include: {
-          addressee: {
-            select: {
-              id: true,
-              fullName: true,
-              profilePhotoUrl: true,
-              currentDesignation: true,
-              batchYear: true,
-              department: true,
-            },
-          },
-        },
-        orderBy: { createdAt: 'desc' },
-      }),
+  /**
+   * Pending connection requests, one page of each list (newest first). Response: `{ data: { received, sent }, pagination:
+   * { received, sent } }`. `type` limits the read to one list: the other comes back empty and without pagination.
+   * A very popular account can have thousands of requests waiting, so nothing here is unbounded.
+   */
+  async getPendingRequests(
+    userId: string,
+    page: number = 1,
+    limit: number = DEFAULT_PENDING_PAGE_SIZE,
+    type?: string
+  ) {
+    if (type !== undefined && type !== 'received' && type !== 'sent') {
+      throw new AppError('type must be "received" or "sent"', 400, 'VALIDATION_ERROR');
+    }
+    const { skip, take, page: safePage, limit: safeLimit } = paginationHelper(
+      page,
+      Number.isFinite(limit) ? limit : DEFAULT_PENDING_PAGE_SIZE
+    );
+    const wantReceived = type !== 'sent';
+    const wantSent = type !== 'received';
+    const person = { id: true, fullName: true, profilePhotoUrl: true, currentDesignation: true, batchYear: true, department: true } as const;
+    // The id breaks ties between requests made in the same instant, so no row is skipped or repeated between pages
+    const newestFirst = [{ createdAt: 'desc' as const }, { id: 'desc' as const }];
+    const receivedWhere = { addresseeId: userId, status: 'PENDING' as const };
+    const sentWhere = { requesterId: userId, status: 'PENDING' as const };
+
+    const [received, receivedTotal, sent, sentTotal] = await Promise.all([
+      wantReceived
+        ? prisma.connection.findMany({ where: receivedWhere, include: { requester: { select: person } }, orderBy: newestFirst, skip, take })
+        : Promise.resolve([]),
+      wantReceived ? prisma.connection.count({ where: receivedWhere }) : Promise.resolve(0),
+      wantSent
+        ? prisma.connection.findMany({ where: sentWhere, include: { addressee: { select: person } }, orderBy: newestFirst, skip, take })
+        : Promise.resolve([]),
+      wantSent ? prisma.connection.count({ where: sentWhere }) : Promise.resolve(0),
     ]);
 
+    const receivedRows = received ?? [];
+    const sentRows = sent ?? [];
     return {
-      received: received.map(r => ({
-        connectionId: r.id,
-        user: r.requester,
-        createdAt: r.createdAt,
-      })),
-      sent: sent.map(s => ({
-        connectionId: s.id,
-        user: s.addressee,
-        createdAt: s.createdAt,
-      })),
+      data: {
+        received: receivedRows.map(r => ({
+          connectionId: r.id,
+          user: r.requester,
+          createdAt: r.createdAt,
+        })),
+        sent: sentRows.map(s => ({
+          connectionId: s.id,
+          user: s.addressee,
+          createdAt: s.createdAt,
+        })),
+      },
+      pagination: {
+        ...(wantReceived ? { received: buildPaginationResponse([], receivedTotal ?? 0, safePage, safeLimit).pagination } : {}),
+        ...(wantSent ? { sent: buildPaginationResponse([], sentTotal ?? 0, safePage, safeLimit).pagination } : {}),
+      },
     };
   }
 
@@ -131,7 +143,7 @@ export class NetworkService {
     }
 
     const addressee = await prisma.user.findUnique({
-      where: { id: addresseeId },
+      where: { id: addresseeId, approvalStatus: 'APPROVED' },
       select: { id: true, isActive: true },
     });
 
@@ -280,24 +292,32 @@ export class NetworkService {
     });
     const name = actor?.fullName ?? 'Someone';
 
+    // Request -> decline -> request again (or accept -> remove -> connect again) must not tell the other person every time:
+    // an equal notification from the same member within a day suppresses the new one (see socialNotifications.ts)
     if (type === 'CONNECTION_REQUEST') {
-      await notificationService.createNotification({
-        userId: recipientId,
-        type,
-        title: 'New Connection Request',
-        message: `${name} wants to connect with you`,
-        link: clientLinks.network(),
-        metadata: { requesterId: actorId, connectionId },
-      });
+      await notifyOnce(actorId, [
+        {
+          userId: recipientId,
+          type,
+          title: 'New Connection Request',
+          message: `${name} wants to connect with you`,
+          link: clientLinks.network(),
+          metadata: { requesterId: actorId, connectionId },
+          dedupeBy: ['requesterId'],
+        },
+      ]);
     } else {
-      await notificationService.createNotification({
-        userId: recipientId,
-        type,
-        title: 'Connection Accepted',
-        message: `${name} accepted your connection request`,
-        link: clientLinks.profile(actorId),
-        metadata: { addresseeId: actorId, connectionId },
-      });
+      await notifyOnce(actorId, [
+        {
+          userId: recipientId,
+          type,
+          title: 'Connection Accepted',
+          message: `${name} accepted your connection request`,
+          link: clientLinks.profile(actorId),
+          metadata: { addresseeId: actorId, connectionId },
+          dedupeBy: ['addresseeId'],
+        },
+      ]);
     }
   }
 
@@ -324,6 +344,8 @@ export class NetworkService {
         requesterId: true,
         addresseeId: true,
       },
+      orderBy: { createdAt: 'desc' },
+      take: MAX_SUGGESTION_EXCLUSIONS,
     });
 
     const excludeIds = new Set([userId]);

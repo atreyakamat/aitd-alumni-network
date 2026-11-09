@@ -27,10 +27,28 @@ describe('middleware', () => {
     expect(res.headers.get('x-middleware-next')).toBe('1');
   });
 
-  it('serves public and auth pages anonymously', () => {
-    for (const p of ['/', '/login', '/events', '/events/1', '/news', '/privacy']) {
+  it('serves only the landing page, the auth screens and the legal pages anonymously', () => {
+    for (const p of ['/', '/login', '/register', '/verify-email', '/forgot-password', '/reset-password', '/privacy', '/terms', '/contact', '/cookies']) {
       expect(middleware(req(p)).headers.get('location'), p).toBeNull();
     }
+  });
+
+  it('the platform is private: events, news, gallery, donations, chapters, posts and search all go to login', () => {
+    for (const p of ['/events', '/events/1', '/news', '/news/some-slug', '/gallery', '/donations', '/chapters', '/posts/123', '/search', '/profile/abc']) {
+      const res = middleware(req(p));
+      expect(res.status, p).toBe(307);
+      const location = new URL(res.headers.get('location')!);
+      expect(location.pathname, p).toBe('/login');
+      expect(location.searchParams.get('next'), p).toBe(p);
+    }
+  });
+
+  it('a shared deep link keeps its query string for after sign-in', () => {
+    const res = middleware(req('/search?q=x'));
+    expect(res.status).toBe(307);
+    const location = new URL(res.headers.get('location')!);
+    expect(location.pathname).toBe('/login');
+    expect(location.searchParams.get('next')).toBe('/search?q=x');
   });
 
   it('matcher skips assets and the API proxy but not pages with dots', () => {

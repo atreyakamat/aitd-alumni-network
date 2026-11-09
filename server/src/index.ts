@@ -48,7 +48,7 @@ const shutdown = createShutdown({
   // Docker's default stop grace period is 10s
   timeoutMs: Number(process.env.SHUTDOWN_TIMEOUT_MS) || 8000,
   exit: (code) => process.exit(code),
-  log: (message) => console.log(message),
+  log: (message, level = 'info') => log[level](message),
 });
 const stop = async (signal: string, failed = false) => {
   await Promise.all([

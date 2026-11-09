@@ -43,6 +43,29 @@ describe('reactions', () => {
   });
 });
 
+describe('notification loops', () => {
+  it('react, un-react, react again tells the author once; follow, unfollow, follow again tells the member once', async () => {
+    const author = await createUser('MEMBER');
+    const fan = await createUser('MEMBER');
+    const p = await post(author, { content: 'Loop test' });
+    const react = () => http().post(`/api/posts/${p.id}/react`).set('Authorization', fan.auth).send({ type: 'LIKE' });
+
+    expect((await react()).body.data.reaction).toBe('LIKE');
+    expect((await react()).body.data.reaction).toBeNull(); // same reaction again takes it back
+    expect((await react()).body.data.reaction).toBe('LIKE');
+    expect(await prisma.notification.count({ where: { userId: author.user.id, type: 'POST_REACTED' } })).toBe(1);
+
+    const follow = () => http().post(`/api/users/${author.user.id}/follow`).set('Authorization', fan.auth);
+    const unfollow = () => http().delete(`/api/users/${author.user.id}/follow`).set('Authorization', fan.auth);
+    expect((await follow()).status).toBe(200);
+    expect((await unfollow()).status).toBe(200);
+    expect((await follow()).status).toBe(200);
+    expect(await prisma.notification.count({ where: { userId: author.user.id, type: 'NEW_FOLLOWER' } })).toBe(1);
+    // the follow itself always happens
+    expect(await prisma.follow.count({ where: { followerId: fan.user.id, followingId: author.user.id } })).toBe(1);
+  });
+});
+
 describe('threaded comments', () => {
   it('flattens replies to one level and notifies each person once', async () => {
     const author = await createUser('MEMBER');
@@ -71,7 +94,7 @@ describe('threaded comments', () => {
     const forA = await prisma.notification.findMany({ where: { userId: a.user.id, type: 'COMMENT_REPLIED' } });
     expect(forA).toHaveLength(1);
 
-    const list = await http().get(`/api/posts/${p.id}/comments?sort=newest`);
+    const list = await http().get(`/api/posts/${p.id}/comments?sort=newest`).set('Authorization', a.auth);
     expect(list.body.data.items).toHaveLength(1);
     expect(list.body.data.items[0]).toMatchObject({ replyCount: 2, previewReplies: [{ content: 'reply' }, { content: 'nested' }] });
     expect((await prisma.post.findUniqueOrThrow({ where: { id: p.id } })).commentCount).toBe(3);
@@ -125,7 +148,8 @@ describe('visibility, follows and feed tabs', () => {
 
     expect((await http().get(`/api/posts/${secret.id}`).set('Authorization', friend.auth)).status).toBe(200);
     expect((await http().get(`/api/posts/${secret.id}`).set('Authorization', stranger.auth)).status).toBe(404);
-    expect((await http().get(`/api/posts/${secret.id}`)).status).toBe(404);
+    // a visitor does not even get that far: the community is private
+    expect((await http().get(`/api/posts/${secret.id}`)).status).toBe(401);
 
     const strangerFeed = await http().get('/api/feed?tab=latest&limit=50').set('Authorization', stranger.auth);
     expect(strangerFeed.body.data.items.map((i: any) => i.id)).not.toContain(secret.id);
@@ -177,9 +201,9 @@ describe('hashtags, saves and views', () => {
     const p = await post(u, { content: `Hello #${tag.toUpperCase()} and #${tag}` });
     expect(p.hashtags).toEqual([tag]);
 
-    const list = await http().get(`/api/hashtags/${tag}/posts`);
+    const list = await http().get(`/api/hashtags/${tag}/posts`).set('Authorization', u.auth);
     expect(list.body.data.items.map((i: any) => i.id)).toEqual([p.id]);
-    const trending = await http().get('/api/hashtags/trending?days=1&limit=50');
+    const trending = await http().get('/api/hashtags/trending?days=1&limit=50').set('Authorization', u.auth);
     expect(trending.body.data).toContainEqual({ tag, postCount: 1 });
   });
 
@@ -194,7 +218,7 @@ describe('hashtags, saves and views', () => {
 
     await http().post(`/api/posts/${p.id}/view`).set('Authorization', viewer.auth).expect(200);
     await http().post(`/api/posts/${p.id}/view`).set('Authorization', viewer.auth).expect(200);
-    await http().post(`/api/posts/${p.id}/view`).expect(200);
+    await http().post(`/api/posts/${p.id}/view`).expect(401); // visitors are not counted: there are none
     await http().post(`/api/posts/${p.id}/view`).set('Authorization', author.auth).expect(200);
     expect((await prisma.post.findUniqueOrThrow({ where: { id: p.id } })).viewCount).toBe(1);
   });

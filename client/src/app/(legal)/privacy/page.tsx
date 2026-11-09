@@ -51,6 +51,9 @@ export default function PrivacyPolicyPage() {
               <p>This information may include:</p>
               <ul>
                 <li><strong>Identity Data:</strong> Name, graduation year, department, enrollment number</li>
+                <li><strong>Verification Data:</strong> The enrollment number and note you may add when you register. An
+                administrator uses them only to check that you are an alumnus of the college before approving your registration. Other
+                members never see them, and they are removed when you delete your account</li>
                 <li><strong>Contact Data:</strong> Email address, phone number, physical address</li>
                 <li><strong>Profile Data:</strong> Biography, professional experience, skills, interests</li>
                 <li><strong>Financial Data:</strong> Payment card details (processed securely via Razorpay)</li>

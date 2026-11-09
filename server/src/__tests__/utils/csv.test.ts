@@ -1,4 +1,4 @@
-import { toCsv } from '../../utils/csv';
+import { csvCell, csvHeaderLine, csvRowLine, toCsv } from '../../utils/csv';
 
 describe('toCsv', () => {
   it('renders a header row from the column definitions', () => {
@@ -45,5 +45,25 @@ describe('toCsv', () => {
   it('supports computed columns', () => {
     const csv = toCsv([{ user: { name: 'Ann' } }], [{ header: 'Name', value: (r: any) => r.user.name }]);
     expect(csv.split('\r\n')[1]).toBe('Ann');
+  });
+});
+
+describe('line helpers used to stream a CSV', () => {
+  const columns = [
+    { key: 'a' as const, header: 'Alpha' },
+    { key: 'b' as const, header: 'Be,ta' },
+  ];
+
+  it('csvHeaderLine and csvRowLine produce exactly the lines toCsv joins', () => {
+    const rows = [{ a: 1, b: 'x' }, { a: '=cmd', b: 'say "hi"' }];
+    const streamed = [csvHeaderLine(columns), ...rows.map((row) => csvRowLine(row, columns))].join('\r\n');
+    expect(streamed).toBe(toCsv(rows, columns));
+    expect(csvHeaderLine(columns)).toBe('Alpha,"Be,ta"');
+  });
+
+  it('csvCell quotes and neutralises a single value', () => {
+    expect(csvCell('plain')).toBe('plain');
+    expect(csvCell('a,b')).toBe('"a,b"');
+    expect(csvCell('=1+1')).toBe("'=1+1");
   });
 });

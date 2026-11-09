@@ -7,6 +7,7 @@ import { RoleType, UserRole } from '@prisma/client';
 import { disconnectUser } from '../utils/socket';
 import { sanitizeValue } from '../middleware/sanitizeInput';
 import { isSafeHttpUrl } from '../utils/safeUrl';
+import { log } from '../utils/logger';
 
 // Define OAuth user type for callback responses
 export interface OAuthUser {
@@ -130,7 +131,7 @@ export const oauthVerify =
       const oauthUser = await resolveOAuthUser(provider, profile);
       return done(null, oauthUser as Express.User);
     } catch (error) {
-      console.error(`${providerLabel[provider]} OAuth error:`, error);
+      log.error(`${providerLabel[provider]} OAuth sign-in failed`, { err: error });
       return done(error as Error, undefined);
     }
   };

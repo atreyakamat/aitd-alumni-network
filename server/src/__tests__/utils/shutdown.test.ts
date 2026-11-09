@@ -47,6 +47,14 @@ describe('createShutdown', () => {
     const d = deps({ prisma: { $disconnect: jest.fn().mockRejectedValue(new Error('boom')) } });
     await createShutdown(d as any)('SIGTERM');
     expect(d.exit).toHaveBeenCalledWith(1);
+    expect(d.log).toHaveBeenCalledWith('Error during shutdown: boom', 'error');
+  });
+
+  it('reports the normal progress as info and problems as errors', async () => {
+    const d = deps();
+    await createShutdown(d as any)('SIGTERM');
+    expect(d.log).toHaveBeenCalledWith('SIGTERM received: shutting down gracefully');
+    expect(d.log).not.toHaveBeenCalledWith(expect.anything(), 'error');
   });
 
   it('forces exit 1 when draining exceeds the timeout', async () => {
@@ -56,6 +64,7 @@ describe('createShutdown', () => {
       void createShutdown(d as any)('SIGTERM');
       await jest.advanceTimersByTimeAsync(60);
       expect(d.exit).toHaveBeenCalledWith(1);
+      expect(d.log).toHaveBeenCalledWith('Shutdown did not finish within 50ms; forcing exit', 'error');
     } finally {
       jest.useRealTimers();
     }

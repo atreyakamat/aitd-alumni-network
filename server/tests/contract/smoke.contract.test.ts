@@ -300,7 +300,7 @@ const cases: Record<string, Case> = {
 
   // ---- Users ----
   'get /users/stats': { ok: () => ({ as: null, path: '/users/stats' }), shape: 'obj', bad: null },
-  'get /users/notable': { ok: () => ({ as: null, path: '/users/notable', query: { limit: 3 } }), shape: 'arr', bad: null },
+  'get /users/notable': { ok: () => ({ path: '/users/notable', query: { limit: 3 } }), shape: 'arr', bad: null },
   'get /users/directory': {
     ok: () => ({ path: '/users/directory', query: { page: 1, limit: 12, search: 'Integration', batchYear: 2018, department: 'Computer Engineering' } }),
     shape: 'list',
@@ -341,20 +341,20 @@ const cases: Record<string, Case> = {
   },
   'get /users/mention-search': { ok: () => ({ path: '/users/mention-search', query: { q: 'Int', limit: 8 } }), shape: 'any', bad: () => ({ as: null, path: '/users/mention-search', query: { q: 'x' } }), badStatus: 401 },
   'get /users/:id': {
-    ok: (x) => ({ as: null, path: `/users/${x.other.user.id}` }),
+    ok: (x) => ({ path: `/users/${x.other.user.id}` }),
     shape: 'obj',
     check: (b, x) => {
       expect(b.data.id).toBe(x.other.user.id);
       expect(b.data).not.toHaveProperty('passwordHash');
     },
-    bad: () => ({ as: null, path: `/users/${MISSING_ID}` }),
+    bad: () => ({ path: `/users/${MISSING_ID}` }),
     badStatus: 404,
   },
   'post /users/:id/follow': { ok: (x) => ({ path: `/users/${x.third.user.id}/follow`, body: {} }), shape: 'obj' },
   'delete /users/:id/follow': { ok: (x) => ({ path: `/users/${x.third.user.id}/follow` }), shape: 'obj', bad: null },
   'get /users/:id/followers': { ok: (x) => ({ path: `/users/${x.other.user.id}/followers`, query: { limit: 10 } }), shape: 'obj' },
   'get /users/:id/following': { ok: (x) => ({ path: `/users/${x.other.user.id}/following`, query: { limit: 10 } }), shape: 'obj' },
-  'get /users/:id/posts': { ok: (x) => ({ as: null, path: `/users/${x.member.user.id}/posts`, query: { limit: 10 } }), shape: 'obj' },
+  'get /users/:id/posts': { ok: (x) => ({ path: `/users/${x.member.user.id}/posts`, query: { limit: 10 } }), shape: 'obj' },
   'patch /users/profile': {
     ok: () => ({
       as: 'third',
@@ -430,11 +430,11 @@ const cases: Record<string, Case> = {
   },
 
   // ---- Posts ----
-  'get /posts': { ok: () => ({ as: null, path: '/posts', query: { page: 1, limit: 10 } }), shape: 'list', bad: null },
+  'get /posts': { ok: () => ({ path: '/posts', query: { page: 1, limit: 10 } }), shape: 'list', bad: null },
   'get /posts/:id': {
-    ok: (x) => ({ as: null, path: `/posts/${x.post.id}` }),
+    ok: (x) => ({ path: `/posts/${x.post.id}` }),
     shape: 'obj',
-    bad: () => ({ as: null, path: `/posts/${MISSING_ID}` }),
+    bad: () => ({ path: `/posts/${MISSING_ID}` }),
     badStatus: 404,
   },
   'post /posts': {
@@ -482,8 +482,8 @@ const cases: Record<string, Case> = {
   // ---- Social ----
   'get /feed': { ok: () => ({ path: '/feed', query: { tab: 'latest', limit: 10 } }), shape: 'obj', bad: () => ({ as: null, path: '/feed' }), badStatus: 401 },
   'get /saved': { ok: () => ({ path: '/saved', query: { limit: 5 } }), shape: 'obj', bad: () => ({ as: null, path: '/saved' }), badStatus: 401 },
-  'get /hashtags/trending': { ok: () => ({ as: null, path: '/hashtags/trending', query: { days: 7, limit: 10 } }), shape: 'any', bad: null },
-  'get /hashtags/:tag/posts': { ok: () => ({ as: null, path: '/hashtags/contract/posts', query: { limit: 5 } }), shape: 'obj', bad: null },
+  'get /hashtags/trending': { ok: () => ({ path: '/hashtags/trending', query: { days: 7, limit: 10 } }), shape: 'any', bad: null },
+  'get /hashtags/:tag/posts': { ok: () => ({ path: '/hashtags/contract/posts', query: { limit: 5 } }), shape: 'obj', bad: null },
   'post /posts/video': { ok: () => ({ path: '/posts/video' }), status: 400, bad: () => ({ as: null, path: '/posts/video' }), badStatus: 401 },
   'post /posts/:id/react': {
     ok: (x) => ({ as: 'other', path: `/posts/${x.post.id}/react`, body: { type: 'CELEBRATE' } }),
@@ -491,7 +491,7 @@ const cases: Record<string, Case> = {
     bad: (x) => ({ path: `/posts/${x.post.id}/react`, body: { type: 'NOPE' } }),
   },
   'get /posts/:id/reactions': { ok: (x) => ({ path: `/posts/${x.post.id}/reactions`, query: { limit: 10 } }), shape: 'obj' },
-  'get /posts/:id/comments': { ok: (x) => ({ as: null, path: `/posts/${x.post.id}/comments`, query: { sort: 'top', limit: 10 } }), shape: 'obj' },
+  'get /posts/:id/comments': { ok: (x) => ({ path: `/posts/${x.post.id}/comments`, query: { sort: 'top', limit: 10 } }), shape: 'obj' },
   'post /posts/:id/repost': {
     ok: async (x) => ({ as: 'other', path: `/posts/${(await fx.newPost(x.member.user.id)).id}/repost`, body: { content: 'Reposting', visibility: 'PUBLIC' } }),
     status: 201,
@@ -507,14 +507,14 @@ const cases: Record<string, Case> = {
     shape: 'any',
   },
   'post /posts/:id/save': { ok: (x) => ({ as: 'other', path: `/posts/${x.post.id}/save`, body: {} }), shape: 'obj' },
-  'post /posts/:id/view': { ok: (x) => ({ as: null, path: `/posts/${x.post.id}/view`, body: {} }), shape: 'any' },
+  'post /posts/:id/view': { ok: (x) => ({ path: `/posts/${x.post.id}/view`, body: {} }), shape: 'any' },
   'post /posts/:id/report': {
     ok: async (x) => ({ as: 'other', path: `/posts/${(await fx.newPost(x.member.user.id)).id}/report`, body: { reason: 'SPAM', details: 'Looks like spam' } }),
     status: 201,
     shape: 'any',
     bad: (x) => ({ as: 'other', path: `/posts/${x.post.id}/report`, body: { reason: 'NOPE' } }),
   },
-  'get /comments/:id/replies': { ok: (x) => ({ as: null, path: `/comments/${x.comment.id}/replies`, query: { limit: 10 } }), shape: 'obj' },
+  'get /comments/:id/replies': { ok: (x) => ({ path: `/comments/${x.comment.id}/replies`, query: { limit: 10 } }), shape: 'obj' },
   'post /comments/:id/react': {
     ok: (x) => ({ as: 'other', path: `/comments/${x.comment.id}/react`, body: { type: 'LIKE' } }),
     shape: 'obj',
@@ -529,15 +529,15 @@ const cases: Record<string, Case> = {
 
   // ---- Jobs ----
   'get /jobs': {
-    ok: () => ({ as: null, path: '/jobs', query: { page: 1, limit: 12, type: 'FULL_TIME', workplaceType: 'ONSITE', location: 'Pune', search: 'Contract' } }),
+    ok: () => ({ path: '/jobs', query: { page: 1, limit: 12, type: 'FULL_TIME', workplaceType: 'ONSITE', location: 'Pune', search: 'Contract' } }),
     shape: 'list',
     bad: null,
   },
   'get /jobs/my': { ok: () => ({ path: '/jobs/my', query: { page: 1, limit: 10 } }), shape: 'list', bad: () => ({ as: null, path: '/jobs/my' }), badStatus: 401 },
   'get /jobs/:id': {
-    ok: (x) => ({ as: null, path: `/jobs/${x.job.id}` }),
+    ok: (x) => ({ path: `/jobs/${x.job.id}` }),
     shape: 'obj',
-    bad: () => ({ as: null, path: `/jobs/${MISSING_ID}` }),
+    bad: () => ({ path: `/jobs/${MISSING_ID}` }),
     badStatus: 404,
   },
   'post /jobs': {
@@ -590,15 +590,15 @@ const cases: Record<string, Case> = {
 
   // ---- Events ----
   'get /events': {
-    ok: () => ({ as: null, path: '/events', query: { page: 1, limit: 12, type: 'OFFLINE', upcoming: 'true', search: 'Contract' } }),
+    ok: () => ({ path: '/events', query: { page: 1, limit: 12, type: 'OFFLINE', upcoming: 'true', search: 'Contract' } }),
     shape: 'list',
     bad: null,
   },
-  'get /events/upcoming': { ok: () => ({ as: null, path: '/events/upcoming', query: { limit: 3 } }), shape: 'arr', bad: null },
+  'get /events/upcoming': { ok: () => ({ path: '/events/upcoming', query: { limit: 3 } }), shape: 'arr', bad: null },
   'get /events/:id': {
-    ok: (x) => ({ as: null, path: `/events/${x.event.id}` }),
+    ok: (x) => ({ path: `/events/${x.event.id}` }),
     shape: 'obj',
-    bad: () => ({ as: null, path: `/events/${MISSING_ID}` }),
+    bad: () => ({ path: `/events/${MISSING_ID}` }),
     badStatus: 404,
   },
   'get /events/:id/attendees': { ok: (x) => ({ path: `/events/${x.event.id}/attendees` }), shape: 'any' },
@@ -721,14 +721,14 @@ const cases: Record<string, Case> = {
   },
 
   // ---- Gallery ----
-  'get /gallery/albums': { ok: () => ({ as: null, path: '/gallery/albums', query: { page: 1, limit: 12, type: 'INSTITUTIONAL', search: 'Contract' } }), shape: 'list', bad: null },
+  'get /gallery/albums': { ok: () => ({ path: '/gallery/albums', query: { page: 1, limit: 12, type: 'INSTITUTIONAL', search: 'Contract' } }), shape: 'list', bad: null },
   'get /gallery/albums/:id': {
-    ok: (x) => ({ as: null, path: `/gallery/albums/${x.album.id}` }),
+    ok: (x) => ({ path: `/gallery/albums/${x.album.id}` }),
     shape: 'obj',
-    bad: () => ({ as: null, path: `/gallery/albums/${MISSING_ID}` }),
+    bad: () => ({ path: `/gallery/albums/${MISSING_ID}` }),
     badStatus: 404,
   },
-  'get /gallery/recent': { ok: () => ({ as: null, path: '/gallery/recent', query: { limit: 8 } }), shape: 'any', bad: null },
+  'get /gallery/recent': { ok: () => ({ path: '/gallery/recent', query: { limit: 8 } }), shape: 'any', bad: null },
   'post /gallery/albums': {
     ok: (x) => ({
       as: 'admin',
@@ -777,12 +777,12 @@ const cases: Record<string, Case> = {
   },
 
   // ---- News ----
-  'get /news': { ok: () => ({ as: null, path: '/news', query: { page: 1, limit: 12, category: 'INSTITUTE_UPDATE', search: 'Contract' } }), shape: 'list', bad: null },
-  'get /news/latest': { ok: () => ({ as: null, path: '/news/latest', query: { limit: 3 } }), shape: 'arr', bad: null },
+  'get /news': { ok: () => ({ path: '/news', query: { page: 1, limit: 12, category: 'INSTITUTE_UPDATE', search: 'Contract' } }), shape: 'list', bad: null },
+  'get /news/latest': { ok: () => ({ path: '/news/latest', query: { limit: 3 } }), shape: 'arr', bad: null },
   'get /news/:slug': {
-    ok: (x) => ({ as: null, path: `/news/${x.article.slug}` }),
+    ok: (x) => ({ path: `/news/${x.article.slug}` }),
     shape: 'obj',
-    bad: () => ({ as: null, path: '/news/no-such-article' }),
+    bad: () => ({ path: '/news/no-such-article' }),
     badStatus: 404,
   },
   'post /news': {
@@ -818,7 +818,7 @@ const cases: Record<string, Case> = {
 
   // ---- College videos ----
   'get /videos': {
-    ok: (x) => ({ as: null, path: '/videos', query: { page: 1, limit: 12, category: 'Campus', search: x.video.title } }),
+    ok: (x) => ({ path: '/videos', query: { page: 1, limit: 12, category: 'Campus', search: x.video.title } }),
     shape: 'obj',
     check: (b, x) => {
       nestedPage(b);
@@ -837,10 +837,10 @@ const cases: Record<string, Case> = {
     badStatus: 401,
   },
   'get /videos/:id': {
-    ok: (x) => ({ as: null, path: `/videos/${x.video.id}` }),
+    ok: (x) => ({ path: `/videos/${x.video.id}` }),
     shape: 'obj',
     check: (b, x) => expect(b.data).toMatchObject({ id: x.video.id, status: 'APPROVED' }),
-    bad: () => ({ as: null, path: `/videos/${MISSING_ID}` }),
+    bad: () => ({ path: `/videos/${MISSING_ID}` }),
     badStatus: 404,
   },
   'post /videos/upload': {
@@ -898,7 +898,7 @@ const cases: Record<string, Case> = {
 
   // ---- College magazine ----
   'get /magazine': {
-    ok: () => ({ as: null, path: '/magazine', query: { page: 1, limit: 12 } }),
+    ok: () => ({ path: '/magazine', query: { page: 1, limit: 12 } }),
     shape: 'obj',
     check: (b) => {
       nestedPage(b);
@@ -907,10 +907,10 @@ const cases: Record<string, Case> = {
     bad: null,
   },
   'get /magazine/:id': {
-    ok: (x) => ({ as: null, path: `/magazine/${x.magazine.id}` }),
+    ok: (x) => ({ path: `/magazine/${x.magazine.id}` }),
     shape: 'obj',
     check: (b, x) => expect(b.data.id).toBe(x.magazine.id),
-    bad: () => ({ as: null, path: `/magazine/${MISSING_ID}` }),
+    bad: () => ({ path: `/magazine/${MISSING_ID}` }),
     badStatus: 404,
   },
   'post /magazine/upload-file': {
@@ -953,7 +953,7 @@ const cases: Record<string, Case> = {
 
   // ---- College requirements ----
   'get /requirements': {
-    ok: () => ({ as: null, path: '/requirements', query: { page: 1, limit: 12, category: 'SOFTWARE', search: 'Contract' } }),
+    ok: () => ({ path: '/requirements', query: { page: 1, limit: 12, category: 'SOFTWARE', search: 'Contract' } }),
     shape: 'obj',
     check: (b) => {
       nestedPage(b);
@@ -972,10 +972,10 @@ const cases: Record<string, Case> = {
     badStatus: 404,
   },
   'get /requirements/:id': {
-    ok: (x) => ({ as: null, path: `/requirements/${x.requirement.id}` }),
+    ok: (x) => ({ path: `/requirements/${x.requirement.id}` }),
     shape: 'obj',
     check: (b, x) => expect(b.data.id).toBe(x.requirement.id),
-    bad: () => ({ as: null, path: `/requirements/${MISSING_ID}` }),
+    bad: () => ({ path: `/requirements/${MISSING_ID}` }),
     badStatus: 404,
   },
   'post /requirements': {
@@ -1040,16 +1040,16 @@ const cases: Record<string, Case> = {
 
   // ---- Chapters ----
   'get /chapters': {
-    ok: () => ({ as: null, path: '/chapters', query: { page: 1, limit: 20, search: 'Chapter', region: 'Pune' } }),
+    ok: () => ({ path: '/chapters', query: { page: 1, limit: 20, search: 'Chapter', region: 'Pune' } }),
     shape: 'list',
     check: (b) => expect(b.regions).toEqual(expect.any(Array)),
     bad: null,
   },
   'get /chapters/my': { ok: () => ({ path: '/chapters/my' }), shape: 'arr', bad: () => ({ as: null, path: '/chapters/my' }), badStatus: 401 },
   'get /chapters/:id': {
-    ok: (x) => ({ as: null, path: `/chapters/${x.chapter.id}` }),
+    ok: (x) => ({ path: `/chapters/${x.chapter.id}` }),
     shape: 'obj',
-    bad: () => ({ as: null, path: `/chapters/${MISSING_ID}` }),
+    bad: () => ({ path: `/chapters/${MISSING_ID}` }),
     badStatus: 404,
   },
   'get /chapters/:id/members': { ok: (x) => ({ path: `/chapters/${x.chapter.id}/members`, query: { page: 1, limit: 20 } }), shape: 'list' },
@@ -1094,13 +1094,13 @@ const cases: Record<string, Case> = {
   },
 
   // ---- Marketplace ----
-  'get /marketplace': { ok: () => ({ as: null, path: '/marketplace', query: { page: 1, limit: 12, type: 'SERVICE', category: 'Consulting', location: 'Pune', search: 'Contract' } }), shape: 'list', bad: null },
-  'get /marketplace/categories': { ok: () => ({ as: null, path: '/marketplace/categories' }), shape: 'arr', bad: null },
+  'get /marketplace': { ok: () => ({ path: '/marketplace', query: { page: 1, limit: 12, type: 'SERVICE', category: 'Consulting', location: 'Pune', search: 'Contract' } }), shape: 'list', bad: null },
+  'get /marketplace/categories': { ok: () => ({ path: '/marketplace/categories' }), shape: 'arr', bad: null },
   'get /marketplace/my': { ok: () => ({ path: '/marketplace/my' }), shape: 'arr', bad: () => ({ as: null, path: '/marketplace/my' }), badStatus: 401 },
   'get /marketplace/:id': {
-    ok: (x) => ({ as: null, path: `/marketplace/${x.listing.id}` }),
+    ok: (x) => ({ path: `/marketplace/${x.listing.id}` }),
     shape: 'obj',
-    bad: () => ({ as: null, path: `/marketplace/${MISSING_ID}` }),
+    bad: () => ({ path: `/marketplace/${MISSING_ID}` }),
     badStatus: 404,
   },
   'post /marketplace/upload-image': {
@@ -1132,11 +1132,11 @@ const cases: Record<string, Case> = {
   },
 
   // ---- Memberships ----
-  'get /memberships/tiers': { ok: () => ({ as: null, path: '/memberships/tiers' }), shape: 'arr', bad: null },
+  'get /memberships/tiers': { ok: () => ({ path: '/memberships/tiers' }), shape: 'arr', bad: null },
   'get /memberships/tiers/:id': {
-    ok: (x) => ({ as: null, path: `/memberships/tiers/${x.tier.id}` }),
+    ok: (x) => ({ path: `/memberships/tiers/${x.tier.id}` }),
     shape: 'obj',
-    bad: () => ({ as: null, path: `/memberships/tiers/${MISSING_ID}` }),
+    bad: () => ({ path: `/memberships/tiers/${MISSING_ID}` }),
     badStatus: 404,
   },
   'get /memberships/my': { ok: () => ({ path: '/memberships/my' }), shape: 'any', bad: () => ({ as: null, path: '/memberships/my' }), badStatus: 401 },
@@ -1173,11 +1173,11 @@ const cases: Record<string, Case> = {
   'get /memberships/members': { ok: () => ({ as: 'admin', path: '/memberships/members', query: { page: 1, limit: 20 } }), shape: 'list', bad: null },
 
   // ---- Donations ----
-  'get /donations/wall': { ok: () => ({ as: null, path: '/donations/wall', query: { page: 1, limit: 20 } }), shape: 'list', bad: null },
-  'get /donations/featured': { ok: () => ({ as: null, path: '/donations/featured' }), shape: 'arr', bad: null },
-  'get /donations/chapters': { ok: () => ({ as: null, path: '/donations/chapters' }), shape: 'arr', bad: null },
-  'get /donations/stats': { ok: () => ({ as: null, path: '/donations/stats' }), shape: 'obj', bad: null },
-  'get /donations/leaderboard': { ok: () => ({ as: null, path: '/donations/leaderboard' }), shape: 'arr', bad: null },
+  'get /donations/wall': { ok: () => ({ path: '/donations/wall', query: { page: 1, limit: 20 } }), shape: 'list', bad: null },
+  'get /donations/featured': { ok: () => ({ path: '/donations/featured' }), shape: 'arr', bad: null },
+  'get /donations/chapters': { ok: () => ({ path: '/donations/chapters' }), shape: 'arr', bad: null },
+  'get /donations/stats': { ok: () => ({ path: '/donations/stats' }), shape: 'obj', bad: null },
+  'get /donations/leaderboard': { ok: () => ({ path: '/donations/leaderboard' }), shape: 'arr', bad: null },
   'get /donations/my': { ok: () => ({ path: '/donations/my' }), shape: 'arr', bad: () => ({ as: null, path: '/donations/my' }), badStatus: 401 },
   'post /donations/order': {
     ok: (x) => ({ path: '/donations/order', body: { amount: 500, chapterId: x.chapter.id, isAnonymous: false, dedicatedTo: 'Batch 2018', message: 'Thanks' } }),
@@ -1194,7 +1194,7 @@ const cases: Record<string, Case> = {
       return { path: '/donations/verify', body: { razorpay_order_id: orderId, razorpay_payment_id: 'pay_contract_d', razorpay_signature: signCheckout(orderId, 'pay_contract_d') } };
     },
     shape: 'any',
-    bad: () => ({ as: null, path: '/donations/verify', body: { razorpay_order_id: 'o', razorpay_payment_id: 'p', razorpay_signature: 'bad' } }),
+    bad: () => ({ path: '/donations/verify', body: { razorpay_order_id: 'o', razorpay_payment_id: 'p', razorpay_signature: 'bad' } }),
   },
 
   // ---- Transactions ----
@@ -1348,6 +1348,42 @@ const cases: Record<string, Case> = {
   // ---- Admin ----
   'get /admin/stats': { ok: () => ({ as: 'admin', path: '/admin/stats' }), shape: 'obj', bad: () => ({ as: 'member', path: '/admin/stats' }), badStatus: 403 },
   'get /platform/readiness': { ok: () => ({ as: 'admin', path: '/platform/readiness' }), shape: 'any', bad: () => ({ as: 'member', path: '/platform/readiness' }), badStatus: 403 },
+  // ---- Alumni approval (the administrator's review queue) ----
+  'get /admin/approvals': {
+    ok: async () => {
+      await fx.newPendingUser();
+      return { as: 'admin', path: '/admin/approvals', query: { status: 'PENDING', search: '12CE045', page: 1, limit: 20 } };
+    },
+    shape: 'list',
+    check: (b) => {
+      expect(b.data.length).toBeGreaterThan(0);
+      expect(b.data[0]).toMatchObject({ approvalStatus: 'PENDING', enrollmentNumber: '12CE045' });
+      expect(b.data[0]).not.toHaveProperty('passwordHash');
+    },
+    bad: () => ({ as: 'member', path: '/admin/approvals' }),
+    badStatus: 403,
+  },
+  'get /admin/approvals/summary': {
+    ok: () => ({ as: 'admin', path: '/admin/approvals/summary' }),
+    shape: 'obj',
+    check: (b) => expect(b.data).toEqual({ pending: expect.any(Number), approved: expect.any(Number), rejected: expect.any(Number) }),
+    bad: () => ({ as: 'member', path: '/admin/approvals/summary' }),
+    badStatus: 403,
+  },
+  'post /admin/approvals/:id/approve': {
+    ok: async () => ({ as: 'admin', path: `/admin/approvals/${(await fx.newPendingUser()).user.id}/approve`, body: { note: 'Found in the 2018 batch list' } }),
+    shape: 'obj',
+    check: (b) => expect(b.data).toMatchObject({ approvalStatus: 'APPROVED', approvalNote: 'Found in the 2018 batch list' }),
+    bad: () => ({ as: 'admin', path: `/admin/approvals/${MISSING_ID}/approve`, body: {} }),
+    badStatus: 404,
+  },
+  'post /admin/approvals/:id/reject': {
+    ok: async () => ({ as: 'admin', path: `/admin/approvals/${(await fx.newPendingUser()).user.id}/reject`, body: { reason: 'We could not find you in the 2018 batch.' } }),
+    shape: 'obj',
+    check: (b) => expect(b.data).toMatchObject({ approvalStatus: 'REJECTED', approvalNote: 'We could not find you in the 2018 batch.' }),
+    bad: async () => ({ as: 'admin', path: `/admin/approvals/${(await fx.newPendingUser()).user.id}/reject`, body: {} }),
+    badStatus: 400,
+  },
   'get /admin/users': { ok: () => ({ as: 'admin', path: '/admin/users', query: { page: 1, limit: 20, search: 'Integration', role: 'MEMBER', isActive: 'true', batchYear: 2018 } }), shape: 'list', bad: () => ({ as: 'member', path: '/admin/users' }), badStatus: 403 },
   'patch /admin/users/:id/role': {
     ok: async () => ({ as: 'superAdmin', path: `/admin/users/${(await fx.newUser()).user.id}/role`, body: { role: 'CHAPTER_ADMIN' } }),

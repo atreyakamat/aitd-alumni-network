@@ -14,7 +14,8 @@ export interface ShutdownDeps {
   redis?: { quit(): Promise<unknown> } | null;
   timeoutMs: number;
   exit: (code: number) => void;
-  log: (message: string) => void;
+  /** `level` is 'info' unless the message reports a problem. */
+  log: (message: string, level?: 'info' | 'error') => void;
 }
 
 export const createShutdown = (deps: ShutdownDeps) => {
@@ -26,7 +27,7 @@ export const createShutdown = (deps: ShutdownDeps) => {
 
     deps.log(`${signal} received: shutting down gracefully`);
     const timer = setTimeout(() => {
-      deps.log(`Shutdown did not finish within ${deps.timeoutMs}ms; forcing exit`);
+      deps.log(`Shutdown did not finish within ${deps.timeoutMs}ms; forcing exit`, 'error');
       deps.exit(1);
     }, deps.timeoutMs);
     timer.unref?.();
@@ -42,7 +43,7 @@ export const createShutdown = (deps: ShutdownDeps) => {
         await deps.prisma.$disconnect();
         if (deps.redis) await deps.redis.quit();
       } catch (error) {
-        deps.log(`Error during shutdown: ${(error as Error).message}`);
+        deps.log(`Error during shutdown: ${(error as Error).message}`, 'error');
         code = 1;
       } finally {
         clearTimeout(timer);

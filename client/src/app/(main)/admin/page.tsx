@@ -24,7 +24,8 @@ import {
   ShieldAlert,
   UserCog,
   ClipboardCheck,
-  ScrollText
+  ScrollText,
+  UserCheck
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -34,6 +35,8 @@ import { adminApi, getApiErrorMessage } from '@/lib/api';
 import { ExportPanel } from '@/components/admin/ExportPanel';
 import { MentorshipOverviewCard } from '@/components/admin/MentorshipOverviewCard';
 import { useAuth } from '@/context/auth-context';
+import { usePendingApprovals } from '@/hooks/use-pending-approvals';
+import { PendingApprovalsBadge } from '@/components/admin/PendingApprovalsBadge';
 import Link from 'next/link';
 import {
   LineChart,
@@ -79,6 +82,8 @@ const formatNumber = (value: number) => {
 
 export default function AdminDashboardPage() {
   const { user, isLoading: authLoading } = useAuth();
+  // The layout only renders this for administrators; best effort badge
+  const pendingApprovals = usePendingApprovals(!!user);
   const [loading, setLoading] = useState(true);
   const [timeRange, setTimeRange] = useState('12m');
   const [stats, setStats] = useState<any>(null);
@@ -185,6 +190,13 @@ export default function AdminDashboardPage() {
           </Select>
           <Button variant="outline" size="icon" onClick={loadStats}>
             <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+          </Button>
+          <Button variant="outline" asChild>
+            <Link href="/admin/approvals">
+              <UserCheck className="h-4 w-4 mr-2" />
+              Approvals
+              <PendingApprovalsBadge count={pendingApprovals} />
+            </Link>
           </Button>
           <Button variant="outline" asChild>
             <Link href="/admin/users">

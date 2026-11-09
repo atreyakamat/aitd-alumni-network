@@ -44,11 +44,11 @@ const MATRIX: Record<string, Level> = {
   'get /auth/linkedin/callback': 'public',
 
   // Search
-  'get /search': 'optional',
+  'get /search': 'auth',
 
   // Users
   'get /users/stats': 'public',
-  'get /users/notable': 'public',
+  'get /users/notable': 'auth',
   'get /users/directory': 'auth',
   'get /users/yearbook/:year': 'auth',
   'get /users/locations': 'auth',
@@ -58,12 +58,12 @@ const MATRIX: Record<string, Level> = {
   'get /users/me/export': 'auth',
   'delete /users/me': 'auth',
   'get /users/mention-search': 'auth',
-  'get /users/:id': 'optional',
+  'get /users/:id': 'auth',
   'post /users/:id/follow': 'auth',
   'delete /users/:id/follow': 'auth',
   'get /users/:id/followers': 'auth',
   'get /users/:id/following': 'auth',
-  'get /users/:id/posts': 'optional',
+  'get /users/:id/posts': 'auth',
   'patch /users/profile': 'auth',
   'patch /users/profile-photo': 'auth',
   'patch /users/cover-photo': 'auth',
@@ -76,8 +76,8 @@ const MATRIX: Record<string, Level> = {
   'put /users/skills': 'auth',
 
   // Posts
-  'get /posts': 'optional',
-  'get /posts/:id': 'optional',
+  'get /posts': 'auth',
+  'get /posts/:id': 'auth',
   'post /posts': 'auth',
   'post /posts/media': 'auth',
   'patch /posts/:id': 'auth',
@@ -90,25 +90,25 @@ const MATRIX: Record<string, Level> = {
   // Social (docs/SOCIAL_API.md)
   'get /feed': 'auth',
   'get /saved': 'auth',
-  'get /hashtags/trending': 'optional',
-  'get /hashtags/:tag/posts': 'optional',
+  'get /hashtags/trending': 'auth',
+  'get /hashtags/:tag/posts': 'auth',
   'post /posts/video': 'auth',
   'post /posts/:id/react': 'auth',
   'get /posts/:id/reactions': 'auth',
-  'get /posts/:id/comments': 'optional',
+  'get /posts/:id/comments': 'auth',
   'post /posts/:id/repost': 'auth',
   'delete /posts/:id/repost': 'auth',
   'post /posts/:id/save': 'auth',
-  'post /posts/:id/view': 'optional',
+  'post /posts/:id/view': 'auth',
   'post /posts/:id/report': 'auth',
-  'get /comments/:id/replies': 'optional',
+  'get /comments/:id/replies': 'auth',
   'post /comments/:id/react': 'auth',
   'post /comments/:id/report': 'auth',
 
   // Jobs
-  'get /jobs': 'optional',
+  'get /jobs': 'auth',
   'get /jobs/my': 'auth',
-  'get /jobs/:id': 'optional',
+  'get /jobs/:id': 'auth',
   'post /jobs': 'auth',
   'patch /jobs/:id': 'auth',
   'delete /jobs/:id': 'auth',
@@ -116,9 +116,9 @@ const MATRIX: Record<string, Level> = {
   'post /jobs/:id/reject': 'admin',
 
   // Events
-  'get /events': 'optional',
-  'get /events/upcoming': 'public',
-  'get /events/:id': 'optional',
+  'get /events': 'auth',
+  'get /events/upcoming': 'auth',
+  'get /events/:id': 'auth',
   'get /events/:id/attendees': 'auth',
   'post /events': 'chapterAdmin',
   'patch /events/:id': 'auth',
@@ -149,9 +149,9 @@ const MATRIX: Record<string, Level> = {
   'delete /notifications/:id': 'auth',
 
   // Gallery
-  'get /gallery/albums': 'public',
-  'get /gallery/albums/:id': 'optional',
-  'get /gallery/recent': 'public',
+  'get /gallery/albums': 'auth',
+  'get /gallery/albums/:id': 'auth',
+  'get /gallery/recent': 'auth',
   'post /gallery/albums': 'admin',
   'patch /gallery/albums/:id': 'admin',
   'delete /gallery/albums/:id': 'admin',
@@ -161,9 +161,9 @@ const MATRIX: Record<string, Level> = {
   'delete /gallery/photos/admin/:id': 'admin',
 
   // News
-  'get /news': 'optional',
-  'get /news/latest': 'public',
-  'get /news/:slug': 'optional',
+  'get /news': 'auth',
+  'get /news/latest': 'auth',
+  'get /news/:slug': 'auth',
   'post /news': 'admin',
   'patch /news/:id': 'admin',
   'post /news/:id/publish': 'admin',
@@ -171,9 +171,9 @@ const MATRIX: Record<string, Level> = {
   'delete /news/:id': 'admin',
 
   // College videos (members submit; admins moderate)
-  'get /videos': 'optional',
+  'get /videos': 'auth',
   'get /videos/mine': 'auth',
-  'get /videos/:id': 'optional',
+  'get /videos/:id': 'auth',
   'post /videos/upload': 'auth',
   'post /videos/upload-thumbnail': 'auth',
   'post /videos': 'auth',
@@ -183,8 +183,8 @@ const MATRIX: Record<string, Level> = {
   'delete /videos/:id': 'auth',
 
   // College magazine (admin-managed)
-  'get /magazine': 'optional',
-  'get /magazine/:id': 'optional',
+  'get /magazine': 'auth',
+  'get /magazine/:id': 'auth',
   'post /magazine/upload-file': 'admin',
   'post /magazine/upload-cover': 'admin',
   'post /magazine': 'admin',
@@ -192,9 +192,9 @@ const MATRIX: Record<string, Level> = {
   'delete /magazine/:id': 'admin',
 
   // College requirements
-  'get /requirements': 'optional',
+  'get /requirements': 'auth',
   'post /requirements/responses/:responseId/review': 'admin',
-  'get /requirements/:id': 'optional',
+  'get /requirements/:id': 'auth',
   'post /requirements': 'admin',
   'patch /requirements/:id': 'admin',
   'delete /requirements/:id': 'admin',
@@ -222,9 +222,9 @@ const MATRIX: Record<string, Level> = {
   'delete /admin/landing/:id': 'admin',
 
   // Chapters
-  'get /chapters': 'public',
+  'get /chapters': 'auth',
   'get /chapters/my': 'auth',
-  'get /chapters/:id': 'public',
+  'get /chapters/:id': 'auth',
   'get /chapters/:id/members': 'auth',
   'post /marketplace/upload-image': 'auth',
 
@@ -236,17 +236,17 @@ const MATRIX: Record<string, Level> = {
   'post /chapters/:id/leave': 'auth',
 
   // Marketplace
-  'get /marketplace': 'optional',
-  'get /marketplace/categories': 'public',
+  'get /marketplace': 'auth',
+  'get /marketplace/categories': 'auth',
   'get /marketplace/my': 'auth',
-  'get /marketplace/:id': 'optional',
+  'get /marketplace/:id': 'auth',
   'post /marketplace': 'auth',
   'patch /marketplace/:id': 'auth',
   'delete /marketplace/:id': 'auth',
 
   // Memberships
-  'get /memberships/tiers': 'public',
-  'get /memberships/tiers/:id': 'public',
+  'get /memberships/tiers': 'auth',
+  'get /memberships/tiers/:id': 'auth',
   'get /memberships/my': 'auth',
   'get /memberships/history': 'auth',
   'post /memberships/order': 'auth',
@@ -256,14 +256,14 @@ const MATRIX: Record<string, Level> = {
   'get /memberships/members': 'admin',
 
   // Donations
-  'get /donations/wall': 'public',
-  'get /donations/featured': 'public',
-  'get /donations/chapters': 'public',
-  'get /donations/stats': 'public',
-  'get /donations/leaderboard': 'public',
+  'get /donations/wall': 'auth',
+  'get /donations/featured': 'auth',
+  'get /donations/chapters': 'auth',
+  'get /donations/stats': 'auth',
+  'get /donations/leaderboard': 'auth',
   'get /donations/my': 'auth',
-  'post /donations/order': 'optional',
-  'post /donations/verify': 'optional',
+  'post /donations/order': 'auth',
+  'post /donations/verify': 'auth',
 
   // Transactions
   'get /transactions/my': 'auth',
@@ -300,6 +300,10 @@ const MATRIX: Record<string, Level> = {
   // Admin
   'get /admin/stats': 'admin',
   'get /platform/readiness': 'admin',
+  'get /admin/approvals': 'admin',
+  'get /admin/approvals/summary': 'admin',
+  'post /admin/approvals/:id/approve': 'admin',
+  'post /admin/approvals/:id/reject': 'admin',
   'get /admin/users': 'admin',
   'patch /admin/users/:id/role': 'admin',
   'patch /admin/users/:id/status': 'admin',

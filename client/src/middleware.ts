@@ -3,16 +3,17 @@ import { decideAccess } from '@/lib/route-access';
 import { hasSessionHint } from '@/lib/session-hint';
 
 /**
- * Members-only gate at the edge. Without a session hint cookie, requests for member pages are
- * redirected (307) to `/login?next=...` instead of being served the member app shell.
+ * Members-only gate at the edge. The platform is private: without a session hint cookie EVERY page except the landing page,
+ * the auth screens and the legal/contact pages is redirected (307) to `/login?next=...` instead of being served the app shell,
+ * so a shared link (/posts/123, /search?q=x, /events ...) asks for a sign-in and brings the person back to it afterwards.
  *
  * This is a UX/hardening layer, NOT authorization: the cookie is a non-secret hint (see
  * `src/lib/session-hint.ts`). The API enforces real access control, and the (main) layout
  * re-checks the session via `/auth/me` before rendering anything.
  *
  * Which paths are member-only is decided by `isMemberOnlyPath` in `src/lib/public-paths.ts`
- * (everything except the landing page, auth/legal pages and PUBLIC_PATH_PREFIXES), so this file
- * cannot drift from the client layout's `isPublicPath` check.
+ * (everything except the landing page and the auth/legal pages in OPEN_PATH_PREFIXES; PUBLIC_PATH_PREFIXES is empty), so this
+ * file cannot drift from the (main) layout, which also treats every page it renders as member-only.
  */
 export function middleware(request: NextRequest) {
   const decision = decideAccess({

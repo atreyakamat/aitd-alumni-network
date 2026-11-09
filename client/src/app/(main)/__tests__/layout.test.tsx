@@ -41,38 +41,23 @@ beforeEach(() => {
 });
 
 describe('(main) layout gating', () => {
-  it('renders public pages for anonymous visitors with the public header', () => {
-    setLocation('/events');
-    render(
-      <MainLayout>
-        <p>events list</p>
-      </MainLayout>
-    );
-    expect(screen.getByText('events list')).toBeInTheDocument();
-    expect(screen.queryByTestId('main-nav')).not.toBeInTheDocument();
-    expect(screen.queryByTestId('chat-drawer')).not.toBeInTheDocument();
-    expect(screen.getAllByRole('link', { name: /sign in/i })[0]).toHaveAttribute(
-      'href',
-      '/login?next=%2Fevents'
-    );
-    expect(screen.getAllByRole('link', { name: /join/i })[0]).toHaveAttribute('href', '/register?next=%2Fevents');
-    for (const label of ['Events', 'Gallery', 'News', 'Donate', 'Chapters']) {
-      expect(screen.getAllByRole('link', { name: label }).length).toBeGreaterThan(0);
+  it.each(['/events', '/events/42', '/gallery', '/news', '/donations', '/chapters', '/posts/123', '/search?q=x'])(
+    'shows a visitor nothing of %s (the platform is private) and sends them to login with a return path',
+    (path) => {
+      setLocation(path);
+      render(
+        <MainLayout>
+          <p>page content</p>
+        </MainLayout>
+      );
+      expect(screen.queryByText('page content')).not.toBeInTheDocument();
+      expect(screen.queryByTestId('main-nav')).not.toBeInTheDocument();
+      expect(screen.queryByTestId('chat-drawer')).not.toBeInTheDocument();
+      // no public header with navigation to browse around either
+      expect(screen.queryByRole('link')).not.toBeInTheDocument();
+      expect(replace).toHaveBeenCalledWith(`/login?next=${encodeURIComponent(path)}`);
     }
-    expect(replace).not.toHaveBeenCalled();
-    expect(push).not.toHaveBeenCalled();
-  });
-
-  it('allows nested public paths such as an event detail page', () => {
-    setLocation('/events/42');
-    render(
-      <MainLayout>
-        <p>event detail</p>
-      </MainLayout>
-    );
-    expect(screen.getByText('event detail')).toBeInTheDocument();
-    expect(replace).not.toHaveBeenCalled();
-  });
+  );
 
   it('redirects anonymous visitors on private pages to login with a return path', () => {
     setLocation('/directory?batch=2020');

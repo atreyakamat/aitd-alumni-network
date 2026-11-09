@@ -17,7 +17,9 @@ describe('docs/API_REFERENCE.md', () => {
     const find = (method: string, p: string) => routes.find((r) => r.method === method && r.path === p);
     expect(find('post', '/auth/login')).toMatchObject({ access: 'public', validated: true });
     expect(find('get', '/auth/me')).toMatchObject({ access: 'auth' });
-    expect(find('get', '/news')).toMatchObject({ access: 'optional' });
+    expect(find('get', '/landing')).toMatchObject({ access: 'optional' });
+    expect(find('get', '/news')).toMatchObject({ access: 'auth' });
+    expect(find('get', '/admin/approvals')).toMatchObject({ access: 'admin' });
     expect(find('get', '/admin/users')).toMatchObject({ access: 'admin' });
     expect(find('delete', '/chapters/:id')).toMatchObject({ access: 'superAdmin' });
     expect(find('patch', '/chapters/:id')).toMatchObject({ access: 'chapterAdmin' });

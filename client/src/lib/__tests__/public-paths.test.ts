@@ -1,19 +1,51 @@
 import { describe, expect, it } from 'vitest';
-import { buildLoginHref, buildRegisterHref, getSafeNextPath, isPublicPath } from '@/lib/public-paths';
+import {
+  PUBLIC_DEEP_LINK_PREFIXES,
+  PUBLIC_PATH_PREFIXES,
+  PUBLIC_SECTIONS,
+  buildLoginHref,
+  buildRegisterHref,
+  getSafeNextPath,
+  isPublicPath,
+} from '@/lib/public-paths';
 
-describe('isPublicPath', () => {
-  it.each(['/events', '/events/abc', '/gallery', '/news', '/news/some-slug', '/donations', '/events/', '/chapters', '/chapters/c1', '/posts/p1'])(
-    'allows %s',
-    (p) => expect(isPublicPath(p)).toBe(true)
-  );
+describe('isPublicPath: the platform is private, so nothing in the (main) app is open to visitors', () => {
+  it('has no public sections and no public deep links', () => {
+    expect(PUBLIC_SECTIONS).toHaveLength(0);
+    expect(PUBLIC_DEEP_LINK_PREFIXES).toHaveLength(0);
+    expect(PUBLIC_PATH_PREFIXES).toHaveLength(0);
+  });
 
-  it.each(['/directory', '/dashboard', '/eventsx', '/newsletter', '/', '', null, undefined, '/admin/events', '/postsx', '/videos', '/saved'])(
-    'rejects %s',
-    (p) => expect(isPublicPath(p as any)).toBe(false)
-  );
+  it.each([
+    '/events',
+    '/events/abc',
+    '/gallery',
+    '/news',
+    '/news/some-slug',
+    '/donations',
+    '/events/',
+    '/chapters',
+    '/chapters/c1',
+    '/posts/p1',
+    '/posts/123',
+    '/search',
+    '/search?q=x',
+    '/directory',
+    '/dashboard',
+    '/eventsx',
+    '/newsletter',
+    '/',
+    '',
+    null,
+    undefined,
+    '/admin/events',
+    '/postsx',
+    '/videos',
+    '/saved',
+  ])('treats %s as not public', (p) => expect(isPublicPath(p as any)).toBe(false));
 
   it('ignores query strings', () => {
-    expect(isPublicPath('/events?page=2')).toBe(true);
+    expect(isPublicPath('/events?page=2')).toBe(false);
   });
 });
 

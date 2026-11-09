@@ -7,6 +7,7 @@ import { notificationService } from './notificationService';
 import { clientLinks } from '../utils/clientLinks';
 import { normalizeUrlFields } from '../utils/safeUrl';
 import { optionalText } from '../utils/inputGuards';
+import { log } from '../utils/logger';
 
 export interface CreateEventInput {
   title: string;
@@ -452,7 +453,7 @@ export class EventService {
         });
       } catch (err) {
         // The RSVP is committed; a notification failure must not undo it
-        console.error('RSVP notification failed:', err);
+        log.error('RSVP notification failed', { eventId, err });
       }
     }
 

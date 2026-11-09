@@ -204,6 +204,7 @@ async function main() {
     update: {
       userRole: 'SUPER_ADMIN',
       isVerified: true,
+      approvalStatus: 'APPROVED',
       isActive: true,
     },
     create: {
@@ -216,6 +217,7 @@ async function main() {
       roleType: 'ALUMNI',
       userRole: 'SUPER_ADMIN',
       isVerified: true,
+      approvalStatus: 'APPROVED', // the first administrator is trusted by definition; everybody else is approved by an administrator
       emailVerifiedAt: new Date(),
       profileCompleteness: 50,
       currentDesignation: 'Platform Administrator',
@@ -265,6 +267,7 @@ async function main() {
         degree: 'B.Tech',
         roleType: 'ALUMNI',
         isVerified: true,
+        approvalStatus: 'APPROVED',
         isLocationPublic: true,
         locationLat: lat,
         locationLng: lng,
@@ -284,6 +287,7 @@ async function main() {
         degree: 'B.Tech',
         roleType: 'ALUMNI',
         isVerified: true,
+        approvalStatus: 'APPROVED',
         isLocationPublic: true,
         locationLat: lat,
         locationLng: lng,

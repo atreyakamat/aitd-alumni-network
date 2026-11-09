@@ -189,12 +189,12 @@ describe('searchController.globalSearch', () => {
       }
     };
 
-    it('works without signing in, with public results only', async () => {
+    it('is closed to anonymous visitors (the community is private)', async () => {
       emptyAll();
       const res = await api().get('/api/search?q=test');
-      expect(res.status).toBe(200);
-      expect(res.body).toEqual({ success: true, data: { scope: 'public', ...EMPTY } });
+      expect(res.status).toBe(401);
       expect(prismaMock.user.findMany).not.toHaveBeenCalled();
+      expect(prismaMock.event.findMany).not.toHaveBeenCalled();
     });
 
     it('rejects a bad token instead of silently downgrading to anonymous', async () => {

@@ -5,6 +5,7 @@ import { sendEmail } from '../utils/email';
 import { config } from '../config';
 import crypto from 'crypto';
 import { paginationHelper, buildPaginationResponse } from '../utils/helpers';
+import { log } from '../utils/logger';
 
 interface InviteInput {
   email: string;
@@ -284,7 +285,8 @@ export class InviteService {
     } catch (error: any) {
       // The quota is a rule of the request, not a failure of this one invitation
       if (error instanceof AppError && error.code === 'INVITE_LIMIT') throw error;
-      console.error('Failed to send invite:', error);
+      // the invitee's address is personal data: the invite id identifies it
+      log.error('Failed to send invite', { inviteId: createdInviteId, err: error });
       // Don't leave an unsent invite behind: it would block a retry for 7 days
       if (createdInviteId) {
         await prisma.invite.delete({ where: { id: createdInviteId } }).catch(() => undefined);

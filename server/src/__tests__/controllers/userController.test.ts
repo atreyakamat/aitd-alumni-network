@@ -362,19 +362,42 @@ describe('user routes (HTTP)', () => {
   };
 
   describe('GET /api/users/:id', () => {
-    it('anonymous: no password hash, e-mail, connection-only phone or private coordinates', async () => {
-      arrangeUsers(null, target());
-
+    it('is closed to anonymous visitors (the community is private)', async () => {
       const res = await api().get(`/api/users/${OTHER_USER_ID}`);
+      expect(res.status).toBe(401);
+      expect(prismaMock.user.findUnique).not.toHaveBeenCalled();
+    });
+
+    it('a member who is not connected sees no password hash, connection-only phone or private coordinates', async () => {
+      const { header } = authAs('MEMBER');
+      const viewer = makeUser('MEMBER');
+      arrangeUsers(viewer, target());
+      prismaMock.connection.findFirst.mockResolvedValue(null);
+
+      const res = await api().get(`/api/users/${OTHER_USER_ID}`).set('Authorization', header);
 
       expect(res.status).toBe(200);
       expect(res.body.data).not.toHaveProperty('passwordHash');
-      expect(res.body.data).not.toHaveProperty('email');
       expect(res.body.data).not.toHaveProperty('twoFactorEnabled');
       expect(res.body.data.phoneNumber).toBeNull();
       expect(res.body.data.locationLat).toBeNull();
       expect(res.body.data.locationLng).toBeNull();
       expect(JSON.stringify(res.body)).not.toContain('$2a$10$hash');
+    });
+
+    it('never shows what the applicant told the reviewer, nor the notes of the reviewer', async () => {
+      const { header } = authAs('MEMBER');
+      const viewer = makeUser('MEMBER');
+      arrangeUsers(viewer, target({ enrollmentNumber: '12CE045', verificationNote: 'ask Prof. Rao', approvalNote: 'seen in list', approvalStatus: 'APPROVED', approvalReviewedById: 'admin-9', approvalReviewedAt: new Date(), tokenVersion: 7 }));
+      prismaMock.connection.findFirst.mockResolvedValue({ status: 'ACCEPTED' });
+
+      const res = await api().get(`/api/users/${OTHER_USER_ID}`).set('Authorization', header);
+
+      expect(res.status).toBe(200);
+      expect(JSON.stringify(res.body)).not.toMatch(/12CE045|ask Prof|seen in list/);
+      for (const field of ['enrollmentNumber', 'verificationNote', 'approvalNote', 'approvalStatus', 'approvalReviewedById', 'approvalReviewedAt', 'tokenVersion']) {
+        expect(res.body.data).not.toHaveProperty(field);
+      }
     });
 
     it('accepted connection sees a CONNECTIONS-only phone', async () => {
@@ -407,7 +430,7 @@ describe('user routes (HTTP)', () => {
       const { header, user } = authAs('MEMBER');
       prismaMock.user.findUnique.mockImplementation((args: any) => {
         if (args.include) return Promise.resolve(target({ id: user.id }));
-        if (args.select) return Promise.resolve({ id: user.id, isActive: true, coverPhotoUrl: null });
+        if (args.select) return Promise.resolve({ id: user.id, isActive: true, approvalStatus: 'APPROVED', coverPhotoUrl: null });
         return Promise.resolve(user);
       });
       prismaMock.user.update.mockResolvedValue({});
@@ -415,7 +438,20 @@ describe('user routes (HTTP)', () => {
       const res = await api()
         .patch('/api/users/profile')
         .set('Authorization', header)
-        .send({ city: 'Pune', userRole: 'SUPER_ADMIN', isVerified: true, isNotable: true, email: 'x@evil.io' });
+        .send({
+          city: 'Pune',
+          userRole: 'SUPER_ADMIN',
+          isVerified: true,
+          isNotable: true,
+          email: 'x@evil.io',
+          // a person must not be able to approve, un-reject or re-date their own registration
+          approvalStatus: 'APPROVED',
+          approvalNote: 'fine',
+          approvalReviewedById: 'me',
+          approvalReviewedAt: '2020-01-01T00:00:00Z',
+          enrollmentNumber: 'changed',
+          verificationNote: 'changed',
+        });
 
       expect(res.status).toBe(200);
       const { data } = prismaMock.user.update.mock.calls[0][0];
@@ -424,6 +460,9 @@ describe('user routes (HTTP)', () => {
       expect(data).not.toHaveProperty('isVerified');
       expect(data).not.toHaveProperty('isNotable');
       expect(data).not.toHaveProperty('email');
+      for (const field of ['approvalStatus', 'approvalNote', 'approvalReviewedById', 'approvalReviewedAt', 'enrollmentNumber', 'verificationNote']) {
+        expect(data).not.toHaveProperty(field);
+      }
       expect(res.body.data).not.toHaveProperty('passwordHash');
     });
   });

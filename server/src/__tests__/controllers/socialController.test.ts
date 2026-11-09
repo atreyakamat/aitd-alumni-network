@@ -50,7 +50,8 @@ const cases: Case[] = [
   // Network
   { name: 'network.getConnections', controller: networkController, handler: 'getConnections', service: networkService, method: 'getConnections', req: { query: { page: '2', limit: '7' } }, args: [me.id, 2, 7], spread: true },
   { name: 'network.getConnections (defaults)', controller: networkController, handler: 'getConnections', service: networkService, method: 'getConnections', req: {}, args: [me.id, 1, 20], spread: true },
-  { name: 'network.getPendingRequests', controller: networkController, handler: 'getPendingRequests', service: networkService, method: 'getPendingRequests', req: {}, args: [me.id] },
+  { name: 'network.getPendingRequests', controller: networkController, handler: 'getPendingRequests', service: networkService, method: 'getPendingRequests', req: {}, args: [me.id, 1, 20, undefined], spread: true },
+  { name: 'network.getPendingRequests (paged, one list)', controller: networkController, handler: 'getPendingRequests', service: networkService, method: 'getPendingRequests', req: { query: { page: '3', limit: '50', type: 'received' } }, args: [me.id, 3, 50, 'received'], spread: true },
   { name: 'network.sendRequest', controller: networkController, handler: 'sendRequest', service: networkService, method: 'sendConnectionRequest', req: { params: { userId: OTHER_USER_ID } }, args: [me.id, OTHER_USER_ID], status: 201 },
   { name: 'network.respondToRequest', controller: networkController, handler: 'respondToRequest', service: networkService, method: 'respondToRequest', req: { params: { id: 'c1' }, body: { accept: true } }, args: [me.id, 'c1', true] },
   { name: 'network.removeConnection', controller: networkController, handler: 'removeConnection', service: networkService, method: 'removeConnection', req: { params: { id: 'c1' } }, args: [me.id, 'c1'] },
@@ -104,6 +105,30 @@ describe('socialController handlers', () => {
 
 describe('social routes (through real services)', () => {
   const CONN_ID = '22222222-2222-4222-8222-222222222222';
+
+  it('GET /api/network/requests → both lists in data, one page of each, pagination alongside', async () => {
+    const { header, user } = authAs('MEMBER');
+    prismaMock.connection.findMany
+      .mockResolvedValueOnce([{ id: CONN_ID, requesterId: OTHER_USER_ID, addresseeId: user.id, createdAt: new Date('2026-11-01T00:00:00Z'), requester: { id: OTHER_USER_ID, fullName: 'Asha' } }])
+      .mockResolvedValueOnce([]);
+    prismaMock.connection.count.mockImplementation(async (args: any) => (args.where.addresseeId ? 41 : 0));
+
+    const res = await api().get('/api/network/requests?page=2&limit=1').set('Authorization', header);
+
+    expect(res.status).toBe(200);
+    expect(res.body.success).toBe(true);
+    expect(res.body.data.received).toEqual([expect.objectContaining({ connectionId: CONN_ID, user: expect.objectContaining({ fullName: 'Asha' }) })]);
+    expect(res.body.data.sent).toEqual([]);
+    expect(res.body.pagination.received).toEqual({ total: 41, page: 2, limit: 1, totalPages: 41, hasNextPage: true, hasPrevPage: true });
+    expect(prismaMock.connection.findMany.mock.calls[0][0]).toMatchObject({ skip: 1, take: 1 });
+  });
+
+  it('GET /api/network/requests?type=nonsense → 400', async () => {
+    const { header } = authAs('MEMBER');
+    const res = await api().get('/api/network/requests?type=nonsense').set('Authorization', header);
+    expect(res.status).toBe(400);
+    expect(prismaMock.connection.findMany).not.toHaveBeenCalled();
+  });
 
   it('POST /api/network/request/:userId → 400 when targeting yourself', async () => {
     const { header, user } = authAs('MEMBER');

@@ -26,6 +26,9 @@ import {
 export const POST_CONTENT_MAX_LENGTH = 5000;
 export const COMMENT_CONTENT_MAX_LENGTH = 2000;
 export const MAX_MEDIA_URLS = 10;
+/** The v1 `comments` tree on a post detail: the newest top-level comments, and the oldest replies of each. Older ones come from GET /posts/:id/comments. */
+export const MAX_DETAIL_COMMENTS = 100;
+export const MAX_REPLIES_PER_COMMENT = 50;
 const POST_TYPES: PostType[] = ['GENERAL', 'JOB', 'BUSINESS', 'ANNOUNCEMENT'];
 
 interface CreatePostInput {
@@ -136,9 +139,10 @@ export class PostService {
       where: { postId: id, parentId: null },
       include: {
         user: { select: commenterSelect },
-        replies: { include: { user: { select: commenterSelect } }, orderBy: { createdAt: 'asc' } },
+        replies: { include: { user: { select: commenterSelect } }, orderBy: { createdAt: 'asc' }, take: MAX_REPLIES_PER_COMMENT },
       },
       orderBy: { createdAt: 'desc' },
+      take: MAX_DETAIL_COMMENTS,
     });
     return { ...view, comments: comments ?? [] };
   }

@@ -4,6 +4,7 @@ import { twoFactorService } from '../services/twoFactorService';
 import config from '../config';
 import { AppError } from '../middleware/errorHandler';
 import type { OAuthUser } from '../config/passport';
+import { log } from '../utils/logger';
 
 export class AuthController {
   async register(req: Request, res: Response, next: NextFunction) {
@@ -252,7 +253,7 @@ export class AuthController {
 
       res.redirect(redirectUrl.toString());
     } catch (error) {
-      console.error('Google OAuth callback error:', error);
+      log.error('Google OAuth callback failed', { err: error });
       res.redirect(`${config.frontendUrl}/login?error=oauth_failed`);
     }
   }
@@ -279,7 +280,7 @@ export class AuthController {
 
       res.redirect(redirectUrl.toString());
     } catch (error) {
-      console.error('LinkedIn OAuth callback error:', error);
+      log.error('LinkedIn OAuth callback failed', { err: error });
       res.redirect(`${config.frontendUrl}/login?error=oauth_failed`);
     }
   }

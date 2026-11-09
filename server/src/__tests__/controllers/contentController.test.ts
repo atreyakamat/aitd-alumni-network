@@ -173,24 +173,62 @@ describe('content routes (HTTP)', () => {
     getApp();
   }, 120000);
 
-  it('GET /api/news ignores ?status=DRAFT from anonymous callers', async () => {
+  it('GET /api/news ignores ?status=DRAFT from ordinary members', async () => {
     prismaMock.newsArticle.findMany.mockResolvedValue([]);
     prismaMock.newsArticle.count.mockResolvedValue(0);
-    const res = await api().get('/api/news?status=DRAFT');
+    const { header } = authAs('MEMBER');
+    const res = await api().get('/api/news?status=DRAFT').set('Authorization', header);
     expect(res.status).toBe(200);
     expect(prismaMock.newsArticle.findMany.mock.calls[0][0].where.status).toBe('PUBLISHED');
   });
 
   it('GET /api/news/:slug of a draft is 404', async () => {
     prismaMock.newsArticle.findFirst.mockResolvedValue(null);
-    const res = await api().get('/api/news/some-draft');
+    const { header } = authAs('MEMBER');
+    const res = await api().get('/api/news/some-draft').set('Authorization', header);
     expect(res.status).toBe(404);
   });
 
-  it('GET /api/gallery/albums/:id of a private album is 404 anonymously', async () => {
-    prismaMock.galleryAlbum.findUnique.mockResolvedValue({ id: 'al1', isPublic: false });
-    const res = await api().get('/api/gallery/albums/al1');
-    expect(res.status).toBe(404);
+  it('GET /api/gallery/albums/:id of a members-only album opens for a signed-in member and not for anybody else', async () => {
+    prismaMock.galleryAlbum.findUnique.mockResolvedValue({ id: 'al1', isPublic: false, photos: [] });
+    expect((await api().get('/api/gallery/albums/al1')).status).toBe(401);
+    const { header } = authAs('MEMBER');
+    const res = await api().get('/api/gallery/albums/al1').set('Authorization', header);
+    expect(res.status).toBe(200);
+  });
+
+  it.each([
+    '/api/news',
+    '/api/news/latest',
+    '/api/news/some-article',
+    '/api/gallery/albums',
+    '/api/gallery/albums/al1',
+    '/api/gallery/recent',
+    '/api/chapters',
+    '/api/chapters/c1',
+    '/api/events/upcoming',
+    '/api/marketplace',
+    '/api/marketplace/categories',
+    '/api/memberships/tiers',
+    '/api/donations/wall',
+    '/api/donations/stats',
+    '/api/donations/leaderboard',
+    '/api/videos',
+    '/api/magazine',
+    '/api/requirements',
+    '/api/search?q=ada',
+  ])('GET %s is closed to anonymous visitors (the community is private)', async (path) => {
+    const res = await api().get(path);
+    expect(res.status).toBe(401);
+  });
+
+  it('a registration that is not approved gets 403 on the content too', async () => {
+    const { header } = authAs('MEMBER', { approvalStatus: 'PENDING' });
+    for (const path of ['/api/news', '/api/gallery/albums', '/api/chapters', '/api/videos', '/api/magazine', '/api/requirements']) {
+      const res = await api().get(path).set('Authorization', header);
+      expect(res.status).toBe(403);
+      expect(res.body.error.code).toBe('ACCOUNT_PENDING_APPROVAL');
+    }
   });
 
   it('POST /api/chapters/:id/join twice is 409', async () => {
@@ -316,7 +354,8 @@ describe('content routes (HTTP)', () => {
   it('GET /api/gallery/albums passes the search term to the database query', async () => {
     prismaMock.galleryAlbum.findMany.mockResolvedValue([]);
     prismaMock.galleryAlbum.count.mockResolvedValue(0);
-    const res = await api().get('/api/gallery/albums?search=%20reunion%20&page=2&limit=6');
+    const { header } = authAs('MEMBER');
+    const res = await api().get('/api/gallery/albums?search=%20reunion%20&page=2&limit=6').set('Authorization', header);
     expect(res.status).toBe(200);
     const args = prismaMock.galleryAlbum.findMany.mock.calls[0][0];
     expect(args.where.OR).toEqual([{ title: { contains: 'reunion', mode: 'insensitive' } }, { description: { contains: 'reunion', mode: 'insensitive' } }]);

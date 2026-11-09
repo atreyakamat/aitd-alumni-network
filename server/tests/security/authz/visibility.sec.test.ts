@@ -33,8 +33,9 @@ describe('AUTHZ: post visibility', () => {
     const strangerView = await http().get(`/api/posts/${id}`).set('Authorization', stranger.auth);
     expect(strangerView.status).toBe(404);
 
+    // the community is private: a shared link opens nothing for a visitor
     const anonView = await http().get(`/api/posts/${id}`);
-    expect(anonView.status).toBe(404);
+    expect(anonView.status).toBe(401);
 
     const feed = await http().get('/api/posts?limit=50').set('Authorization', stranger.auth);
     expect(JSON.stringify(feed.body)).not.toContain(id);

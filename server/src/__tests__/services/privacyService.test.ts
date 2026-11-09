@@ -26,6 +26,11 @@ describe('privacyService', () => {
       const userArgs = prismaMock.user.findUnique.mock.calls[0][0];
       expect(userArgs.where).toEqual({ id: 'u1' });
       expect(userArgs.select.passwordHash).toBeUndefined();
+      // What the person told the reviewer, and the outcome of the review, is their data too
+      for (const field of ['enrollmentNumber', 'verificationNote', 'approvalStatus', 'approvalNote', 'approvalReviewedAt']) {
+        expect(userArgs.select[field]).toBe(true);
+      }
+      expect(userArgs.select.tokenVersion).toBeUndefined();
       expect(data.profile).toMatchObject({ id: 'u1', email: 'u1@x.io' });
       expect(data.posts).toEqual([{ id: 'p1' }]);
       expect(data.messages).toEqual([{ id: 'm1' }]);
@@ -87,6 +92,10 @@ describe('privacyService', () => {
         linkedinUrl: null,
         profilePhotoUrl: null,
         twoFactorEnabled: false,
+        // What the applicant told the reviewer, and the reviewer's notes about them
+        enrollmentNumber: null,
+        verificationNote: null,
+        approvalNote: null,
         // Outstanding access tokens are revoked too, not just refresh tokens
         tokenVersion: { increment: 1 },
       });

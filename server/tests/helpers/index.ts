@@ -25,6 +25,7 @@ export interface TestUser {
   fullName: string;
   userRole: UserRole;
   isActive: boolean;
+  approvalStatus?: 'PENDING' | 'APPROVED' | 'REJECTED';
 }
 
 export const makeUser = (role: UserRole = 'MEMBER', overrides: Partial<TestUser> = {}): TestUser => ({
@@ -33,6 +34,7 @@ export const makeUser = (role: UserRole = 'MEMBER', overrides: Partial<TestUser>
   fullName: `Test ${role}`,
   userRole: role,
   isActive: true,
+  approvalStatus: 'APPROVED',
   ...overrides,
 });
 

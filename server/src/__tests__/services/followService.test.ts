@@ -25,6 +25,28 @@ describe('followService.follow / unfollow', () => {
     );
   });
 
+  it('follow, unfollow, follow again does not notify the member a second time within a day', async () => {
+    prismaMock.user.findUnique.mockImplementation(async (args: any) =>
+      args.select?.isActive ? { id: 'them', isActive: true } : { fullName: 'Me Myself' }
+    );
+    prismaMock.follow.count.mockResolvedValue(1);
+    prismaMock.notification.findFirst.mockResolvedValueOnce(null).mockResolvedValue({ id: 'n-earlier' });
+
+    await followService.follow(ME, 'them');
+    await followService.unfollow(ME, 'them');
+    await followService.follow(ME, 'them');
+    await followService.unfollow(ME, 'them');
+    await expect(followService.follow(ME, 'them')).resolves.toMatchObject({ following: true });
+
+    expect(createNotification).toHaveBeenCalledTimes(1);
+    expect(prismaMock.follow.create).toHaveBeenCalledTimes(3);
+    expect(prismaMock.notification.findFirst.mock.calls[1][0].where).toMatchObject({
+      userId: 'them',
+      type: 'NEW_FOLLOWER',
+      AND: [{ metadata: { path: ['followerId'], equals: 'me' } }],
+    });
+  });
+
   it('is idempotent: a repeat follow does not notify again', async () => {
     prismaMock.user.findUnique.mockResolvedValue({ id: 'them', isActive: true });
     prismaMock.follow.create.mockRejectedValue(Object.assign(new Error('dup'), { code: 'P2002' }));

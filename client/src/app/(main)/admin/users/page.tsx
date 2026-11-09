@@ -311,7 +311,8 @@ export default function AdminUsersPage() {
                             <Badge variant={u.isActive ? 'success' : 'destructive'}>
                               {u.isActive ? 'Active' : 'Deactivated'}
                             </Badge>
-                            {!u.isVerified && <Badge variant="outline">Unverified</Badge>}
+                            {/* isVerified = approved member (an administrator approved the registration), not "e-mail verified" */}
+                            {!u.isVerified && <Badge variant="outline">Not approved</Badge>}
                           </div>
                         </td>
                         <td className="px-4 py-3 hidden lg:table-cell text-muted-foreground">

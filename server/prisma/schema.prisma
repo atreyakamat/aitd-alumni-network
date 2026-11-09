@@ -18,6 +18,14 @@ enum RoleType {
   FACULTY
 }
 
+// An administrator checks that every new registration really is somebody from the college before the person can sign in.
+// PENDING: waiting for review. APPROVED: a member. REJECTED: reviewed and refused (the reason is kept in approvalNote).
+enum ApprovalStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
 enum UserRole {
   MEMBER
   CHAPTER_ADMIN
@@ -261,6 +269,18 @@ model User {
   twoFactorEnabled  Boolean   @default(false)
   digestOptOut      Boolean   @default(false) // unsubscribed from the weekly digest email
   tokenVersion      Int       @default(0) // Bumped to invalidate every issued access token
+
+  // Alumni approval. isVerified is set together with APPROVED (and cleared on REJECTED): it is what the directory,
+  // search and digests filter on, so a person who is not approved is invisible everywhere.
+  approvalStatus       ApprovalStatus @default(PENDING)
+  approvalReviewedAt   DateTime?
+  approvalReviewedById String?
+  approvalReviewedBy   User?   @relation("ApprovalReviewer", fields: [approvalReviewedById], references: [id], onDelete: SetNull)
+  approvalsReviewed    User[]  @relation("ApprovalReviewer")
+  approvalNote         String? @db.Text // reviewer's note, or the reason of a rejection
+  // What the applicant tells the reviewer (personal data: shown to administrators only, included in the data export)
+  enrollmentNumber     String? // roll / enrolment number at the college
+  verificationNote     String? @db.Text // anything that helps to verify them: programme, year, a contact who knows them
   
   // Membership
   membershipTierId  String?
@@ -325,6 +345,9 @@ model User {
   // locationLat/Lng is the derived map pin, so one index on it still serves every map query.
   @@index([locationLat, locationLng])
   @@index([membershipTierId])
+  // The review queue: oldest pending first
+  @@index([approvalStatus, createdAt])
+  @@index([approvalReviewedById])
 }
 
 // Verification tokens for 2FA, email verification, password reset

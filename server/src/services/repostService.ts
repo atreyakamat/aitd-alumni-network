@@ -97,6 +97,7 @@ export class RepostService {
           message: isPlain ? `${name} reposted your post` : `${name} shared your post with their thoughts`,
           link: clientLinks.post(isPlain ? original.id : created.id),
           metadata: { postId: original.id, repostId: created.id, reposterId: viewer.id },
+          dedupeBy: ['postId', 'reposterId'],
         },
       ]);
     }
