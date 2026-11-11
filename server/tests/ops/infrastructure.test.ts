@@ -37,6 +37,28 @@ describe('package manager and runtime', () => {
   });
 });
 
+describe('the API image (round 3, R3-05)', () => {
+  const dockerfile = fs.readFileSync(path.join(REPO, 'server/Dockerfile'), 'utf8');
+  const server = JSON.parse(fs.readFileSync(path.join(REPO, 'server/package.json'), 'utf8'));
+
+  it('does not ship development dependencies: jest, eslint and typescript stay in the build stage', () => {
+    // the build happens first, then everything the runtime does not need is pruned before node_modules is copied across
+    expect(dockerfile).toMatch(/npm prune --omit=dev/);
+    expect(dockerfile.indexOf('npm prune --omit=dev')).toBeGreaterThan(dockerfile.indexOf('npm run build'));
+    expect(dockerfile.indexOf('npm prune --omit=dev')).toBeLessThan(dockerfile.indexOf('FROM base AS runner'));
+  });
+
+  it('keeps what the entrypoint runs: prisma (migrate deploy) and tsx (seed) are runtime dependencies', () => {
+    expect(server.dependencies.prisma).toBeTruthy();
+    expect(server.dependencies.tsx).toBeTruthy();
+    expect(server.devDependencies.prisma).toBeUndefined();
+    expect(server.devDependencies.tsx).toBeUndefined();
+    const entrypoint = fs.readFileSync(path.join(REPO, 'server/docker-entrypoint.sh'), 'utf8');
+    expect(entrypoint).toMatch(/prisma migrate deploy/);
+    expect(entrypoint).toMatch(/tsx prisma\/seed\.ts/);
+  });
+});
+
 describe('docker-compose.yml', () => {
   it('describes the six services', () => {
     expect(names.sort()).toEqual(['api', 'kafka', 'nginx', 'postgres', 'redis', 'web']);
@@ -161,6 +183,17 @@ describe('nginx/nginx.conf', () => {
     expect(nginx).toMatch(/client_body_timeout\s+\d+s/);
     expect(nginx).toMatch(/server_tokens\s+off/);
     expect(nginx).toMatch(/location ~ \/\\\.\(\?!well-known\)/);
+  });
+
+  it('forwards WebSocket upgrades to the API only (/socket.io), never to the web app (round 3, R3-03)', () => {
+    const block = (header: string) => {
+      const start = nginx.indexOf(header);
+      return start === -1 ? '' : nginx.slice(nginx.indexOf('{', start) + 1, nginx.indexOf('}', start));
+    };
+    expect(block('location /socket.io/')).toMatch(/proxy_set_header\s+Upgrade\s+\$http_upgrade/);
+    const web = block('location / {');
+    expect(web).toContain('proxy_pass http://web');
+    expect(web).not.toMatch(/upgrade/i);
   });
 
   it('has balanced braces (it cannot be run through nginx -t here)', () => {

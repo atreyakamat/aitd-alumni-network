@@ -5,37 +5,37 @@
       "package": "next",
       "severity": "high",
       "advisory": "GHSA-h25m-26qc-wcjf",
-      "reason": "REAL. The web app is an App Router app (client/src/app), and nginx forwards / to Next, so React Server Components request handling is reachable by anyone who can reach the web port: unauthenticated denial of service of the web tier (the API is a separate process and is not affected). Not exploitable for data theft. Fix: upgrade next 14.2.x to 15.5.x or 16 (GATE item 1 in docs/SECURITY_AUDIT.md), planned as its own change with a staging soak. Interim: nginx request timeouts, container restart policy.",
+      "reason": "FIXED by upgrading Next 14.2.35 -> 15.5.29 on 2026-11-11 (the fix is in 15.5.x). This entry only remains until it expires because the baseline test pins it. Original finding: REAL. The web app is an App Router app (client/src/app), and nginx forwards / to Next, so React Server Components request handling is reachable by anyone who can reach the web port: unauthenticated denial of service of the web tier (the API is a separate process and is not affected). Not exploitable for data theft. Fix: upgrade next 14.2.x to 15.5.x or 16 (GATE item 1 in docs/SECURITY_AUDIT.md), planned as its own change with a staging soak. Interim: nginx request timeouts, container restart policy.",
       "expires": "2026-12-11",
       "owner": "platform-owner",
-      "status": "needs-fix"
+      "status": "mitigated"
     },
     {
       "package": "next",
       "severity": "high",
       "advisory": "GHSA-q4gf-8mx6-v5v3",
-      "reason": "REAL. Denial of service with Server Components, reachable by an anonymous visitor on any App Router deployment (see GHSA-h25m-26qc-wcjf). Web tier only. Fixed only by the Next major upgrade (15.5.x / 16).",
+      "reason": "FIXED by upgrading Next 14.2.35 -> 15.5.29 on 2026-11-11 (the fix is in 15.5.x). This entry only remains until it expires because the baseline test pins it. Original finding: REAL. Denial of service with Server Components, reachable by an anonymous visitor on any App Router deployment (see GHSA-h25m-26qc-wcjf). Web tier only. Fixed only by the Next major upgrade (15.5.x / 16).",
       "expires": "2026-12-11",
       "owner": "platform-owner",
-      "status": "needs-fix"
+      "status": "mitigated"
     },
     {
       "package": "next",
       "severity": "high",
       "advisory": "GHSA-8h8q-6873-q5fj",
-      "reason": "REAL. Second denial of service with Server Components (see GHSA-h25m-26qc-wcjf); reachable anonymously, web tier only. Fixed only by the Next major upgrade (15.5.x / 16).",
+      "reason": "FIXED by upgrading Next 14.2.35 -> 15.5.29 on 2026-11-11 (the fix is in 15.5.x). This entry only remains until it expires because the baseline test pins it. Original finding: REAL. Second denial of service with Server Components (see GHSA-h25m-26qc-wcjf); reachable anonymously, web tier only. Fixed only by the Next major upgrade (15.5.x / 16).",
       "expires": "2026-12-11",
       "owner": "platform-owner",
-      "status": "needs-fix"
+      "status": "mitigated"
     },
     {
       "package": "next",
       "severity": "high",
       "advisory": "GHSA-c4j6-fc7j-m34r",
-      "reason": "LIKELY REAL. SSRF through WebSocket upgrade requests handled by Next. The nginx proxy profile forwards Upgrade headers for the / location to the web container, so the upgrade path is reachable from outside. Not exploited here; phase G of docs/SECURITY_AUDIT_PLAN.md tests it against the test stack. Fix: Next major upgrade; interim: stop forwarding Upgrade on / (only /socket.io needs it) once dev hot reload is not needed in the container.",
+      "reason": "FIXED by upgrading Next 14.2.35 -> 15.5.29 on 2026-11-11 (the fix is in 15.5.x). This entry only remains until it expires because the baseline test pins it. Original finding: LIKELY REAL. SSRF through WebSocket upgrade requests handled by Next. The nginx proxy profile forwards Upgrade headers for the / location to the web container, so the upgrade path is reachable from outside. Not exploited here; phase G of docs/SECURITY_AUDIT_PLAN.md tests it against the test stack. Fix: Next major upgrade; interim: stop forwarding Upgrade on / (only /socket.io needs it) once dev hot reload is not needed in the container.",
       "expires": "2026-12-11",
       "owner": "platform-owner",
-      "status": "needs-fix"
+      "status": "mitigated"
     },
     {
       "package": "next",
@@ -167,10 +167,10 @@
       "package": "zod",
       "severity": "high",
       "advisory": "GHSA-mrhx-c7xc-m3w5",
-      "reason": "REAL (the same class on zod 3). The advisory names zod 4's $ZodArray; this repo imports the zod 3 API (3.25.76 from 'zod'), so that exact code is not executed, but zod 3 also records an issue for every failing element and the validate middleware returns them all. Measured on 2026-11-11: one 1 MB body of 500,000 numbers sent to z.array(z.string()) allocates about 280 MB of heap, about 0.6 s of CPU and builds a 38 MB error response. Reachable by any approved member through POST /jobs (createJobSchema.skills has no .max()) and by chapter admins through POST /events (createEventSchema.tags); the 1 MB body limit bounds one request, not a dozen parallel ones. Fix: .max() on both arrays in server/src/utils/validators.ts and a cap on the issues returned by server/src/middleware/validate.ts; the zod 4 upgrade is optional. Regression test belongs in server/tests/security/round3/.",
+      "reason": "Mitigated 2026-11-11 (R3-01). The advisory names zod 4's array code; this repo uses the zod 3 API, which has the same class: one issue per failing element. Every list in a request body is now bounded BEFORE its elements are checked (boundedList in server/src/utils/validators.ts, test server/src/__tests__/utils/boundedLists.test.ts: a 200,000-element body yields at most 5 issues) and the validate middleware returns at most 20 truncated details. The zod 4 upgrade is optional.",
       "expires": "2026-12-11",
       "owner": "platform-owner",
-      "status": "needs-fix"
+      "status": "mitigated"
     }
   ]
 }

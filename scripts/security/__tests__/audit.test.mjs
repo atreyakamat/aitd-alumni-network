@@ -146,8 +146,8 @@ test('the seeded allowlist covers exactly the critical/high advisories of the 20
   assert.equal(result.gatedCounts.critical, 3);
   assert.equal(result.gatedCounts.high, 16);
   assert.deepEqual(result.staleEntries, [], 'every entry still matches a finding');
-  // the real, reachable findings are marked as such
-  assert.deepEqual(result.needsFix.map((f) => f.ghsa).sort(), ['GHSA-8h8q-6873-q5fj', 'GHSA-c4j6-fc7j-m34r', 'GHSA-h25m-26qc-wcjf', 'GHSA-mrhx-c7xc-m3w5', 'GHSA-q4gf-8mx6-v5v3']);
+  // the reachable findings of the baseline were fixed or mitigated on 2026-11-11 (Next 15.5.29, bounded request lists): none is left
+  assert.deepEqual(result.needsFix, []);
 });
 
 test('the seeded allowlist stops protecting once its entries expire', () => {
@@ -184,18 +184,17 @@ const scan = async (args) => {
   }
 };
 
-test('static-scan CLI: passes on the baseline today, fails after expiry, fails --strict while needs-fix entries exist', async () => {
+test('static-scan CLI: passes on the baseline today, fails after expiry, and --strict passes while no needs-fix entry exists', async () => {
   const ok = await scan(['--today', '2026-11-11']);
   assert.equal(ok.code, 0, ok.stdout + ok.stderr);
   assert.equal(ok.report.status, 'PASS');
-  assert.match(ok.stdout, /Needs a fix/);
 
   const expired = await scan(['--today', '2027-03-01']);
   assert.equal(expired.code, 1);
   assert.equal(expired.report.sections[0].status, 'FAIL');
 
   const strict = await scan(['--today', '2026-11-11', '--strict']);
-  assert.equal(strict.code, 1);
+  assert.equal(strict.code, 0, strict.stdout + strict.stderr);
 });
 
 test('static-scan CLI: an unknown scanner is a usage error; a broken allowlist is an ERROR', async () => {

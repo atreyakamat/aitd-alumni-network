@@ -89,7 +89,7 @@ describe('PostCard reactions', () => {
     await userEvent.keyboard('{ArrowLeft}{ArrowLeft}');
     expect(screen.getByRole('button', { name: 'Funny' })).toHaveFocus();
     await userEvent.keyboard('{Escape}');
-    expect(screen.queryByRole('toolbar')).not.toBeInTheDocument();
+    await waitFor(() => expect(screen.queryByRole('toolbar')).not.toBeInTheDocument());
   });
 });
 

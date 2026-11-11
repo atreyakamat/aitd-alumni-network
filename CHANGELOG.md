@@ -73,7 +73,10 @@ All notable changes to AIEM Connect. The newest release is first. Dates are when
 * **Round-3 security tooling** (`scripts/security`, plan: [docs/SECURITY_AUDIT_PLAN.md](docs/SECURITY_AUDIT_PLAN.md), workflow `.github/workflows/security.yml`):
   a live authorization probe that replays the documented access level of every endpoint against a running stack (`rbac-live.mjs`), an `npm audit` gate with an
   expiring, justified allowlist, gitleaks, hadolint, Trivy, CodeQL and a ZAP baseline. First results are listed in the plan (R3-01 to R3-05).
-* No application behaviour changed in this step.
+* **First round-3 findings, fixed the same day** (details in the plan): request lists are bounded (one 1 MB body used to make the server allocate ~280 MB; R3-01);
+  **Next.js 14.2.35 to 15.5.29** (R3-02: the production audit goes from 1 critical and 11 high to none critical; run `npm ci` after pulling); nginx no longer forwards
+  WebSocket upgrades to the web app (R3-03); build tooling moved to `devDependencies` (R3-04); the API image no longer ships jest, eslint and typescript (R3-05, to be
+  confirmed by the docker-verify run).
 
 ### Reliability (see [docs/ROBUSTNESS.md](docs/ROBUSTNESS.md))
 

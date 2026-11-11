@@ -30,7 +30,7 @@ describe('R2-25 route params are encoded before they reach the API URL', () => {
   });
 
   it.each(HOSTILE_IDS)('profile page: %j stays one path segment', async (id) => {
-    await profileMetadata({ params: { id } });
+    await profileMetadata({ params: Promise.resolve({ id }) });
     expect(calls).toHaveLength(1);
     const url = new URL(calls[0]);
     expect(url.origin).toBe('https://api.example.test');
@@ -42,7 +42,7 @@ describe('R2-25 route params are encoded before they reach the API URL', () => {
   });
 
   it.each(HOSTILE_IDS)('event layout: %j stays one path segment', async (id) => {
-    await eventMetadata({ params: { id } });
+    await eventMetadata({ params: Promise.resolve({ id }) });
     const url = new URL(calls[calls.length - 1]);
     expect(url.search).toBe('');
     expect(url.pathname.split('/').filter(Boolean)).toHaveLength(3);

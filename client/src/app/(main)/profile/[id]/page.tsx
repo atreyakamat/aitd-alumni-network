@@ -2,7 +2,7 @@ import { Metadata } from 'next';
 import { ProfileClient } from './ProfileClient';
 
 interface Props {
-  params: { id: string };
+  params: Promise<{ id: string }>; // Next 15: route params are a Promise
 }
 
 const apiBase = () =>
@@ -27,7 +27,8 @@ async function getProfile(id: string) {
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const fallback: Metadata = { title: 'Profile | AIEM Connect' };
-  const profile = await getProfile(params.id);
+  const { id } = await params;
+  const profile = await getProfile(id);
   
   if (!profile || !profile.fullName) {
     return fallback;
@@ -51,7 +52,8 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 }
 
 export default async function ProfilePage({ params }: Props) {
-  const profile = await getProfile(params.id);
-  return <ProfileClient profile={profile} id={params.id} />;
+  const { id } = await params;
+  const profile = await getProfile(id);
+  return <ProfileClient profile={profile} id={id} />;
 }
 

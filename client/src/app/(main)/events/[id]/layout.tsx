@@ -10,10 +10,11 @@ const summarize = (text: unknown) => {
 };
 
 /** Per-event title/description for search and link previews; falls back quietly if the API is unreachable. */
-export async function generateMetadata({ params }: { params: { id: string } }): Promise<Metadata> {
+export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
   const fallback: Metadata = { title: 'Event | AIEM Connect' };
   try {
-    const res = await fetch(`${apiBase()}/events/${encodeURIComponent(params.id)}`, {
+    const { id } = await params; // Next 15: route params are a Promise
+    const res = await fetch(`${apiBase()}/events/${encodeURIComponent(id)}`, {
       next: { revalidate: 300 },
       signal: AbortSignal.timeout(3000),
     });

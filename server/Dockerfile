@@ -20,6 +20,9 @@ WORKDIR /app/server
 RUN npx prisma generate && npm run build
 # The embedded PostgreSQL binaries are only for local dev/tests (docker-compose runs real Postgres)
 RUN rm -rf /app/node_modules/embedded-postgres /app/node_modules/@embedded-postgres
+# Development dependencies (jest, eslint, typescript ...) are only needed to build: drop them before node_modules is copied into the
+# runtime image. prisma (migrate deploy) and tsx (seed) are runtime dependencies on purpose, see docker-entrypoint.sh.
+RUN npm prune --omit=dev
 
 # Production stage
 FROM base AS runner
