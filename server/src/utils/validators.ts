@@ -114,6 +114,13 @@ const MIN_PROFILE_YEAR = 1900;
 const MAX_PROFILE_YEARS_AHEAD = 10;
 /** Mirror MAX_SKILLS / MAX_SKILL_NAME_LENGTH in userService (which re-validates). */
 export const SKILLS_MAX = 50;
+
+/**
+ * A list with a limit that is checked BEFORE its elements are. zod otherwise parses every element and keeps one issue per
+ * failure, so one large list of wrong values costs the server memory and CPU out of proportion to the request (R3-01).
+ */
+export const boundedList = <T extends z.ZodTypeAny>(item: T, max: number, what: string) =>
+  z.array(z.unknown()).max(max, `You can add at most ${max} ${what}`).pipe(z.array(item));
 export const SKILL_NAME_MAX = 50;
 
 const maxProfileYear = () => new Date().getFullYear() + MAX_PROFILE_YEARS_AHEAD;
@@ -364,7 +371,7 @@ export const createPostSchema = z.object({
 export const updatePostSchema = z.object({
   body: z.object({
     content: z.string().min(1).optional(),
-    mediaUrls: z.array(mediaRef).optional(),
+    mediaUrls: boundedList(mediaRef, 10, 'media items').optional(),
     linkUrl: safeLink.optional().nullable(),
     isPinned: z.boolean().optional(),
   }),
@@ -411,7 +418,7 @@ export const createJobSchema = z.object({
     salaryMax: z.number().optional(),
     experienceMin: z.number().int().optional(),
     experienceMax: z.number().int().optional(),
-    skills: z.array(z.string()).optional(),
+    skills: boundedList(z.string().max(100, 'A skill can be at most 100 characters'), SKILLS_MAX, 'skills').optional(),
     applicationLink: safeLink.optional(),
     deadline: z.string().datetime().or(z.date()).optional(),
   }),
@@ -431,7 +438,7 @@ export const createEventSchema = z.object({
     startDate: z.string().datetime().or(z.date()),
     endDate: z.string().datetime().or(z.date()).optional(),
     capacity: z.number().int().positive().optional(),
-    tags: z.array(z.string()).optional(),
+    tags: boundedList(z.string().max(50, 'A tag can be at most 50 characters'), 20, 'tags').optional(),
     isPublic: z.boolean().optional(),
     chapterId: z.string().uuid().optional(),
   }),
