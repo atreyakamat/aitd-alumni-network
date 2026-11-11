@@ -3,12 +3,12 @@
 import * as React from 'react';
 import Link from 'next/link';
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { AlertCircle, ArrowLeft, Search, UserCheck, UserX, Users } from 'lucide-react';
+import { AlertCircle, ClipboardCheck, Search, UserCheck, UserX, Users } from 'lucide-react';
 import { useAuth } from '@/context/auth-context';
 import { useToast } from '@/hooks/use-toast';
-import { adminApi, getApiErrorMessage, type AdminUser, type AdminUserFilters } from '@/lib/api';
-import { ROLES, canManageUser, roleLabel, type Role } from '@/lib/roles';
-import { formatDate, getInitials } from '@/lib/utils';
+import { adminApi, getApiErrorMessage, type AdminUser, type AdminUserFilters, type ApprovalStatus } from '@/lib/api';
+import { ROLES, canManageUser, normalizeRole, roleLabel, type Role } from '@/lib/roles';
+import { cn, formatDate, getInitials } from '@/lib/utils';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -25,7 +25,9 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { UserRoleSelect } from '@/components/admin/UserRoleSelect';
+import { UserRoleSelect, roleBadgeClass } from '@/components/admin/UserRoleSelect';
+import { AdminPageHeader } from '@/components/admin/AdminPageHeader';
+import { AccountStatusBadge, getAccountStatus } from '@/components/admin/StatusBadges';
 import { UserStatusDialog } from '@/components/admin/UserStatusDialog';
 import { Pagination } from '@/components/shared/Pagination';
 
@@ -33,6 +35,17 @@ const PAGE_SIZE = 20;
 const ALL = 'ALL';
 
 type StatusFilter = 'ALL' | 'true' | 'false';
+
+/** A row of the list. `approvalStatus` is what tells "waiting" from "turned down"; older servers leave it out. */
+type UserRow = AdminUser & { approvalStatus?: ApprovalStatus | null };
+
+/** Where an administrator decides about an applicant: the approvals page, on the right tab and filtered to this person. */
+const reviewHref = (u: UserRow) => {
+  const params = new URLSearchParams();
+  if (u.approvalStatus === 'REJECTED') params.set('status', 'REJECTED');
+  params.set('search', u.email);
+  return `/admin/approvals?${params.toString()}`;
+};
 
 export default function AdminUsersPage() {
   const { user: actor } = useAuth();
@@ -126,18 +139,11 @@ export default function AdminUsersPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <Button variant="link" asChild className="px-0 h-auto mb-1 text-muted-foreground">
-            <Link href="/admin">
-              <ArrowLeft className="h-4 w-4 mr-1" />
-              Admin dashboard
-            </Link>
-          </Button>
-          <h1 className="text-2xl font-bold">User management</h1>
-          <p className="text-muted-foreground">Search members, adjust roles and manage account access.</p>
-        </div>
-      </div>
+      <AdminPageHeader
+        title="User management"
+        icon={Users}
+        description="Search members, adjust roles and manage account access."
+      />
 
       {/* Filters */}
       <Card>
@@ -272,9 +278,12 @@ export default function AdminUsersPage() {
                   </tr>
                 </thead>
                 <tbody className={usersQuery.isFetching ? 'opacity-60 transition-opacity' : undefined}>
-                  {users.map((u) => {
+                  {(users as UserRow[]).map((u) => {
                     const isSelf = u.id === actor?.id;
                     const manageable = canManageUser(actor, u.userRole, { isSelf });
+                    const accountStatus = getAccountStatus(u);
+                    // Somebody who is not an approved member yet (or was turned down) is decided about on the approvals page
+                    const isApplicant = accountStatus === 'PENDING' || accountStatus === 'REJECTED' || accountStatus === 'NOT_APPROVED';
                     return (
                       <tr key={u.id} className="border-b last:border-0">
                         <td className="px-4 py-3">
@@ -297,29 +306,56 @@ export default function AdminUsersPage() {
                           {u.department ? <span className="block text-xs">{u.department}</span> : null}
                         </td>
                         <td className="px-4 py-3">
-                          <UserRoleSelect
-                            actorRole={actor}
-                            targetRole={u.userRole}
-                            isSelf={isSelf}
-                            userName={u.fullName}
-                            disabled={roleMutation.isPending}
-                            onChange={(newRole) => setRoleChange({ user: u, role: newRole })}
-                          />
+                          {isApplicant ? (
+                            <Badge variant="secondary" className={cn(roleBadgeClass[normalizeRole(u.userRole)])}>
+                              {roleLabel(u.userRole)}
+                            </Badge>
+                          ) : isSelf ? (
+                            // Disabled, not hidden: the explanation is on the control (the server refuses it with a 403 anyway)
+                            <select
+                              aria-label={`Role for ${u.fullName}`}
+                              value={normalizeRole(u.userRole)}
+                              disabled
+                              title="You can't change your own role"
+                              className="h-9 rounded-md border border-input bg-background px-2 text-sm disabled:cursor-not-allowed disabled:opacity-60"
+                            >
+                              <option value={normalizeRole(u.userRole)}>{roleLabel(u.userRole)}</option>
+                            </select>
+                          ) : (
+                            <UserRoleSelect
+                              actorRole={actor}
+                              targetRole={u.userRole}
+                              userName={u.fullName}
+                              disabled={roleMutation.isPending}
+                              onChange={(newRole) => setRoleChange({ user: u, role: newRole })}
+                            />
+                          )}
                         </td>
                         <td className="px-4 py-3">
-                          <div className="flex flex-wrap gap-1">
-                            <Badge variant={u.isActive ? 'success' : 'destructive'}>
-                              {u.isActive ? 'Active' : 'Deactivated'}
-                            </Badge>
-                            {/* isVerified = approved member (an administrator approved the registration), not "e-mail verified" */}
-                            {!u.isVerified && <Badge variant="outline">Not approved</Badge>}
-                          </div>
+                          {/* ONE status: not being approved comes before active/deactivated (isVerified = approved member, not "e-mail verified") */}
+                          <AccountStatusBadge status={accountStatus} />
                         </td>
                         <td className="px-4 py-3 hidden lg:table-cell text-muted-foreground">
                           {u.lastLoginAt ? formatDate(u.lastLoginAt) : 'Never'}
                         </td>
                         <td className="px-4 py-3 text-right">
-                          {manageable ? (
+                          {isApplicant ? (
+                            <Button size="sm" variant="outline" asChild>
+                              <Link href={reviewHref(u)}>
+                                <ClipboardCheck className="h-4 w-4 mr-1" aria-hidden="true" /> Review application
+                              </Link>
+                            </Button>
+                          ) : isSelf ? (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              disabled
+                              title="You can't change your own status"
+                              aria-label="Deactivate (you can't change your own status)"
+                            >
+                              <UserX className="h-4 w-4 mr-1" aria-hidden="true" /> Deactivate
+                            </Button>
+                          ) : manageable ? (
                             <Button
                               size="sm"
                               variant={u.isActive ? 'outline' : 'default'}

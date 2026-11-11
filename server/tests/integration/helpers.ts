@@ -14,7 +14,7 @@ export const http = () => request(app);
 let counter = 0;
 // The random part matters: Jest workers are separate processes with their own counter, so time + counter alone can repeat
 // when two workers create a user in the same millisecond.
-export const uniqueEmail = (prefix = 'user') => `${prefix}.${Date.now()}.${++counter}.${randomBytes(4).toString('hex')}@aitd.test`;
+export const uniqueEmail = (prefix = 'user') => `${prefix}.${Date.now()}.${++counter}.${randomBytes(4).toString('hex')}@aiem.test`;
 
 export const PASSWORD = 'Str0ng!Passw0rd';
 

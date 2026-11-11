@@ -35,7 +35,7 @@ describe('<EducationSection>', () => {
     render(<EducationSection educations={[]} onSaved={onSaved} />);
     await userEvent.click(screen.getByRole('button', { name: 'Add education' }));
 
-    await userEvent.type(within(dialog()).getByLabelText('Institution'), 'AITD Kanpur');
+    await userEvent.type(within(dialog()).getByLabelText('Institution'), 'AIEM Kanpur');
     await userEvent.type(within(dialog()).getByLabelText('Degree'), 'B.Tech');
     await userEvent.type(within(dialog()).getByLabelText('Field of study'), 'Computer Science');
     await userEvent.type(within(dialog()).getByLabelText('Start year'), '2011');
@@ -46,7 +46,7 @@ describe('<EducationSection>', () => {
 
     await waitFor(() =>
       expect(userApi.addEducation).toHaveBeenCalledWith({
-        institution: 'AITD Kanpur',
+        institution: 'AIEM Kanpur',
         degree: 'B.Tech',
         fieldOfStudy: 'Computer Science',
         startYear: 2011,
@@ -62,7 +62,7 @@ describe('<EducationSection>', () => {
   it('rejects an end year before the start year', async () => {
     render(<EducationSection educations={[]} onSaved={vi.fn()} />);
     await userEvent.click(screen.getByRole('button', { name: 'Add education' }));
-    await userEvent.type(within(dialog()).getByLabelText('Institution'), 'AITD');
+    await userEvent.type(within(dialog()).getByLabelText('Institution'), 'AIEM');
     await userEvent.type(within(dialog()).getByLabelText('Degree'), 'M.Tech');
     await userEvent.type(within(dialog()).getByLabelText('Start year'), '2016');
     await userEvent.type(within(dialog()).getByLabelText('End year'), '2014');
@@ -75,11 +75,11 @@ describe('<EducationSection>', () => {
   it('deletes an entry after confirmation', async () => {
     render(
       <EducationSection
-        educations={[{ id: 'e9', institution: 'AITD', degree: 'B.Tech', startYear: 2011, endYear: 2015, isPrimary: true }]}
+        educations={[{ id: 'e9', institution: 'AIEM', degree: 'B.Tech', startYear: 2011, endYear: 2015, isPrimary: true }]}
         onSaved={vi.fn()}
       />
     );
-    await userEvent.click(screen.getByRole('button', { name: 'Delete B.Tech at AITD' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Delete B.Tech at AIEM' }));
     await userEvent.click(within(dialog()).getByRole('button', { name: 'Delete' }));
     await waitFor(() => expect(userApi.deleteEducation).toHaveBeenCalledWith('e9'));
   });

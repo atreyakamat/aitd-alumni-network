@@ -18,7 +18,8 @@ const COMMON_PASSWORDS = new Set([
   'admin123', 'admin1234', 'administrator1', 'letmein1', 'letmein123', 'iloveyou1', 'iloveyou123',
   'abc12345', 'abcd1234', 'abcd12345', 'abcde12345', 'monkey123', 'dragon123', 'football1', 'football123',
   'baseball1', 'sunshine1', 'princess1', 'master123', 'login123', 'changeme1', 'changeme123',
-  'aitd1234', 'aitd12345', 'aitd123', 'aitdconnection1', 'aitdalumni1', 'alumni123', 'student123',
+  'aiem1234', 'aiem12345', 'aiem123', 'aiemconnect1', 'aiemalumni1', 'aitd1234', 'aitd12345', 'aitd123', 'aitdconnection1', 'aitdalumni1',
+  'alumni123', 'student123',
   '1q2w3e4r5t', 'a1b2c3d4', 'zaq12wsx', '1qaz2wsx', 'p@ssw0rd', 'p@ssword1', 'trustno1', 'abc123456',
 ]);
 

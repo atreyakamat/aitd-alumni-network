@@ -1,6 +1,7 @@
 import PDFDocument from 'pdfkit';
 import path from 'path';
 import fs from 'fs';
+import { BRAND } from '../config/brand';
 
 interface DonationReceiptData {
   receiptNumber: string;
@@ -62,13 +63,13 @@ export class PDFReceiptGenerator {
       .fontSize(24)
       .fillColor(this.primaryColor)
       .font('Helvetica-Bold')
-      .text('AIEM Connection', 50, 50);
+      .text(BRAND.appName, 50, 50);
 
     this.doc
       .fontSize(10)
       .fillColor(this.grayColor)
       .font('Helvetica')
-      .text('AIEM Alumni Network', 50, 78);
+      .text(BRAND.orgName, 50, 78);
 
     // Divider line
     this.doc
@@ -120,7 +121,7 @@ export class PDFReceiptGenerator {
 
     this.doc
       .text(
-        'AIEM Alumni Network | Registered under Section 80G',
+        `${BRAND.orgName} | Registered under Section 80G`,
         50,
         footerY + 45,
         { align: 'center' }
@@ -487,13 +488,12 @@ export const generateMembershipReceipt = async (
 
 /**
  * Deterministic receipt number for a transaction:
- * `AITD-<DON|MEM>-<YYYYMMDD (UTC)>-<first 8 hex chars of the transaction id>`.
+ * `AIEM-<DON|MEM>-<YYYYMMDD (UTC)>-<first 8 hex chars of the transaction id>`.
  * The same transaction always yields the same receipt number, so receipts
  * re-downloaded later match the copy e-mailed/stored at payment time.
  *
- * NB: the `AITD-` prefix is intentionally kept across the AIEM rebrand — it is a
- * stored financial identifier; changing it would break continuity with receipts
- * already issued. Only the receipt's *display* text was rebranded to AIEM.
+ * NB: receipt numbers are derived, not stored. A receipt issued under an earlier prefix, when downloaded again, shows
+ * the current `AIEM-` number (see docs/PRODUCTION_CHECKLIST.md, decision 14).
  */
 export const generateReceiptNumber = (type: 'DON' | 'MEM', transactionId: string, date: Date): string => {
   const d = new Date(date);
@@ -501,5 +501,5 @@ export const generateReceiptNumber = (type: 'DON' | 'MEM', transactionId: string
     ? '00000000'
     : `${d.getUTCFullYear()}${String(d.getUTCMonth() + 1).padStart(2, '0')}${String(d.getUTCDate()).padStart(2, '0')}`;
   const ref = String(transactionId || '').replace(/[^a-zA-Z0-9]/g, '').slice(0, 8).toUpperCase() || 'UNKNOWN';
-  return `AITD-${type}-${stamp}-${ref}`;
+  return `AIEM-${type}-${stamp}-${ref}`;
 };

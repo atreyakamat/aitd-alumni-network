@@ -29,7 +29,7 @@ afterEach(() => {
   jest.restoreAllMocks();
 });
 
-const input = { email: 'new@aitd.edu', password: PASSWORD, fullName: 'Ada Alum', batchYear: 2015, department: 'CS', degree: 'B.E.' };
+const input = { email: 'new@aiem.edu', password: PASSWORD, fullName: 'Ada Alum', batchYear: 2015, department: 'CS', degree: 'B.E.' };
 const tick = () => new Promise((resolve) => setImmediate(resolve));
 
 const arrangeRegistration = () => {
@@ -66,7 +66,7 @@ describe('registering', () => {
 describe('verifying the e-mail address', () => {
   const user = (overrides: Record<string, unknown> = {}) => ({
     id: 'u1',
-    email: 'alum@aitd.edu',
+    email: 'alum@aiem.edu',
     fullName: 'Ada Alum',
     passwordHash,
     isActive: true,

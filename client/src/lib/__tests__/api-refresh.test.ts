@@ -178,21 +178,21 @@ describe('multi-tab refresh race', () => {
   });
 });
 
-describe('session hint cookie (aitd_session) follows token refresh', () => {
-  const hint = () => document.cookie.includes('aitd_session=1');
+describe('session hint cookie (aiem_session) follows token refresh', () => {
+  const hint = () => document.cookie.includes('aiem_session=1');
   afterEach(() => {
-    document.cookie = 'aitd_session=; Path=/; Max-Age=0';
+    document.cookie = 'aiem_session=; Path=/; Max-Age=0';
   });
 
   it('is (re)set when a refresh succeeds', async () => {
-    document.cookie = 'aitd_session=; Path=/; Max-Age=0';
+    document.cookie = 'aiem_session=; Path=/; Max-Age=0';
     vi.spyOn(axios, 'post').mockResolvedValueOnce({ data: { data: { accessToken: 'a1', refreshToken: 'r2' } } } as any);
     await refreshAccessToken();
     expect(hint()).toBe(true);
   });
 
   it('is cleared when the refresh fails and the session is dropped', async () => {
-    document.cookie = 'aitd_session=1; Path=/';
+    document.cookie = 'aiem_session=1; Path=/';
     installAdapter();
     vi.spyOn(axios, 'post').mockRejectedValue(new Error('refresh token reused'));
     await expect(api.get('/posts')).rejects.toBeTruthy();

@@ -4,7 +4,7 @@
  * Options:
  *   --env-file <path>      read variables from a file (the docker-compose .env works as it is)
  *   --database-url <url>   database to inspect (default: DATABASE_URL). With docker-compose use the published port, e.g.
- *                          postgresql://aitd:<password>@127.0.0.1:5432/alumni_connect, or an SSH tunnel to it
+ *                          postgresql://aiem:<password>@127.0.0.1:5432/aiem_connect, or an SSH tunnel to it
  *   --no-db                skip the database stage
  *
  * Reads the configuration the way production will see it (NODE_ENV is forced to "production"), applies the same rules
@@ -48,13 +48,13 @@ const print = (heading: string, items: ConfigFinding[], mark: string) => {
 };
 
 const main = async () => {
-  console.log('AITD Connection production preflight');
+  console.log('AIEM Connect production preflight');
   console.log(`  configuration: ${envFile ?? 'the current environment / server/.env'}`);
 
   const env: NodeJS.ProcessEnv = { ...process.env, NODE_ENV: 'production' };
   // docker-compose has no DATABASE_URL in .env: it builds one from POSTGRES_*. Check the same value it will build.
   if (!env.DATABASE_URL && env.POSTGRES_PASSWORD !== undefined) {
-    env.DATABASE_URL = `postgresql://${env.POSTGRES_USER || 'aitd'}:${encodeURIComponent(env.POSTGRES_PASSWORD)}@postgres:5432/${env.POSTGRES_DB || 'alumni_connect'}`;
+    env.DATABASE_URL = `postgresql://${env.POSTGRES_USER || 'aiem'}:${encodeURIComponent(env.POSTGRES_PASSWORD)}@postgres:5432/${env.POSTGRES_DB || 'aiem_connect'}`;
     // ... and its api service always gets the bundled Redis
     env.REDIS_URL = env.REDIS_URL || 'redis://redis:6379';
   }
@@ -72,7 +72,7 @@ const main = async () => {
       level: 'warning',
       waivable: false,
       message: 'The database was not inspected: no DATABASE_URL that is reachable from this machine.',
-      fix: 'Run again with --database-url postgresql://aitd:<password>@127.0.0.1:5432/alumni_connect (compose publishes Postgres on 127.0.0.1) before go-live.',
+      fix: 'Run again with --database-url postgresql://aiem:<password>@127.0.0.1:5432/aiem_connect (compose publishes Postgres on 127.0.0.1) before go-live.',
     });
   } else {
     process.env.DATABASE_URL = inspectUrl;

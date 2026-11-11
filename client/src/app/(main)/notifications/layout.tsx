@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
-  title: 'Notifications | AIEM Connection',
+  title: 'Notifications | AIEM Connect',
   robots: { index: false, follow: false },
 };
 

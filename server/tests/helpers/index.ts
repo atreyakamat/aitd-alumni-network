@@ -30,7 +30,7 @@ export interface TestUser {
 
 export const makeUser = (role: UserRole = 'MEMBER', overrides: Partial<TestUser> = {}): TestUser => ({
   id: USER_IDS[role],
-  email: `${role.toLowerCase()}@aitd.test`,
+  email: `${role.toLowerCase()}@aiem.test`,
   fullName: `Test ${role}`,
   userRole: role,
   isActive: true,

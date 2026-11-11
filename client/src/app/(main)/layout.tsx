@@ -14,7 +14,7 @@ import { buildLoginHref, isPublicPath } from '@/lib/public-paths';
  * EXCEPT the one public section (PUBLIC_SECTIONS: /donations, where alumni donate as guests without an account).
  * Defence in depth, in order:
  *  1. `src/middleware.ts` keeps the member app shell from being served to visitors without the
- *     non-secret `aitd_session` hint cookie (anonymous requests get a 307 to /login?next=...).
+ *     non-secret `aiem_session` hint cookie (anonymous requests get a 307 to /login?next=...).
  *  2. THIS layout renders nothing for a members-only page until `/auth/me` confirms a real session; a visitor is sent
  *     to /login?next=<this page> and lands back here after signing in. On the public section a visitor gets the
  *     public header and the page, which shows a visitor nothing but the donation form.

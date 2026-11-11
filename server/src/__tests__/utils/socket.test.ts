@@ -41,7 +41,7 @@ const fakeSocket = (handshake: Record<string, unknown> = {}) => {
 };
 
 const USER = '00000000-0000-4000-8000-000000000001';
-const validToken = () => generateAccessToken(USER, 'm@aitd.test', 'MEMBER');
+const validToken = () => generateAccessToken(USER, 'm@aiem.test', 'MEMBER');
 
 beforeEach(() => {
   emit.mockClear();
@@ -184,7 +184,7 @@ describe('socket util', () => {
 
     it('accepts a token whose tv matches the current tokenVersion', async () => {
       arrangeUser({ tokenVersion: 3 });
-      const s = fakeSocket({ auth: { token: generateAccessToken(USER, 'm@aitd.test', 'MEMBER', 3) } });
+      const s = fakeSocket({ auth: { token: generateAccessToken(USER, 'm@aiem.test', 'MEMBER', 3) } });
       expect(await run(s)).toHaveBeenCalledWith();
     });
 

@@ -30,6 +30,7 @@ describe('parseEventFilters', () => {
       city: undefined,
       chapterId: undefined,
       upcoming: false,
+      past: false,
       search: 'gala',
       page: 2,
       limit: 12,
@@ -43,6 +44,9 @@ describe('parseEventFilters', () => {
       limit: 3,
     });
     expect(parseEventFilters({ upcoming: '1', page: 'zz' } as any)).toMatchObject({ upcoming: true, page: 1 });
+    expect(parseEventFilters({ past: 'true' } as any)).toMatchObject({ past: true, upcoming: false });
+    expect(parseEventFilters({ past: '1' } as any)).toMatchObject({ past: true });
+    expect(parseEventFilters({ past: 'nope' } as any)).toMatchObject({ past: false });
   });
 });
 

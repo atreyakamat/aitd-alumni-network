@@ -111,7 +111,7 @@ Response: {
 ```
 POST http://localhost:5000/api/auth/login
 Body: {
-  "email": "admin@aitdconnection.edu",
+  "email": "admin@aiemconnect.edu",
   "password": "Admin@123"
 }
 
@@ -120,7 +120,7 @@ Response: {
   "data": {
     "user": {
       "id": "53fe35f3-1c9d-40e1-bdc7-9cf5e8756adc",
-      "email": "admin@aitdconnection.edu",
+      "email": "admin@aiemconnect.edu",
       "userRole": "SUPER_ADMIN"
     },
     "accessToken": "<272-char token>"

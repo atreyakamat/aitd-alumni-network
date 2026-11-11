@@ -15,7 +15,7 @@ const META = { ipAddress: '10.0.0.1', userAgent: 'jest' };
 const applicant = (overrides: Record<string, unknown> = {}) => ({
   id: 'u1',
   fullName: 'Ada Alum',
-  email: 'ada@aitd.edu',
+  email: 'ada@aiem.edu',
   batchYear: 2015,
   department: 'Computer Engineering',
   degree: 'B.E.',
@@ -152,6 +152,24 @@ describe('approving', () => {
     expect(log.error).toHaveBeenCalledWith(expect.stringMatching(/registration.approved/), expect.any(Object));
   });
 
+  it('settles the review notices of the administrators for this person, so the bell stops asking for a decision that was made', async () => {
+    arrange();
+    prismaMock.notification.updateMany.mockResolvedValue({ count: 2 });
+    await memberApprovalService.approve(ADMIN, 'u1', undefined, META);
+    expect(prismaMock.notification.updateMany).toHaveBeenCalledWith({
+      where: { type: 'REGISTRATION_PENDING', isRead: false, metadata: { path: ['applicantId'], equals: 'u1' } },
+      data: { isRead: true },
+    });
+  });
+
+  it('is not undone by a failure while settling the notices', async () => {
+    arrange();
+    jest.spyOn(log, 'error').mockImplementation(() => undefined);
+    prismaMock.notification.updateMany.mockRejectedValue(new Error('db hiccup'));
+    await expect(memberApprovalService.approve(ADMIN, 'u1', undefined, META)).resolves.toBeDefined();
+    expect(log.error).toHaveBeenCalled();
+  });
+
   it('can approve a registration that was rejected earlier', async () => {
     arrange(applicant({ approvalStatus: 'REJECTED' }));
     await expect(memberApprovalService.approve(ADMIN, 'u1', undefined, META)).resolves.toBeDefined();
@@ -229,6 +247,16 @@ describe('rejecting', () => {
     await memberApprovalService.reject(ADMIN, 'u1', 'Not on our rolls', META);
     expect(logAuditAction).toHaveBeenCalledWith(expect.objectContaining({ action: 'REJECT', entityType: 'USER', entityId: 'u1' }));
     expect(publishNotificationEvent).toHaveBeenCalledWith('registration.rejected', { userId: 'u1', reason: 'Not on our rolls' });
+  });
+
+  it('settles the review notices of the administrators for this person too', async () => {
+    arrange();
+    prismaMock.notification.updateMany.mockResolvedValue({ count: 1 });
+    await memberApprovalService.reject(ADMIN, 'u1', 'Not on our rolls', META);
+    expect(prismaMock.notification.updateMany).toHaveBeenCalledWith({
+      where: { type: 'REGISTRATION_PENDING', isRead: false, metadata: { path: ['applicantId'], equals: 'u1' } },
+      data: { isRead: true },
+    });
   });
 
   it('only a registration that is waiting can be rejected (a member is deactivated instead)', async () => {

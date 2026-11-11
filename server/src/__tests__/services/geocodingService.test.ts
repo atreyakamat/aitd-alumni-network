@@ -15,7 +15,7 @@ const makeService = (overrides: Partial<ConstructorParameters<typeof GeocodingSe
   const fetchMock = jest.fn();
   const service = new GeocodingService({
     baseUrl: 'https://geo.example.test',
-    userAgent: 'AITD-Test/1.0',
+    userAgent: 'AIEM-Test/1.0',
     email: '',
     minIntervalMs: 0,
     timeoutMs: 1000,
@@ -43,7 +43,7 @@ describe('GeocodingService.search', () => {
     expect(parsed.searchParams.get('format')).toBe('jsonv2');
     expect(parsed.searchParams.get('limit')).toBe('5');
     // Nominatim's usage policy requires an identifying User-Agent
-    expect(init.headers['User-Agent']).toBe('AITD-Test/1.0');
+    expect(init.headers['User-Agent']).toBe('AIEM-Test/1.0');
   });
 
   it('falls back through town / village / county for the city name', async () => {
@@ -68,13 +68,13 @@ describe('GeocodingService.search', () => {
   });
 
   it('clamps the limit and passes the contact email when configured', async () => {
-    const { service, fetchMock } = makeService({ email: 'ops@aitd.test' });
+    const { service, fetchMock } = makeService({ email: 'ops@aiem.test' });
     fetchMock.mockResolvedValue(jsonResponse([]));
 
     await service.search('Mumbai', 50);
     const parsed = new URL(fetchMock.mock.calls[0][0]);
     expect(parsed.searchParams.get('limit')).toBe('10');
-    expect(parsed.searchParams.get('email')).toBe('ops@aitd.test');
+    expect(parsed.searchParams.get('email')).toBe('ops@aiem.test');
   });
 
   it('rejects blank or oversized queries with 400', async () => {

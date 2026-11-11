@@ -6,7 +6,7 @@ const STRONG_B = 'Zr8Wm2Ls6Qa0Xc4Vb9Nd1Hf7Tg3Ju5Ky2Ep8RoUiMw6';
 /** A configuration that passes every check, with the notification broker configured. */
 const good = (overrides: Record<string, string | undefined> = {}): NodeJS.ProcessEnv => ({
   NODE_ENV: 'production',
-  DATABASE_URL: 'postgresql://aitd:7vQ2mX9pLr4TnB8cZk1Wd@postgres:5432/alumni_connect?schema=public',
+  DATABASE_URL: 'postgresql://aiem:7vQ2mX9pLr4TnB8cZk1Wd@postgres:5432/alumni_connect?schema=public',
   JWT_SECRET: STRONG_A,
   JWT_REFRESH_SECRET: STRONG_B,
   FRONTEND_URL: 'https://alumni.example.edu',
@@ -16,7 +16,7 @@ const good = (overrides: Record<string, string | undefined> = {}): NodeJS.Proces
   SMTP_PASS: 'mailer-password',
   REDIS_URL: 'redis://redis:6379',
   KAFKA_BROKERS: 'kafka:9092',
-  AWS_S3_BUCKET: 'aitd-uploads',
+  AWS_S3_BUCKET: 'aiem-uploads',
   TRUST_PROXY: '1',
   ...overrides,
 });

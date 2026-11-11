@@ -65,6 +65,22 @@ const announce = (type: 'registration.approved' | 'registration.rejected', data:
   );
 };
 
+/**
+ * Once somebody has decided about a registration, the "New registration to review" notices that were sent to the
+ * administrators are answered: mark them read, so the bell does not go on asking for a decision that was made. Best
+ * effort: a failure here is logged and never undoes or fails the decision.
+ */
+const settleReviewNotices = async (applicantId: string) => {
+  try {
+    await prisma.notification.updateMany({
+      where: { type: 'REGISTRATION_PENDING', isRead: false, metadata: { path: ['applicantId'], equals: applicantId } },
+      data: { isRead: true },
+    });
+  } catch (error) {
+    log.error('Could not settle the registration review notices', { applicantId, err: error });
+  }
+};
+
 class MemberApprovalService {
   async list(filters: ApprovalListFilters) {
     const page = Math.max(1, Number(filters.page) || 1);
@@ -150,6 +166,7 @@ class MemberApprovalService {
       ...meta,
     });
 
+    await settleReviewNotices(targetId);
     announce('registration.approved', { userId: targetId });
 
     return prisma.user.findUnique({ where: { id: targetId }, select: APPLICATION_SELECT });
@@ -195,6 +212,7 @@ class MemberApprovalService {
       ...meta,
     });
 
+    await settleReviewNotices(targetId);
     announce('registration.rejected', { userId: targetId, reason: reasonText });
 
     return prisma.user.findUnique({ where: { id: targetId }, select: APPLICATION_SELECT });

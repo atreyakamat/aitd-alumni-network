@@ -9,7 +9,7 @@ The project is currently running in the background.
 ## Credentials
 
 ### 1. Admin Account
-- **Email:** `admin@aitdconnection.edu`
+- **Email:** `admin@aiemconnect.edu`
 - **Password:** `Admin@123`
 - **Role:** Super Admin (Full access to all management features)
 

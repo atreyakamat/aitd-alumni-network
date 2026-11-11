@@ -8,7 +8,7 @@ const past = () => new Date(Date.now() - 60 * 1000);
 
 const invite = (overrides: Record<string, unknown> = {}) => ({
   id: 'i1',
-  email: 'new@aitd.test',
+  email: 'new@aiem.test',
   name: 'New',
   token: TOKEN,
   status: 'SENT',
@@ -22,7 +22,7 @@ const invite = (overrides: Record<string, unknown> = {}) => ({
 /** Arrange the user lookups made by sendInvite: inviter by id, invitee by email. */
 const arrangeUsers = (opts: { inviter?: any; registered?: boolean } = {}) => {
   prismaMock.user.findUnique.mockImplementation(async (args: any) => {
-    if (args.where.id) return opts.inviter === undefined ? { fullName: 'Inviter <b>', email: 'inv@aitd.test' } : opts.inviter;
+    if (args.where.id) return opts.inviter === undefined ? { fullName: 'Inviter <b>', email: 'inv@aiem.test' } : opts.inviter;
     if (args.where.email) return opts.registered ? { id: 'existing' } : null;
     return null;
   });
@@ -58,7 +58,7 @@ describe('inviteService', () => {
       prismaMock.invite.update.mockImplementation(async (a: any) => ({ id: 'i1', status: a.data.status }));
 
       const result = await inviteService.sendInvite('inviter', {
-        email: ' New@AITD.test ',
+        email: ' New@AIEM.test ',
         name: '<script>x</script>',
         batchYear: 2019,
         message: '"><img src=x onerror=alert(1)>',
@@ -66,7 +66,7 @@ describe('inviteService', () => {
 
       expect(result).toEqual({ success: true, invite: { id: 'i1', status: 'SENT' } });
       const data = prismaMock.invite.create.mock.calls[0][0].data;
-      expect(data.email).toBe('new@aitd.test');
+      expect(data.email).toBe('new@aiem.test');
       expect(data.batchYear).toBe(2019);
       expect(data.inviterId).toBe('inviter');
       expect(data.token).toMatch(/^[a-f0-9]{64}$/);
@@ -75,7 +75,7 @@ describe('inviteService', () => {
       expect(ttl).toBeLessThanOrEqual(7 * 24 * 3600e3);
 
       const mail = (sendEmail as jest.Mock).mock.calls[0][0];
-      expect(mail.to).toBe('new@aitd.test');
+      expect(mail.to).toBe('new@aiem.test');
       expect(mail.html).toContain(`/register?invite=${data.token}`);
       expect(mail.html).not.toContain('<script>');
       expect(mail.html).not.toContain('<img src=x');
@@ -107,9 +107,9 @@ describe('inviteService', () => {
 
     it('refuses to invite an already registered email', async () => {
       arrangeUsers({ registered: true });
-      const result = await inviteService.sendInvite('inviter', { email: 'Taken@aitd.test' });
+      const result = await inviteService.sendInvite('inviter', { email: 'Taken@aiem.test' });
       expect(result).toEqual({ success: false, error: 'This email is already registered' });
-      expect(prismaMock.user.findUnique).toHaveBeenCalledWith({ where: { email: 'taken@aitd.test' }, select: { id: true } });
+      expect(prismaMock.user.findUnique).toHaveBeenCalledWith({ where: { email: 'taken@aiem.test' }, select: { id: true } });
       expect(prismaMock.invite.create).not.toHaveBeenCalled();
       expect(sendEmail).not.toHaveBeenCalled();
     });
@@ -117,15 +117,15 @@ describe('inviteService', () => {
     it('refuses to re-invite within 7 days', async () => {
       arrangeUsers();
       prismaMock.invite.findFirst.mockResolvedValue(invite());
-      const result = await inviteService.sendInvite('inviter', { email: 'new@aitd.test' });
+      const result = await inviteService.sendInvite('inviter', { email: 'new@aiem.test' });
       expect(result.success).toBe(false);
       expect(result.error).toMatch(/already sent/);
-      expect(prismaMock.invite.findFirst.mock.calls[0][0].where).toMatchObject({ email: 'new@aitd.test', isShareable: false });
+      expect(prismaMock.invite.findFirst.mock.calls[0][0].where).toMatchObject({ email: 'new@aiem.test', isShareable: false });
     });
 
     it('fails when the inviter does not exist', async () => {
       arrangeUsers({ inviter: null });
-      const result = await inviteService.sendInvite('ghost', { email: 'new@aitd.test' });
+      const result = await inviteService.sendInvite('ghost', { email: 'new@aiem.test' });
       expect(result).toEqual({ success: false, error: 'Inviter not found' });
     });
 
@@ -136,7 +136,7 @@ describe('inviteService', () => {
       prismaMock.invite.delete.mockResolvedValue({});
       (sendEmail as jest.Mock).mockRejectedValue(new Error('SMTP down'));
 
-      const result = await inviteService.sendInvite('inviter', { email: 'new@aitd.test' });
+      const result = await inviteService.sendInvite('inviter', { email: 'new@aiem.test' });
 
       expect(result).toEqual({ success: false, error: 'SMTP down' });
       expect(prismaMock.invite.delete).toHaveBeenCalledWith({ where: { id: 'i1' } });
@@ -149,7 +149,7 @@ describe('inviteService', () => {
       prismaMock.invite.create.mockResolvedValue({ id: 'i1' });
       prismaMock.invite.delete.mockRejectedValue(new Error('also down'));
       (sendEmail as jest.Mock).mockRejectedValue({});
-      await expect(inviteService.sendInvite('inviter', { email: 'new@aitd.test' })).resolves.toEqual({
+      await expect(inviteService.sendInvite('inviter', { email: 'new@aiem.test' })).resolves.toEqual({
         success: false,
         error: 'Failed to send invitation',
       });
@@ -158,7 +158,7 @@ describe('inviteService', () => {
 
   describe('sendBulkInvites', () => {
     it('caps the batch size', async () => {
-      const rows = Array.from({ length: MAX_BULK_INVITES + 1 }, (_, i) => ({ email: `u${i}@aitd.test` }));
+      const rows = Array.from({ length: MAX_BULK_INVITES + 1 }, (_, i) => ({ email: `u${i}@aiem.test` }));
       await expect(inviteService.sendBulkInvites('inviter', rows)).rejects.toMatchObject({ statusCode: 400, code: 'TOO_MANY_INVITES' });
       expect(MAX_BULK_INVITES).toBeLessThanOrEqual(50);
     });
@@ -172,22 +172,22 @@ describe('inviteService', () => {
       const spy = jest.spyOn(inviteService, 'sendInvite').mockResolvedValue({ success: true, invite: {} });
 
       const result = await inviteService.sendBulkInvites('inviter', [
-        { email: 'a@aitd.test' },
-        { email: ' A@AITD.test' },
+        { email: 'a@aiem.test' },
+        { email: ' A@AIEM.test' },
         { email: 'not-an-email' },
         { email: undefined as any },
-        { email: 'b@aitd.test', name: 'B' },
+        { email: 'b@aiem.test', name: 'B' },
       ]);
 
       expect(spy).toHaveBeenCalledTimes(2);
-      expect(spy.mock.calls.map(c => c[1].email)).toEqual(['a@aitd.test', 'b@aitd.test']);
+      expect(spy.mock.calls.map(c => c[1].email)).toEqual(['a@aiem.test', 'b@aiem.test']);
       expect(spy.mock.calls[1][1].name).toBe('B');
       expect(result).toEqual({
         total: 5,
         sent: 2,
         failed: 3,
         errors: [
-          { email: ' A@AITD.test', error: 'Duplicate email in batch' },
+          { email: ' A@AIEM.test', error: 'Duplicate email in batch' },
           { email: 'not-an-email', error: 'Invalid email address' },
           { email: '', error: 'Invalid email address' },
         ],
@@ -200,11 +200,11 @@ describe('inviteService', () => {
         .spyOn(inviteService, 'sendInvite')
         .mockResolvedValueOnce({ success: false, error: 'This email is already registered' })
         .mockResolvedValueOnce({ success: false });
-      const result = await inviteService.sendBulkInvites('inviter', [{ email: 'a@aitd.test' }, { email: 'b@aitd.test' }]);
+      const result = await inviteService.sendBulkInvites('inviter', [{ email: 'a@aiem.test' }, { email: 'b@aiem.test' }]);
       expect(result.sent).toBe(0);
       expect(result.errors).toEqual([
-        { email: 'a@aitd.test', error: 'This email is already registered' },
-        { email: 'b@aitd.test', error: 'Unknown error' },
+        { email: 'a@aiem.test', error: 'This email is already registered' },
+        { email: 'b@aiem.test', error: 'Unknown error' },
       ]);
       spy.mockRestore();
     });
@@ -212,7 +212,7 @@ describe('inviteService', () => {
     it('pauses between sends when a delay is configured', async () => {
       inviteService.bulkDelayMs = 1;
       const spy = jest.spyOn(inviteService, 'sendInvite').mockResolvedValue({ success: true });
-      const result = await inviteService.sendBulkInvites('inviter', [{ email: 'a@aitd.test' }, { email: 'b@aitd.test' }]);
+      const result = await inviteService.sendBulkInvites('inviter', [{ email: 'a@aiem.test' }, { email: 'b@aiem.test' }]);
       expect(result.sent).toBe(2);
       spy.mockRestore();
     });
@@ -222,7 +222,7 @@ describe('inviteService', () => {
     it('returns public invite details for a valid token', async () => {
       prismaMock.invite.findUnique.mockResolvedValue(invite({ inviter: { fullName: 'Inv' } }));
       await expect(inviteService.verifyInvite(TOKEN)).resolves.toEqual({
-        email: 'new@aitd.test',
+        email: 'new@aiem.test',
         name: 'New',
         isShareable: false,
         inviter: { fullName: 'Inv' },
@@ -258,7 +258,7 @@ describe('inviteService', () => {
   });
 
   describe('acceptInvite', () => {
-    const arrangeInvitee = (email = 'NEW@aitd.test') => {
+    const arrangeInvitee = (email = 'NEW@aiem.test') => {
       prismaMock.user.findUnique.mockResolvedValue({ id: 'newbie', email });
     };
 

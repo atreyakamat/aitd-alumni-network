@@ -1,4 +1,4 @@
-# AITD Alumni Network - API Testing, Improvements & Future Features Guide
+# AIEM Alumni Network - API Testing, Improvements & Future Features Guide
 
 ## Current API Status
 

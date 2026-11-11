@@ -124,7 +124,7 @@ describe('search: nothing non-public is reachable by a visitor, and members only
     const expired = jwt.sign({ userId: stranger.user.id, email: stranger.user.email, userRole: 'MEMBER', tv: 0 }, process.env.JWT_SECRET!, { expiresIn: -10 });
     const forged = jwt.sign({ userId: admin.user.id, email: admin.user.email, userRole: 'ADMIN', tv: 0 }, 'not-the-secret');
     const noneAlg = `${Buffer.from('{"alg":"none","typ":"JWT"}').toString('base64url')}.${Buffer.from(JSON.stringify({ userId: admin.user.id })).toString('base64url')}.`;
-    const ghost = generateAccessToken('00000000-0000-0000-0000-000000000000', 'ghost@aitd.test', 'MEMBER');
+    const ghost = generateAccessToken('00000000-0000-0000-0000-000000000000', 'ghost@aiem.test', 'MEMBER');
     const deactivated = await createUser('MEMBER', { isActive: false });
     for (const header of [`Bearer ${expired}`, `Bearer ${forged}`, `Bearer ${noneAlg}`, `Bearer ${ghost}`, deactivated.auth, 'Bearer', 'Bearer not.a.jwt', 'Basic Zm9vOmJhcg==', `bearer ${stranger.auth.slice(7)}`]) {
       const res = await search(TAG, header);

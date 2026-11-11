@@ -43,7 +43,7 @@ describe('R2-06 invitations: the daily quota and the one-invite-per-address rule
   const seedInvites = async (inviterId: string, count: number) => {
     await prisma.invite.createMany({
       data: Array.from({ length: count }, (_, i) => ({
-        email: `seed.${inviterId}.${i}@aitd.test`,
+        email: `seed.${inviterId}.${i}@aiem.test`,
         token: randomBytes(32).toString('hex'),
         expiresAt: new Date(Date.now() + 86400000),
         inviterId,
@@ -57,7 +57,7 @@ describe('R2-06 invitations: the daily quota and the one-invite-per-address rule
     await seedInvites(inviter.user.id, INVITE_DAILY_LIMIT - 1); // exactly one invitation left
     const results = await Promise.all(
       Array.from({ length: 16 }, (_, i) =>
-        http().post('/api/invites/send').set('Authorization', inviter.auth).send({ email: `burst.${Date.now()}.${i}@aitd.test` })
+        http().post('/api/invites/send').set('Authorization', inviter.auth).send({ email: `burst.${Date.now()}.${i}@aiem.test` })
       )
     );
     const total = await prisma.invite.count({ where: { inviterId: inviter.user.id, isShareable: false } });
@@ -67,7 +67,7 @@ describe('R2-06 invitations: the daily quota and the one-invite-per-address rule
 
   it('parallel bulk invites cannot exceed the daily limit either', async () => {
     const inviter = await createUser('MEMBER');
-    const batch = (tag: string) => Array.from({ length: 50 }, (_, i) => ({ email: `bulk.${tag}.${Date.now()}.${i}@aitd.test` }));
+    const batch = (tag: string) => Array.from({ length: 50 }, (_, i) => ({ email: `bulk.${tag}.${Date.now()}.${i}@aiem.test` }));
     const results = await Promise.all(
       ['a', 'b', 'c'].map((tag) => http().post('/api/invites/bulk').set('Authorization', inviter.auth).send({ invites: batch(tag) }))
     );
@@ -78,7 +78,7 @@ describe('R2-06 invitations: the daily quota and the one-invite-per-address rule
 
   it('8 simultaneous invites to one address create one invitation (one e-mail), not eight', async () => {
     const inviter = await createUser('MEMBER');
-    const email = `target.${Date.now()}@aitd.test`;
+    const email = `target.${Date.now()}@aiem.test`;
     const results = await Promise.all(
       Array.from({ length: 8 }, () => http().post('/api/invites/send').set('Authorization', inviter.auth).send({ email }))
     );

@@ -1,6 +1,6 @@
 # Changelog
 
-All notable changes to AITD Connection. The newest release is first. Dates are when the work landed on the
+All notable changes to AIEM Connect. The newest release is first. Dates are when the work landed on the
 `feat/postgres-maps-social` branch.
 
 ## Unreleased: PostgreSQL, maps, alumni social layer, security hardening, production tooling (2026-10-18 to 2026-11-08)
@@ -20,7 +20,60 @@ All notable changes to AITD Connection. The newest release is first. Dates are w
 | **The platform is private and every registration needs an administrator's approval.** New registrations are `PENDING` until an administrator checks that the person is an alumnus of the college; nobody gets a session before that. Every API route except sign-in, the landing page's two feeds and the payment webhook now needs an approved member (events, news, gallery, chapters, jobs, search, profiles, posts, videos, magazine, requirements, marketplace and the donor wall used to be readable by visitors). `isVerified` now means "approved member" (the e-mail is `emailVerifiedAt`) | Run the migrations (`20261108020000_alumni_approval`): every existing account stays a member, except one that never verified and never signed in, which goes to the queue. **Work the queue** (*Admin > Approvals*) and make sure the mail server works: applicants are told by e-mail. Guest donations stay open (alumni donate without an account): `/donations` is the one page a visitor may open, and it shows the donation form only. See [AUTHENTICATION.md](docs/AUTHENTICATION.md#alumni-approval) |
 | **Notifications are delivered through Kafka** (in-app notifications, announcement broadcasts, the e-mail to the college administrator when a registration is waiting, the e-mails to applicants). New `kafka` service in `docker-compose.yml`, `KAFKA_*` settings, `APPROVAL_NOTIFY_EMAIL`, migration `20261109000000_registration_pending_notification` | `docker compose up` starts the broker; set `KAFKA_BROKERS` (compose does) and make sure SMTP works. Without `KAFKA_BROKERS` the same events are delivered in-process. See [docs/KAFKA.md](docs/KAFKA.md) |
 | **Google and LinkedIn sign-in are removed.** The registration form is the only way to get an account; an administrator verifies and approves it | Remove `GOOGLE_*` / `LINKEDIN_*` from your `.env`. A member who signed up through Google or LinkedIn sets a password with "Forgot password" |
+| **The product is called "AIEM Connect"** everywhere (screens, e-mails, PDF receipts, seed data, documentation); the old college name is gone. Identifiers that carried it were renamed | **Receipt numbers** start `AIEM-` (they were `AITD-`; receipt numbers are derived, so an old receipt downloaded again shows the new number). The **session-hint cookie** is `aiem_session` (was `aitd_session`; at worst a member signs in once more). **Kafka defaults** are topic prefix `aiem`, group `aiem-notifications`, client `aiem-api`: set `KAFKA_TOPIC_PREFIX`, `KAFKA_GROUP_ID`, `KAFKA_CLIENT_ID` to keep earlier names. npm package names are `aiem-connect` / `aiem-connect-client` (run `npm ci` again). Migration `20261109010000_rebrand_content` renames the old product name in demo news and the seeded administrator's bio. The seed creates `admin@aiemconnect.edu` (existing databases keep the address they have) |
 | **Reels are removed** (the Reels page, the `/reels` feed, the "reel" flag on posts and its database column) | Nothing: migration `20261108000000_remove_reels` drops the flag. Posts that were reels stay as ordinary video posts; the old `isReel` and `?reels=` inputs are ignored |
+
+### Fixed in the walk-through of every admin and member screen (2026-11-09)
+
+**Admin**
+
+* **One admin shell:** a section navigation bar (with the pending-approvals count) and the same page header on every admin page; the
+  mix of "Admin dashboard" / "Admin" / "Back to Admin" links and page widths is gone.
+* **Numbers that were wrong after approval was introduced:** dashboard and analytics counted pending and rejected applicants as members.
+  Totals, growth, roles, batches, locations and the growth chart now count approved members only; `GET /api/admin/stats` adds
+  `users.pendingApproval` and `users.rejected`, and each recent registration carries its `approvalStatus`. The "Verified users" tile
+  (meaningless once verified = approved) became "Awaiting approval", linked to the queue.
+* **Invented data removed:** the analytics page showed a hard-coded "234 Active Sessions" and a monthly figure labelled "New Registrations Today".
+* **Charts and wording:** the revenue axis printed `₹0.004k`; it now reads `₹0`, `₹1.5K`, `₹2.5L`. Dates read `9 Nov 2026` (they were `11/9/2026`, which an Indian
+  reader takes for 11 September). Roles read "Member / Super Admin" instead of `SUPER_ADMIN`; "1 upcoming events" and similar plurals fixed.
+* **Members page:** one clear status (Pending approval / Rejected / Deactivated / Active) instead of "Active" plus "Not approved"; applicants link to the
+  review queue; your own row cannot be demoted or deactivated (the server always refused, now the screen says so). `GET /api/admin/users` returns `approvalStatus`.
+* **Audit log** names the person an action was about (`Jane Doe (jane@x.edu)`) instead of a bare id (`entityLabel` on `GET /api/admin/audit`).
+* **System status replaces the Control Center.** The old page was a developer checklist ("Owner: Platform Team", file paths). `/admin/status`
+  (`GET /api/admin/system-status`) shows live health in plain words: database, cache, notifications, e-mail, registration alerts, payments, storage.
+  `/admin/control` redirects to it; `GET /api/platform/readiness` is removed.
+* **A decision settles its notices:** approving or rejecting an applicant marks the administrators' "New registration to review" notices read; the bell used to
+  go on asking for decisions that were already made.
+* Pages that failed to load showed a toast and then an empty page or a spinner that never ended; they now show the error with a Retry button.
+
+**Everywhere**
+
+* **False "Cannot reach the server" messages:** a request the page cancelled itself (switching a tab, typing in search, leaving a page) was reported as a lost
+  connection. Cancelled requests are now silent.
+* **No failed request after a break:** when the 15-minute access token has run out, the app renews it first instead of sending a request that fails with a red 401.
+* **Events:** the page was titled "Upcoming Events" but listed past events too. It now has Upcoming / Past tabs (`GET /api/events?past=true` is new);
+  an online event says "Online" instead of "Location TBD".
+* **One department list** for registration, directory, yearbook and nearby alumni (they disagreed, so "Computer Engineering" members could not be found by filter).
+  The directory no longer prints "No headline" and words the batch like the rest of the site; the yearbook opens on your own batch instead of an empty "Class of 2026".
+* **Every page has its own title** in the browser tab (a guard test fails a build when a page lacks one); the "show password" buttons have names for screen readers;
+  the registration page no longer promises "thousands of alumni".
+* **Demo data:** the seed's events are dated relative to the day it runs (they were fixed to April-June 2026, so a fresh database had no upcoming events).
+* **Operations:** `preflight` and the Docker/production documents named a different default database than `docker-compose.yml` (`aiem_connect`); the uploads backup command named a volume that does not exist.
+
+### Docker and Kafka verification, and round-3 security tooling (2026-11-11)
+
+* **One command proves the Docker stack works:** `npm run docker:verify` (`scripts/docker-verify`, guide: [docs/DOCKER_TEST_GUIDE.md](docs/DOCKER_TEST_GUIDE.md)).
+  It brings the compose stack up in its own project with a mail catcher (`docker-compose.test.yml`), then checks 31 gates: images build and are
+  healthy, no root, only the intended ports, a real registration with the e-mails read from the catcher (applicant, administrator, the shared office
+  mailbox), approval and rejection, the consumer lag, and drills that break things on purpose (broker outage and recovery, poison messages to the
+  dead-letter topic, duplicate events, the API down, Kafka/PostgreSQL/Redis restarts, `down` and `up`). It writes an evidence bundle (`REPORT.md`,
+  `report.json`, logs, a SHA-256 manifest) with secrets redacted.
+* **GitHub CI runs it** on pull requests and weekly (`.github/workflows/docker-verify.yml`), after the suite's own tests, which run every gate against an
+  in-memory stand-in of the stack and plant defects to prove each gate can fail (`npm run test:scripts`, no Docker needed).
+* **Round-3 security tooling** (`scripts/security`, plan: [docs/SECURITY_AUDIT_PLAN.md](docs/SECURITY_AUDIT_PLAN.md), workflow `.github/workflows/security.yml`):
+  a live authorization probe that replays the documented access level of every endpoint against a running stack (`rbac-live.mjs`), an `npm audit` gate with an
+  expiring, justified allowlist, gitleaks, hadolint, Trivy, CodeQL and a ZAP baseline. First results are listed in the plan (R3-01 to R3-05).
+* No application behaviour changed in this step.
 
 ### Reliability (see [docs/ROBUSTNESS.md](docs/ROBUSTNESS.md))
 
@@ -43,7 +96,7 @@ All notable changes to AITD Connection. The newest release is first. Dates are w
 
 The branch includes everything `main` gained since the first merge (2026-10-22 to 2026-10-28): college videos, a magazine,
 requirements, job referrals, a weekly digest, a landing page builder, home and work locations, marketplace logo and images,
-background jobs (BullMQ), and the AIEM Connection rebrand. Three migrations came with it (`20261028*`); `20261108000000_remove_reels`
+background jobs (BullMQ), and the AIEM Connect rebrand. Three migrations came with it (`20261028*`); `20261108000000_remove_reels`
 follows them. Reviewing that code found and fixed a file-deletion hole, privacy gaps in account deletion, several HTTP 500s and
 empty list pages: see [docs/SECURITY_AUDIT.md](docs/SECURITY_AUDIT.md) ("Review of the code merged from main").
 

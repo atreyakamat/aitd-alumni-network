@@ -300,7 +300,7 @@ describe('verifyPayment', () => {
     // receipt uses the server-side amount and a deterministic number
     const receipt = (generateMembershipReceipt as jest.Mock).mock.calls[0][0];
     expect(receipt.amount).toBe(999.5);
-    expect(receipt.receiptNumber).toBe('AITD-MEM-20260101-TXN1');
+    expect(receipt.receiptNumber).toBe('AIEM-MEM-20260101-TXN1');
     expect(prismaMock.transaction.update).toHaveBeenCalledWith({
       where: { id: 'txn-1' },
       data: { receiptUrl: 'https://cdn.test/receipts/r.pdf' },

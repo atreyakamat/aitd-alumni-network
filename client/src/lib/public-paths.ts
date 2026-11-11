@@ -37,8 +37,8 @@ export function getSafeNextPath(raw: string | null | undefined): string | null {
   // Dot segments are collapsed by the URL parser: "/.//evil.example" resolves to the PATH "//evil.example", which the
   // router then hands to history.pushState as a protocol-relative (cross-origin) URL. Only accept what stays put.
   try {
-    const resolved = new URL(value, 'http://aitd.invalid');
-    if (resolved.origin !== 'http://aitd.invalid' || resolved.pathname.startsWith('//')) return null;
+    const resolved = new URL(value, 'http://aiem.invalid');
+    if (resolved.origin !== 'http://aiem.invalid' || resolved.pathname.startsWith('//')) return null;
   } catch {
     return null;
   }

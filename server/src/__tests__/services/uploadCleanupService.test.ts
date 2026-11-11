@@ -28,7 +28,7 @@ let root: string;
 let uploads: string;
 
 beforeEach(() => {
-  root = fs.mkdtempSync(path.join(os.tmpdir(), 'aitd-uploads-test-'));
+  root = fs.mkdtempSync(path.join(os.tmpdir(), 'aiem-uploads-test-'));
   uploads = path.join(root, 'uploads');
   fs.mkdirSync(uploads);
 });

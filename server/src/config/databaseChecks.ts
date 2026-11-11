@@ -37,12 +37,12 @@ export const findDatabaseProblems = async (db: DatabaseLike): Promise<ConfigFind
 
   const risky = await db.user.findMany({
     where: {
-      OR: [{ userRole: { not: 'MEMBER' } }, { email: { in: [...DEMO_EMAILS] } }, { email: { endsWith: '@aitd.test' } }],
+      OR: [{ userRole: { not: 'MEMBER' } }, { email: { in: [...DEMO_EMAILS] } }, { email: { endsWith: '@aiem.test' } }],
     },
     select: { id: true, email: true, userRole: true, isActive: true, passwordHash: true },
   });
 
-  const demo = risky.filter((u) => DEMO_EMAILS.includes(u.email) || u.email.endsWith('@aitd.test'));
+  const demo = risky.filter((u) => DEMO_EMAILS.includes(u.email) || u.email.endsWith('@aiem.test'));
   if (demo.length > 0) {
     found.push(
       finding(

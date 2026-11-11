@@ -17,17 +17,10 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
+import { DEPARTMENTS } from '@/lib/departments';
 import { CheckCircle2, Eye, EyeOff, Loader2 } from 'lucide-react';
 
-const departments = [
-  'Computer Science',
-  'Information Technology',
-  'Electronics',
-  'Electrical',
-  'Mechanical',
-  'Civil',
-  'Chemical',
-];
+const departments = DEPARTMENTS;
 
 const degrees = ['B.Tech', 'M.Tech', 'B.E.', 'M.E.', 'PhD'];
 
@@ -182,17 +175,17 @@ function RegisterForm() {
         <div className="absolute inset-0 bg-gradient-to-br from-[#002045]/90 via-[#1a365d]/80 to-transparent" />
         <div className="relative z-10 flex h-full flex-col justify-between p-12">
           <Link href="/" className="font-headline text-3xl italic text-white">
-            AIEM Connection
+            AIEM Connect
           </Link>
           <div className="max-w-md space-y-6">
             <h1 className="font-headline text-5xl leading-tight text-white">
               Begin your <span className="italic text-amber-400">Journey.</span>
             </h1>
             <p className="text-lg leading-relaxed text-white/80 font-body">
-              Join thousands of alumni who are shaping the future. Build connections, discover opportunities, and leave your mark.
+              Reconnect with fellow alumni of the college. Build connections, discover opportunities, and stay close to the community.
             </p>
           </div>
-          <p className="text-sm text-white/60 font-label">© {new Date().getFullYear()} AIEM Connection</p>
+          <p className="text-sm text-white/60 font-label">© {new Date().getFullYear()} AIEM Connect</p>
         </div>
       </div>
 
@@ -201,7 +194,7 @@ function RegisterForm() {
         <div className="w-full max-w-md">
           <div className="mb-8 text-center lg:hidden">
             <Link href="/" className="font-headline text-2xl italic text-primary">
-              AIEM Connection
+              AIEM Connect
             </Link>
           </div>
 
@@ -319,6 +312,8 @@ function RegisterForm() {
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
+                    aria-label={showPassword ? 'Hide password' : 'Show password'}
+                    aria-pressed={showPassword}
                     className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
                   >
                     {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
@@ -342,6 +337,8 @@ function RegisterForm() {
                   <button
                     type="button"
                     onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                    aria-label={showConfirmPassword ? 'Hide confirmation password' : 'Show confirmation password'}
+                    aria-pressed={showConfirmPassword}
                     className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
                   >
                     {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}

@@ -56,7 +56,7 @@ describe('next.config.js security headers', () => {
   });
 
   it('applies the baseline headers to every route', async () => {
-    const { global } = await load({ NODE_ENV: 'production', NEXT_PUBLIC_API_URL: 'https://api.aitd.example/api' });
+    const { global } = await load({ NODE_ENV: 'production', NEXT_PUBLIC_API_URL: 'https://api.aiem.example/api' });
     expect(global['X-Frame-Options']).toBe('DENY');
     expect(global['X-Content-Type-Options']).toBe('nosniff');
     expect(global['Referrer-Policy']).toBe('strict-origin-when-cross-origin');
@@ -67,7 +67,7 @@ describe('next.config.js security headers', () => {
   it('builds a strict CSP with the API origin, ws/wss, tiles and Razorpay', async () => {
     const { global } = await load({
       NODE_ENV: 'production',
-      NEXT_PUBLIC_API_URL: 'https://api.aitd.example/api',
+      NEXT_PUBLIC_API_URL: 'https://api.aiem.example/api',
       NEXT_PUBLIC_MAP_TILE_URL: 'https://{s}.tiles.example.org/{z}/{x}/{y}.png',
     });
     const c = csp(global['Content-Security-Policy']);
@@ -89,15 +89,15 @@ describe('next.config.js security headers', () => {
         'data:',
         'blob:',
         'https:',
-        'https://api.aitd.example',
+        'https://api.aiem.example',
         'https://tile.openstreetmap.org',
         'https://*.tile.openstreetmap.org',
         'https://*.tiles.example.org',
       ])
     );
-    expect(c['media-src']).toEqual(["'self'", 'blob:', 'https://api.aitd.example']);
+    expect(c['media-src']).toEqual(["'self'", 'blob:', 'https://api.aiem.example']);
     expect(c['connect-src']).toEqual(
-      expect.arrayContaining(["'self'", 'https://api.aitd.example', 'wss://api.aitd.example', 'https://api.razorpay.com'])
+      expect.arrayContaining(["'self'", 'https://api.aiem.example', 'wss://api.aiem.example', 'https://api.razorpay.com'])
     );
     expect(c['connect-src'].join(' ')).not.toMatch(/nominatim/);
     expect(c['frame-src']).toEqual(expect.arrayContaining(['https://checkout.razorpay.com', 'https://api.razorpay.com']));
@@ -105,7 +105,7 @@ describe('next.config.js security headers', () => {
   });
 
   it('never allows wildcard sources for scripts, connect, frames or objects', async () => {
-    const { global } = await load({ NODE_ENV: 'production', NEXT_PUBLIC_API_URL: 'https://api.aitd.example/api' });
+    const { global } = await load({ NODE_ENV: 'production', NEXT_PUBLIC_API_URL: 'https://api.aiem.example/api' });
     const c = csp(global['Content-Security-Policy']);
     for (const d of ['script-src', 'connect-src', 'frame-src', 'object-src', 'default-src']) {
       expect(c[d], d).not.toContain('*');
@@ -175,7 +175,7 @@ describe('next.config.js security headers', () => {
   });
 
   it('keeps the rewrites to the API working', async () => {
-    const { config } = await load({ NEXT_PUBLIC_API_URL: 'https://api.aitd.example/api' });
-    expect(await config.rewrites()).toEqual([{ source: '/api/:path*', destination: 'https://api.aitd.example/api/:path*' }]);
+    const { config } = await load({ NEXT_PUBLIC_API_URL: 'https://api.aiem.example/api' });
+    expect(await config.rewrites()).toEqual([{ source: '/api/:path*', destination: 'https://api.aiem.example/api/:path*' }]);
   });
 });

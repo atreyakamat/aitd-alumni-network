@@ -149,11 +149,11 @@ describe('profile editing routes', () => {
       const asString = await api()
         .post('/api/users/education')
         .set('Authorization', header)
-        .send({ institution: 'AITD', degree: 'B.Tech', startYear: '2015' });
+        .send({ institution: 'AIEM', degree: 'B.Tech', startYear: '2015' });
       const reversed = await api()
         .post('/api/users/education')
         .set('Authorization', header)
-        .send({ institution: 'AITD', degree: 'B.Tech', startYear: 2015, endYear: 2010 });
+        .send({ institution: 'AIEM', degree: 'B.Tech', startYear: 2015, endYear: 2010 });
 
       expectValidationError(asString, 'body.startYear');
       expectValidationError(reversed, 'body.endYear');
@@ -167,7 +167,7 @@ describe('profile editing routes', () => {
       const res = await api()
         .post('/api/users/education')
         .set('Authorization', header)
-        .send({ institution: 'AITD', degree: 'B.Tech', fieldOfStudy: 'CS', startYear: 2015, endYear: 2019, isPrimary: true });
+        .send({ institution: 'AIEM', degree: 'B.Tech', fieldOfStudy: 'CS', startYear: 2015, endYear: 2019, isPrimary: true });
 
       expect(res.status).toBe(201);
       expect(prismaMock.education.create.mock.calls[0][0].data).toMatchObject({ userId: user.id, startYear: 2015, endYear: 2019 });

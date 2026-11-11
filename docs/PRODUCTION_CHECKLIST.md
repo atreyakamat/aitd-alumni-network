@@ -20,7 +20,7 @@ cp .env.docker.example .env
 
 # 3. Check the configuration, and the production database once it exists
 npm run preflight -w server -- --env-file ../.env
-DATABASE_URL='postgresql://aitd:<password>@127.0.0.1:5432/alumni_connect' \
+DATABASE_URL='postgresql://aiem:<password>@127.0.0.1:5432/aiem_connect' \
   npm run preflight -w server -- --env-file ../.env          # also inspects the database
 
 # 4. Start
@@ -71,7 +71,7 @@ Secrets and database-password checks still apply. Remove both lines for any real
 ## 3. Development-only things that must not ship
 
 * `npm run db:local` (embedded PostgreSQL), `server/.local-pg`, `server/uploads` from a laptop.
-* Demo/test accounts: `user1..6@example.com` (`User@123`), the seed admin default (`Admin@123`), any `@aitd.test`
+* Demo/test accounts: `user1..6@example.com` (`User@123`), the seed admin default (`Admin@123`), any `@aiem.test`
   address. `preflight` finds them in the database and checks whether privileged accounts still use a published password.
 * `server/.env` and any `.env` file in git (they are ignored; keep it that way).
 * The old MySQL guides in the repository root (each now has a "superseded" banner) and `prisma/mysql-legacy/`.
@@ -83,7 +83,7 @@ Secrets and database-password checks still apply. Remove both lines for any real
    `POSTGRES_PASSWORD` only applies when the data volume is first created, so changing `.env` later does **not** change
    the database. Change it in the database, then in `.env`, then restart the API:
    ```bash
-   docker compose exec postgres psql -U aitd -d alumni_connect -c "ALTER USER aitd WITH PASSWORD '<new password>';"
+   docker compose exec postgres psql -U aiem -d aiem_connect -c "ALTER USER aiem WITH PASSWORD '<new password>';"
    # edit POSTGRES_PASSWORD in .env, then:
    docker compose up -d api
    ```
@@ -102,7 +102,7 @@ Secrets and database-password checks still apply. Remove both lines for any real
   (`real_ip_header`, `set_real_ip_from`), otherwise every visitor shares one bucket. This file has not been run through
   `nginx -t` in this repository's CI: test it on the server before go-live.
 * **Backups:** `backup-db.sh` (PostgreSQL, custom format, verified, 30-day retention, optional encrypted S3 upload). Schedule it
-  (`0 2 * * * cd /srv/aitd && ./backup-db.sh`), copy dumps off the server, and **restore one to a scratch database** before go-live
+  (`0 2 * * * cd /srv/aiem && ./backup-db.sh`), copy dumps off the server, and **restore one to a scratch database** before go-live
   and after every schema change. Back up the uploads volume or use S3.
 * **Monitoring:** alert on `GET /health` (database state; `redisStatus` is informational), on 5xx rate and on a spike of 401/429 on `/api/auth/*`.
   Every API response has an `X-Request-Id` and every request one access-log line (route pattern, status, duration, never the query string); set
@@ -147,6 +147,7 @@ that still behaves like a normal website. Revisit one only with the trigger give
 | 11 | Anonymous access | **None except sign-in/registration, the landing page, its aggregate counts (`/users/stats`), the admin-built landing blocks, and the donation form (decision 12).** Events, news, gallery, chapters, jobs, search, profiles, posts, videos, magazine, requirements, marketplace, membership tiers and the donor wall all answer 401 to a visitor, and the pages redirect to sign-in | The public cannot see what the community does; shared post/event links open the sign-in page first | Re-open a section only by changing its route guard **and** `src/lib/public-paths.ts`; the RBAC matrix test fails until both agree |
 | 12 | Donating without an account | **Open, as before.** Alumni donate as guests: `POST /donations/order` and `/donations/verify` work without a session (a missing, invalid, expired or not-approved token is simply treated as a guest), and `/donations` is the one page a visitor may open (the donation form only). The donor wall, leaderboard, chapter totals and stats stay members only | Anybody can start an order, so the per-endpoint rate limit (20 per 15 minutes) and the strict donor-address validation are what protect it; a donor's name and address are kept in the transaction record | Add CAPTCHA/WAF in front of `/api/donations/*` before a public launch (section 7) |
 | 13 | How notifications are delivered | **Through Kafka** ([KAFKA.md](KAFKA.md)): in-app notifications, announcement broadcasts, the e-mail to the college administrator when a registration is waiting, and the e-mails to applicants. Failed events end in a dead-letter topic. Without `KAFKA_BROKERS` the same events are delivered in-process, and a broker outage falls back the same way, so nothing is lost | One more service to run (the compose file includes a single broker; a managed or 3-broker cluster is the production-grade setup). **Not exercised against a real broker in CI** | Before relying on it: register a test applicant on the server and check the administrator's inbox (section 9) |
+| 14 | Receipt numbers after the rename | Receipts are numbered `AIEM-<DON\|MEM>-<date>-<id>` and the number is **derived** from the transaction, not stored. The earlier `AITD-` prefix was dropped with the rename of the product | A receipt issued before the rename and downloaded again shows the new number; anybody matching old receipts by number in accounts must map the prefix | If you must keep the old prefix for the old records, add a stored receipt number to `Transaction` and generate it once at payment time |
 
 ## 7. Must be finished before a public launch
 
@@ -162,7 +163,7 @@ These are not configuration; they are engineering work. Do not open registration
    tests and the contract suite are the safety net. Budget one to two days.
 2. **Move tokens out of `localStorage` into httpOnly cookies with CSRF protection.** Design: access and refresh tokens as
    `Secure; HttpOnly; SameSite=Lax` cookies set by the API, a double-submit CSRF token on state-changing requests, the
-   socket handshake reading the cookie, and `aitd_session` (the non-secret hint the edge gate uses) kept as is. Touches
+   socket handshake reading the cookie, and `aiem_session` (the non-secret hint the edge gate uses) kept as is. Touches
    `auth-context`, `api.ts`, `use-socket` and the CORS/credentials settings; plan it as its own change with a staging soak.
 3. **CAPTCHA or WAF in front of sign-up and sign-in** (decision 4), and a bot policy for registration.
 4. **Centralised logs and alerts** (section 5), and a dependency/secret scan in CI.

@@ -1,15 +1,14 @@
 /**
  * Single source of truth for product/organisation branding.
  *
- * The platform was renamed AITD Connection -> AIEM Connection when the college
- * rebranded from Agnel Institute of Technology & Design (AITD) to Agnel Institute
- * of Engineering & Management (AIEM). Change a value here, not across the UI.
+ * The product is called "AIEM Connect" and belongs to the Agnel Institute of Engineering & Management (AIEM).
+ * Change a value here, not across the UI.
  *
  * Contact details are best-effort from aiemgoa.ac.in; update if you have exact addresses.
  */
 export const BRAND = {
   /** Product name shown in chrome (nav, footer, titles). */
-  appName: 'AIEM Connection',
+  appName: 'AIEM Connect',
   /** Short product name. */
   shortName: 'AIEM',
   /** Legal/organisation name behind the platform. */
@@ -28,5 +27,5 @@ export const BRAND = {
   address: 'Agnel Institute of Engineering & Management, Assagao, Bardez, Goa 403507',
 } as const;
 
-/** `"<page> | AIEM Connection"` title helper. */
+/** `"<page> | AIEM Connect"` title helper. */
 export const pageTitle = (page?: string) => (page ? `${page} | ${BRAND.appName}` : BRAND.appName);

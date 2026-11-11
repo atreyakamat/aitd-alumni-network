@@ -56,10 +56,10 @@ published on the host; the API reaches it at `kafka:9092`, waits until it is hea
 | Setting | Default | Meaning |
 |---|---|---|
 | `KAFKA_BROKERS` | `kafka:9092` in compose, empty otherwise | Comma separated `host:port` list. **Empty = no Kafka: events are handled in-process** (development and tests) |
-| `KAFKA_TOPIC_PREFIX` | `aitd` | Topics are `<prefix>.notifications` and `<prefix>.notifications.dlq` |
+| `KAFKA_TOPIC_PREFIX` | `aiem` | Topics are `<prefix>.notifications` and `<prefix>.notifications.dlq` |
 | `KAFKA_PARTITIONS` | `3` | Partitions of the notifications topic (the dead-letter topic has one). More partitions allow more API replicas to consume in parallel |
 | `KAFKA_REPLICATION_FACTOR` | `1` | Raise to 3 on a three-broker cluster |
-| `KAFKA_GROUP_ID` | `aitd-notifications` | Consumer group; every API replica joins it |
+| `KAFKA_GROUP_ID` | `aiem-notifications` | Consumer group; every API replica joins it |
 | `KAFKA_MAX_ATTEMPTS` | `5` | Delivery attempts (pauses of 1 s, 2 s, 4 s, ...) before an event goes to the dead-letter topic |
 | `KAFKA_CONSUMER_ENABLED` | `true` | `false` on API replicas when a separate worker process runs the consumer |
 | `KAFKA_SSL`, `KAFKA_SASL_MECHANISM`, `KAFKA_SASL_USERNAME`, `KAFKA_SASL_PASSWORD` | off | For a managed or secured cluster (`plain`, `scram-sha-256`, `scram-sha-512`) |
@@ -85,16 +85,18 @@ Look at the dead-letter topic (from the machine that runs compose):
 
 ```bash
 docker compose exec kafka /opt/kafka/bin/kafka-console-consumer.sh --bootstrap-server localhost:9092 \
-  --topic aitd.notifications.dlq --from-beginning --property print.headers=true --timeout-ms 5000
+  --topic aiem.notifications.dlq --from-beginning --property print.headers=true --timeout-ms 5000
 ```
 
 Alert on a growing dead-letter topic and on `"level":"error"` lines that say `moving it to the dead-letter topic`. Replaying dead-lettered
-events is manual today (publish the message value again to `aitd.notifications`); a replay command is on the open list below.
+events is manual today (publish the message value again to `aiem.notifications`); a replay command is on the open list below.
 
 ## Honest limits
 
-* The Kafka service and the consumer are covered by unit tests with a fake `kafkajs` client and by tests of `docker-compose.yml`. **They have
-  not been run against a real broker in this repository's CI** (no Docker/Kafka there). Start the stack once on the server, register a test
+* The Kafka service and the consumer are covered by unit tests with a fake `kafkajs` client and by tests of `docker-compose.yml`. **A real broker
+  is exercised by `node scripts/docker-verify/run.mjs`** ([DOCKER_TEST_GUIDE.md](DOCKER_TEST_GUIDE.md); also in GitHub CI): registration through Kafka with the
+  e-mails read from a mail catcher, a broker outage, poison messages, duplicates, the API down, restarts. Until that run has passed on your Docker host,
+  this pipeline is untested against a real broker. Start the stack once on the server, register a test
   applicant and watch the administrator's inbox before relying on it ([PRODUCTION_CHECKLIST.md](PRODUCTION_CHECKLIST.md) section 9).
 * One broker is one point of failure; a managed cluster or three brokers is the production-grade setup (`KAFKA_REPLICATION_FACTOR=3`).
 * Open: a command to list and replay the dead-letter topic; a lag/alert dashboard.

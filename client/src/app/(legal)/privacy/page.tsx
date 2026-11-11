@@ -1,8 +1,8 @@
 import { Metadata } from 'next';
 
 export const metadata: Metadata = {
-  title: 'Privacy Policy | AIEM Connection',
-  description: 'Privacy Policy for the AIEM AIEM Connection platform',
+  title: 'Privacy Policy | AIEM Connect',
+  description: 'Privacy Policy for the AIEM AIEM Connect platform',
 };
 
 export default function PrivacyPolicyPage() {
@@ -23,7 +23,7 @@ export default function PrivacyPolicyPage() {
             <section className="mb-8">
               <h2>1. Introduction</h2>
               <p>
-                Welcome to AIEM Connection ("we," "our," or "us"). We are committed to protecting your 
+                Welcome to AIEM Connect ("we," "our," or "us"). We are committed to protecting your 
                 personal information and your right to privacy. This Privacy Policy explains how we 
                 collect, use, disclose, and safeguard your information when you use our alumni networking 
                 platform.

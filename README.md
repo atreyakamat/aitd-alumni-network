@@ -1,4 +1,4 @@
-# AIEM Connection
+# AIEM Connect
 
 A comprehensive alumni network platform built with Next.js and Express.js, designed to connect graduates, facilitate networking, and foster a thriving alumni community.
 
@@ -265,7 +265,7 @@ npm run db:local -w server   # Embedded PostgreSQL for local dev (no Docker)
 
 After `npm run db:seed` (or `cd server && npx prisma db seed`):
 
-- **Admin:** `admin@aitdconnection.edu` / `Admin@123`
+- **Admin:** `admin@aiemconnect.edu` / `Admin@123`
 - **Sample Alumni/Open users:** `user1@example.com` to `user10@example.com` / `User@123`
 
 ## 📚 API Documentation
@@ -358,7 +358,7 @@ The UI follows a LinkedIn-inspired design system:
 
 ## 📄 License
 
-This project is proprietary software for AITD Alumni Association.
+This project is proprietary software for AIEM Alumni Association.
 
 ## 🐳 Docker Deployment
 

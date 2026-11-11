@@ -15,7 +15,7 @@ export default function CookiePolicyPage() {
         <section>
           <h2 className="font-headline text-2xl font-semibold mb-4">2. How We Use Cookies</h2>
           <p className="text-muted-foreground leading-relaxed mb-4">
-            AIEM Connection uses cookies and similar technologies for various purposes:
+            AIEM Connect uses cookies and similar technologies for various purposes:
           </p>
           
           <h3 className="font-headline text-xl font-medium mb-3">Essential Cookies</h3>
@@ -105,7 +105,7 @@ export default function CookiePolicyPage() {
             <li>Our cookie consent banner when you first visit</li>
           </ul>
           <p className="text-muted-foreground leading-relaxed">
-            Please note that disabling certain cookies may affect the functionality of AIEM Connection and your user experience.
+            Please note that disabling certain cookies may affect the functionality of AIEM Connect and your user experience.
           </p>
         </section>
 

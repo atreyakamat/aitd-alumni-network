@@ -167,22 +167,22 @@ describe('registration.submitted: the college administrator is told', () => {
 });
 
 describe('e-mails to the applicant', () => {
-  const user = { id: 'u1', email: 'ada@aitd.edu', fullName: 'Ada Alum' };
+  const user = { id: 'u1', email: 'ada@aiem.edu', fullName: 'Ada Alum' };
   beforeEach(() => prismaMock.user.findUnique.mockResolvedValue(user));
 
   it('registration.received: "we received your registration"', async () => {
     await handleNotificationEvent(envelope('registration.received', { userId: 'u1' }));
-    expect(sendApplicationReceivedEmail).toHaveBeenCalledWith('ada@aitd.edu', 'Ada Alum');
+    expect(sendApplicationReceivedEmail).toHaveBeenCalledWith('ada@aiem.edu', 'Ada Alum');
   });
 
   it('registration.approved: "you can sign in"', async () => {
     await handleNotificationEvent(envelope('registration.approved', { userId: 'u1' }));
-    expect(sendWelcomeEmail).toHaveBeenCalledWith('ada@aitd.edu', 'Ada Alum');
+    expect(sendWelcomeEmail).toHaveBeenCalledWith('ada@aiem.edu', 'Ada Alum');
   });
 
   it('registration.rejected: the reason the administrator gave', async () => {
     await handleNotificationEvent(envelope('registration.rejected', { userId: 'u1', reason: 'Not on our rolls' }));
-    expect(sendRejectionEmail).toHaveBeenCalledWith('ada@aitd.edu', 'Ada Alum', 'Not on our rolls');
+    expect(sendRejectionEmail).toHaveBeenCalledWith('ada@aiem.edu', 'Ada Alum', 'Not on our rolls');
   });
 
   it('a person who no longer exists gets nothing (and the event is not an error)', async () => {

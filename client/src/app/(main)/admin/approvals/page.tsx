@@ -1,9 +1,9 @@
 'use client';
 
 import * as React from 'react';
-import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { AlertCircle, ArrowLeft, Search, UserCheck } from 'lucide-react';
+import { AlertCircle, Search, UserCheck } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import {
   adminApi,
@@ -21,6 +21,7 @@ import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Pagination } from '@/components/shared/Pagination';
 import { RegistrationCard } from '@/components/admin/RegistrationCard';
 import { ApproveRegistrationDialog, RejectRegistrationDialog } from '@/components/admin/ApprovalDialogs';
+import { AdminPageHeader } from '@/components/admin/AdminPageHeader';
 import { APPROVALS_CHANGED_EVENT } from '@/hooks/use-pending-approvals';
 
 const PAGE_SIZE = 20;
@@ -40,13 +41,18 @@ const EMPTY_TEXT: Record<ApprovalStatus, string> = {
 /** Codes that mean "somebody else got there first": the list on screen is stale and must be loaded again. */
 const STALE_CODES = new Set(['ALREADY_APPROVED', 'NOT_PENDING', 'NOT_FOUND']);
 
-export default function AdminApprovalsPage() {
+const pickStatus = (value: string | null | undefined): ApprovalStatus =>
+  TABS.some((tab) => tab.status === value) ? (value as ApprovalStatus) : 'PENDING';
+
+function AdminApprovalsContent() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const searchParams = useSearchParams();
 
-  const [status, setStatus] = React.useState<ApprovalStatus>('PENDING');
-  const [searchInput, setSearchInput] = React.useState('');
-  const [search, setSearch] = React.useState('');
+  // Links from other admin pages (/admin/approvals?status=REJECTED&search=<e-mail>) open the right tab, filtered to one person
+  const [status, setStatus] = React.useState<ApprovalStatus>(() => pickStatus(searchParams?.get('status')));
+  const [searchInput, setSearchInput] = React.useState(() => searchParams?.get('search')?.trim() ?? '');
+  const [search, setSearch] = React.useState(() => searchParams?.get('search')?.trim() ?? '');
   const [page, setPage] = React.useState(1);
 
   const [approving, setApproving] = React.useState<RegistrationApplication | null>(null);
@@ -136,19 +142,11 @@ export default function AdminApprovalsPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <Button variant="link" asChild className="mb-1 h-auto px-0 text-muted-foreground">
-          <Link href="/admin">
-            <ArrowLeft className="mr-1 h-4 w-4" />
-            Admin dashboard
-          </Link>
-        </Button>
-        <h1 className="text-2xl font-bold">Registration approvals</h1>
-        <p className="text-muted-foreground">
-          Check that each applicant is an alumnus of the college, then approve or reject the registration. Nobody can sign in
-          before an administrator has approved it.
-        </p>
-      </div>
+      <AdminPageHeader
+        title="Registration approvals"
+        icon={UserCheck}
+        description="Check that each applicant is an alumnus of the college, then approve or reject the registration. Nobody can sign in before an administrator has approved it."
+      />
 
       <Tabs value={status} onValueChange={changeStatus}>
         <TabsList className="h-auto flex-wrap">
@@ -248,5 +246,21 @@ export default function AdminApprovalsPage() {
         onConfirm={(reason) => rejecting && rejectMutation.mutate({ id: rejecting.id, reason })}
       />
     </div>
+  );
+}
+
+/** Registration review. Access is gated by admin/layout.tsx (ADMIN+). */
+export default function AdminApprovalsPage() {
+  return (
+    <React.Suspense
+      fallback={
+        <div className="space-y-4" aria-label="Loading registrations">
+          <Skeleton className="h-8 w-64" />
+          <Skeleton className="h-40 w-full" />
+        </div>
+      }
+    >
+      <AdminApprovalsContent />
+    </React.Suspense>
   );
 }

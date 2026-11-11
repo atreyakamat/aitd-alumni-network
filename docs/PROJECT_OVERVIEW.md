@@ -1,4 +1,4 @@
-# AITD Connection - Project Documentation
+# AIEM Connect - Project Documentation
 
 A comprehensive alumni network platform for engineering colleges.
 
@@ -304,7 +304,7 @@ SMTP_PASS="pass"
 | [GETTING_STARTED.md](./GETTING_STARTED.md) | Detailed setup guide |
 | [FEATURE_STATUS.md](./FEATURE_STATUS.md) | PRD implementation status |
 | [API_TEST_REPORT.md](./API_TEST_REPORT.md) | API testing results |
-| [AITD Connection_PRD_v1.0.md](../AITD Connection_PRD_v1.0.md) | Product Requirements |
+| [AIEM Connect_PRD_v1.0.md](../AIEM Connect_PRD_v1.0.md) | Product Requirements |
 | [Design.md](../Design.md) | UI/UX design guidelines |
 | [Tech Stack.md](../Alumni%20Connect%20Tech%20Stack.md) | Technology choices |
 
@@ -322,4 +322,4 @@ SMTP_PASS="pass"
 
 ## 📄 License
 
-This project is proprietary software for AITD Alumni Network.
+This project is proprietary software for AIEM Alumni Network.

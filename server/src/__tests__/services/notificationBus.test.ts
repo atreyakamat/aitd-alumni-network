@@ -1,4 +1,4 @@
-const kafkaSettings = { enabled: false, topic: 'aitd.notifications' };
+const kafkaSettings = { enabled: false, topic: 'aiem.notifications' };
 const send = jest.fn();
 
 jest.mock('../../config/kafka', () => ({
@@ -46,7 +46,9 @@ describe('without Kafka (development, tests)', () => {
     });
     await publishNotificationEvent('registration.approved', { userId: 'u1' });
     expect(finished).toBe(false);
-    await new Promise((resolve) => setTimeout(resolve, 60));
+    // wait for the condition, not for a fixed time: a busy machine delays timers
+    const deadline = Date.now() + 3000;
+    while (!finished && Date.now() < deadline) await new Promise((resolve) => setTimeout(resolve, 10));
     expect(handle).toHaveBeenCalledWith(expect.objectContaining({ type: 'registration.approved' }));
     expect(finished).toBe(true);
   });
@@ -68,7 +70,7 @@ describe('with Kafka', () => {
     await expect(publishNotificationEvent('notification.deliver', deliver)).resolves.toBeUndefined();
     expect(send).toHaveBeenCalledTimes(1);
     const record = send.mock.calls[0][0];
-    expect(record.topic).toBe('aitd.notifications');
+    expect(record.topic).toBe('aiem.notifications');
     expect(record.acks).toBe(-1);
     const [message] = record.messages;
     expect(message.key).toBe('u1');

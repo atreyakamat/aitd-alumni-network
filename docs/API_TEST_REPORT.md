@@ -1,4 +1,4 @@
-# AITD Connection - API Testing Report
+# AIEM Connect - API Testing Report
 
 **Date:** January 2025  
 **Environment:** Development (Windows)  

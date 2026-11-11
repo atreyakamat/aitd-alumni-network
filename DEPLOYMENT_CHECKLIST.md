@@ -54,8 +54,8 @@
 4. Select "server" directory
 5. Environment variables:
    - DATABASE_URL = mysql://...
-   - JWT_SECRET = aitd-connection-secret-2026
-   - JWT_REFRESH_SECRET = aitd-connection-refresh-secret-2026
+   - JWT_SECRET = aiem-connect-secret-2026
+   - JWT_REFRESH_SECRET = aiem-connect-refresh-secret-2026
    - FRONTEND_URL = https://aitd.stixnvibes.com
    - CORS_ORIGINS = https://aitd.stixnvibes.com
    - PORT = 5000
@@ -235,8 +235,8 @@ NEXT_PUBLIC_API_URL=https://api.aitd.stixnvibes.com/api
 ```
 DATABASE_URL=postgresql://<user>:<password>@<host>:5432/<database>   (credentials removed; never commit them)
 REDIS_URL=redis://localhost:6379
-JWT_SECRET=aitd-connection-secret-2026
-JWT_REFRESH_SECRET=aitd-connection-refresh-secret-2026
+JWT_SECRET=aiem-connect-secret-2026
+JWT_REFRESH_SECRET=aiem-connect-refresh-secret-2026
 FRONTEND_URL=https://aitd.stixnvibes.com
 CORS_ORIGINS=https://aitd.stixnvibes.com
 PORT=5000

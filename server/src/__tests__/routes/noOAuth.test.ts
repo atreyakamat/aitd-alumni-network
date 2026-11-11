@@ -31,7 +31,7 @@ beforeEach(() => jest.clearAllMocks());
 
 const dbUser = (overrides: Record<string, unknown> = {}) => ({
   id: 'u1',
-  email: 'alum@aitd.edu',
+  email: 'alum@aiem.edu',
   fullName: 'Ada Alum',
   passwordHash,
   profilePhotoUrl: null,
@@ -104,7 +104,7 @@ describe('password sign-in and token refresh still work', () => {
   it('POST /auth/login signs an approved member in', async () => {
     prismaMock.user.findUnique.mockResolvedValue(dbUser());
 
-    const res = await api().post('/api/auth/login').send({ email: 'alum@aitd.edu', password: PASSWORD });
+    const res = await api().post('/api/auth/login').send({ email: 'alum@aiem.edu', password: PASSWORD });
 
     expect(res.status).toBe(200);
     expect(verifyAccessToken(res.body.data.accessToken).userId).toBe('u1');
@@ -113,7 +113,7 @@ describe('password sign-in and token refresh still work', () => {
 
   it('POST /auth/refresh-token rotates the refresh token', async () => {
     prismaMock.user.findUnique.mockResolvedValue(dbUser());
-    const login = await api().post('/api/auth/login').send({ email: 'alum@aitd.edu', password: PASSWORD });
+    const login = await api().post('/api/auth/login').send({ email: 'alum@aiem.edu', password: PASSWORD });
     const { refreshToken } = login.body.data;
 
     prismaMock.refreshToken.findUnique.mockResolvedValue({
@@ -137,7 +137,7 @@ describe('password sign-in and token refresh still work', () => {
   it('POST /auth/login still gates on the administrator approval', async () => {
     prismaMock.user.findUnique.mockResolvedValue(dbUser({ approvalStatus: 'PENDING', isVerified: false }));
 
-    const res = await api().post('/api/auth/login').send({ email: 'alum@aitd.edu', password: PASSWORD });
+    const res = await api().post('/api/auth/login').send({ email: 'alum@aiem.edu', password: PASSWORD });
 
     expect(res.status).toBe(403);
     expect(res.body.error.code).toBe('ACCOUNT_PENDING_APPROVAL');
@@ -149,7 +149,7 @@ describe('password sign-in and token refresh still work', () => {
     prismaMock.user.create.mockResolvedValue(dbUser({ isVerified: false, approvalStatus: 'PENDING' }));
 
     const res = await api().post('/api/auth/register').send({
-      email: 'new@aitd.edu',
+      email: 'new@aiem.edu',
       password: PASSWORD,
       fullName: 'New Alum',
       batchYear: 2020,
@@ -173,15 +173,15 @@ describe('members created earlier through Google / LinkedIn (no password) contin
 
     // 1. password sign-in is not possible yet, and it answers like any unknown address
     prismaMock.user.findUnique.mockResolvedValue(legacy);
-    const before = await api().post('/api/auth/login').send({ email: 'alum@aitd.edu', password: PASSWORD });
+    const before = await api().post('/api/auth/login').send({ email: 'alum@aiem.edu', password: PASSWORD });
     expect(before.status).toBe(401);
     expect(before.body.error.code).toBe('INVALID_CREDENTIALS');
 
     // 2. "Forgot password": the answer is identical to the one for an unknown address...
     prismaMock.user.findUnique.mockResolvedValueOnce(null);
-    const unknown = await api().post('/api/auth/forgot-password').send({ email: 'ghost@aitd.edu' });
+    const unknown = await api().post('/api/auth/forgot-password').send({ email: 'ghost@aiem.edu' });
     prismaMock.user.findUnique.mockResolvedValue(legacy);
-    const forgot = await api().post('/api/auth/forgot-password').send({ email: 'alum@aitd.edu' });
+    const forgot = await api().post('/api/auth/forgot-password').send({ email: 'alum@aiem.edu' });
     expect(forgot.status).toBe(200);
     expect(forgot.body).toEqual(unknown.body);
 
@@ -204,7 +204,7 @@ describe('members created earlier through Google / LinkedIn (no password) contin
 
     // 4. and the normal password sign-in works from then on
     prismaMock.user.findUnique.mockResolvedValue({ ...legacy, passwordHash: newHash, tokenVersion: 1 });
-    const after = await api().post('/api/auth/login').send({ email: 'alum@aitd.edu', password: NEW_PASSWORD });
+    const after = await api().post('/api/auth/login').send({ email: 'alum@aiem.edu', password: NEW_PASSWORD });
     expect(after.status).toBe(200);
     expect(verifyAccessToken(after.body.data.accessToken).userId).toBe('u1');
   });

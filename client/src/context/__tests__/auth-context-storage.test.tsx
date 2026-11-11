@@ -15,7 +15,7 @@ import { AuthProvider, useAuth } from '@/context/auth-context';
 const tokenFor = (userId: string, n = 1) =>
   `h.${btoa(JSON.stringify({ userId, n })).replace(/=+$/, '')}.sig`;
 
-const profile = (id: string) => ({ data: { data: { id, email: `${id}@aitd.test`, fullName: id, userRole: 'MEMBER' } } });
+const profile = (id: string) => ({ data: { data: { id, email: `${id}@aiem.test`, fullName: id, userRole: 'MEMBER' } } });
 
 function Who() {
   const { user, isLoading } = useAuth();
@@ -50,7 +50,7 @@ describe('AuthProvider cross-tab sync', () => {
     localStorage.setItem('refreshToken', 'r1');
     me.mockResolvedValue(profile('u1'));
     renderProvider();
-    expect(await screen.findByText('u1@aitd.test')).toBeInTheDocument();
+    expect(await screen.findByText('u1@aiem.test')).toBeInTheDocument();
 
     otherTabWrites('refreshToken', null);
     otherTabWrites('accessToken', null);
@@ -67,7 +67,7 @@ describe('AuthProvider cross-tab sync', () => {
     otherTabWrites('refreshToken', 'r2');
     otherTabWrites('accessToken', tokenFor('u2'));
 
-    expect(await screen.findByText('u2@aitd.test')).toBeInTheDocument();
+    expect(await screen.findByText('u2@aiem.test')).toBeInTheDocument();
   });
 
   it('ignores token rotation for the same user (no refetch, stays signed in)', async () => {
@@ -75,13 +75,13 @@ describe('AuthProvider cross-tab sync', () => {
     localStorage.setItem('refreshToken', 'r1');
     me.mockResolvedValue(profile('u1'));
     renderProvider();
-    expect(await screen.findByText('u1@aitd.test')).toBeInTheDocument();
+    expect(await screen.findByText('u1@aiem.test')).toBeInTheDocument();
     expect(me).toHaveBeenCalledTimes(1);
 
     otherTabWrites('accessToken', tokenFor('u1', 2));
     otherTabWrites('refreshToken', 'r1-rotated');
 
-    expect(screen.getByTestId('who')).toHaveTextContent('u1@aitd.test');
+    expect(screen.getByTestId('who')).toHaveTextContent('u1@aiem.test');
     expect(me).toHaveBeenCalledTimes(1);
   });
 
@@ -89,12 +89,12 @@ describe('AuthProvider cross-tab sync', () => {
     localStorage.setItem('accessToken', tokenFor('u1'));
     me.mockResolvedValue(profile('u1'));
     renderProvider();
-    expect(await screen.findByText('u1@aitd.test')).toBeInTheDocument();
+    expect(await screen.findByText('u1@aiem.test')).toBeInTheDocument();
 
     me.mockResolvedValue(profile('u3'));
     otherTabWrites('accessToken', tokenFor('u3'));
 
-    expect(await screen.findByText('u3@aitd.test')).toBeInTheDocument();
+    expect(await screen.findByText('u3@aiem.test')).toBeInTheDocument();
   });
 });
 

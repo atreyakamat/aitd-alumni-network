@@ -34,7 +34,7 @@ beforeEach(() => jest.clearAllMocks());
 
 const dbUser = (overrides: Record<string, unknown> = {}) => ({
   id: 'u1',
-  email: 'alum@aitd.edu',
+  email: 'alum@aiem.edu',
   fullName: 'Ada Alum',
   passwordHash,
   profilePhotoUrl: null,
@@ -63,7 +63,7 @@ const arrangeOneTimeToken = (user: Record<string, unknown> | null = dbUser(), cl
 describe('authService', () => {
   describe('register', () => {
     const input = {
-      email: '  Alum@AITD.edu ',
+      email: '  Alum@AIEM.edu ',
       password: PASSWORD,
       fullName: ' Ada Alum ',
       batchYear: 2015,
@@ -77,9 +77,9 @@ describe('authService', () => {
 
       const result = await authService.register(input);
 
-      expect(prismaMock.user.findUnique).toHaveBeenCalledWith({ where: { email: 'alum@aitd.edu' } });
+      expect(prismaMock.user.findUnique).toHaveBeenCalledWith({ where: { email: 'alum@aiem.edu' } });
       const created = prismaMock.user.create.mock.calls[0][0].data;
-      expect(created).toMatchObject({ email: 'alum@aitd.edu', fullName: 'Ada Alum', roleType: 'ALUMNI', batchYear: 2015 });
+      expect(created).toMatchObject({ email: 'alum@aiem.edu', fullName: 'Ada Alum', roleType: 'ALUMNI', batchYear: 2015 });
       expect(created.passwordHash).not.toBe(PASSWORD);
       await expect(comparePassword(PASSWORD, created.passwordHash)).resolves.toBe(true);
 
@@ -90,13 +90,13 @@ describe('authService', () => {
       expect(prismaMock.refreshToken.create).not.toHaveBeenCalled();
 
       const rawToken = (sendVerificationEmail as jest.Mock).mock.calls[0][2];
-      expect(sendVerificationEmail).toHaveBeenCalledWith('alum@aitd.edu', 'Ada Alum', rawToken);
+      expect(sendVerificationEmail).toHaveBeenCalledWith('alum@aiem.edu', 'Ada Alum', rawToken);
       expect(tokenData.token).toBe(hashToken(rawToken));
       expect(tokenData.token).not.toBe(rawToken);
 
       expect(result).toEqual({
         id: 'u1',
-        email: 'alum@aitd.edu',
+        email: 'alum@aiem.edu',
         fullName: 'Ada Alum',
         approvalStatus: 'PENDING',
         message: expect.stringContaining('Registration received'),
@@ -129,9 +129,9 @@ describe('authService', () => {
     it('issues an access token and a DB-tracked hashed refresh token', async () => {
       prismaMock.user.findUnique.mockResolvedValue(dbUser({ membershipTier: { id: 't1', name: 'Gold' } }));
 
-      const result: any = await authService.login({ email: ' ALUM@aitd.edu', password: PASSWORD });
+      const result: any = await authService.login({ email: ' ALUM@aiem.edu', password: PASSWORD });
 
-      expect(prismaMock.user.findUnique.mock.calls[0][0].where).toEqual({ email: 'alum@aitd.edu' });
+      expect(prismaMock.user.findUnique.mock.calls[0][0].where).toEqual({ email: 'alum@aiem.edu' });
       expect(verifyAccessToken(result.accessToken)).toMatchObject({ userId: 'u1', userRole: 'MEMBER' });
       expect(verifyRefreshToken(result.refreshToken).userId).toBe('u1');
 
@@ -145,7 +145,7 @@ describe('authService', () => {
       expect(prismaMock.user.update).toHaveBeenCalledWith({ where: { id: 'u1' }, data: { lastLoginAt: expect.any(Date) } });
       expect(result.user).toEqual({
         id: 'u1',
-        email: 'alum@aitd.edu',
+        email: 'alum@aiem.edu',
         fullName: 'Ada Alum',
         profilePhotoUrl: null,
         userRole: 'MEMBER',
@@ -159,21 +159,21 @@ describe('authService', () => {
 
     it("stamps the access token with the user's current tokenVersion", async () => {
       prismaMock.user.findUnique.mockResolvedValue(dbUser({ tokenVersion: 7 }));
-      const result: any = await authService.login({ email: 'alum@aitd.edu', password: PASSWORD });
+      const result: any = await authService.login({ email: 'alum@aiem.edu', password: PASSWORD });
       expect(verifyAccessToken(result.accessToken).tv).toBe(7);
     });
 
     it('starts a separate family for each login', async () => {
       prismaMock.user.findUnique.mockResolvedValue(dbUser());
-      await authService.login({ email: 'alum@aitd.edu', password: PASSWORD });
-      await authService.login({ email: 'alum@aitd.edu', password: PASSWORD });
+      await authService.login({ email: 'alum@aiem.edu', password: PASSWORD });
+      await authService.login({ email: 'alum@aiem.edu', password: PASSWORD });
       const [a, b] = prismaMock.refreshToken.create.mock.calls.map((c: any) => c[0].data.familyId);
       expect(a).not.toBe(b);
     });
 
     it("purges the user's expired refresh tokens on login", async () => {
       prismaMock.user.findUnique.mockResolvedValue(dbUser());
-      await authService.login({ email: 'alum@aitd.edu', password: PASSWORD });
+      await authService.login({ email: 'alum@aiem.edu', password: PASSWORD });
       expect(prismaMock.refreshToken.deleteMany).toHaveBeenCalledWith({
         where: { userId: 'u1', expiresAt: { lt: expect.any(Date) } },
       });
@@ -181,7 +181,7 @@ describe('authService', () => {
 
     it('rejects a wrong password with 401 INVALID_CREDENTIALS and issues nothing', async () => {
       prismaMock.user.findUnique.mockResolvedValue(dbUser());
-      await expect(authService.login({ email: 'alum@aitd.edu', password: 'Wrong#Pass1' })).rejects.toMatchObject({
+      await expect(authService.login({ email: 'alum@aiem.edu', password: 'Wrong#Pass1' })).rejects.toMatchObject({
         statusCode: 401,
         code: 'INVALID_CREDENTIALS',
       });
@@ -192,7 +192,7 @@ describe('authService', () => {
       prismaMock.user.findUnique.mockResolvedValue(null);
       const bcrypt = jest.requireActual('bcryptjs');
       const spy = jest.spyOn(bcrypt, 'compare');
-      await expect(authService.login({ email: 'ghost@aitd.edu', password: PASSWORD })).rejects.toMatchObject({
+      await expect(authService.login({ email: 'ghost@aiem.edu', password: PASSWORD })).rejects.toMatchObject({
         statusCode: 401,
         code: 'INVALID_CREDENTIALS',
         message: 'Invalid email or password',
@@ -203,18 +203,18 @@ describe('authService', () => {
 
     it('rejects accounts without a password as invalid credentials (the same answer as for an unknown address)', async () => {
       prismaMock.user.findUnique.mockResolvedValue(dbUser({ passwordHash: '' }));
-      await expect(authService.login({ email: 'alum@aitd.edu', password: '' })).rejects.toMatchObject({
+      await expect(authService.login({ email: 'alum@aiem.edu', password: '' })).rejects.toMatchObject({
         code: 'INVALID_CREDENTIALS',
       });
     });
 
     it('blocks deactivated users (only after the password is proven)', async () => {
       prismaMock.user.findUnique.mockResolvedValue(dbUser({ isActive: false }));
-      await expect(authService.login({ email: 'alum@aitd.edu', password: PASSWORD })).rejects.toMatchObject({
+      await expect(authService.login({ email: 'alum@aiem.edu', password: PASSWORD })).rejects.toMatchObject({
         statusCode: 401,
         code: 'ACCOUNT_DEACTIVATED',
       });
-      await expect(authService.login({ email: 'alum@aitd.edu', password: 'Wrong#Pass1' })).rejects.toMatchObject({
+      await expect(authService.login({ email: 'alum@aiem.edu', password: 'Wrong#Pass1' })).rejects.toMatchObject({
         code: 'INVALID_CREDENTIALS',
       });
       expect(prismaMock.refreshToken.create).not.toHaveBeenCalled();
@@ -223,13 +223,13 @@ describe('authService', () => {
     it('returns a 2FA challenge bound to the user and no session tokens when 2FA is enabled', async () => {
       prismaMock.user.findUnique.mockResolvedValue(dbUser({ twoFactorEnabled: true }));
 
-      const result: any = await authService.login({ email: 'alum@aitd.edu', password: PASSWORD });
+      const result: any = await authService.login({ email: 'alum@aiem.edu', password: PASSWORD });
 
       expect(result.requires2FA).toBe(true);
       expect(result.accessToken).toBeUndefined();
       expect(result.refreshToken).toBeUndefined();
       expect(verifyTwoFactorToken(result.twoFactorToken)).toEqual({ userId: 'u1' });
-      expect(result.user).toEqual({ id: 'u1', email: 'alum@aitd.edu', fullName: 'Ada Alum', twoFactorEnabled: true });
+      expect(result.user).toEqual({ id: 'u1', email: 'alum@aiem.edu', fullName: 'Ada Alum', twoFactorEnabled: true });
       expect(prismaMock.refreshToken.create).not.toHaveBeenCalled();
       expect(prismaMock.user.update).not.toHaveBeenCalled();
     });
@@ -306,9 +306,9 @@ describe('authService', () => {
     it('replaces older reset links with a hashed, 1-hour PASSWORD_RESET token and emails the raw token', async () => {
       prismaMock.user.findUnique.mockResolvedValue(dbUser());
 
-      await expect(authService.forgotPassword(' Alum@AITD.edu ')).resolves.toEqual(GENERIC);
+      await expect(authService.forgotPassword(' Alum@AIEM.edu ')).resolves.toEqual(GENERIC);
 
-      expect(prismaMock.user.findUnique).toHaveBeenCalledWith({ where: { email: 'alum@aitd.edu' } });
+      expect(prismaMock.user.findUnique).toHaveBeenCalledWith({ where: { email: 'alum@aiem.edu' } });
       expect(prismaMock.verificationToken.deleteMany).toHaveBeenCalledWith({
         where: { userId: 'u1', type: TOKEN_TYPES.PASSWORD_RESET },
       });
@@ -316,21 +316,21 @@ describe('authService', () => {
       expect(data.type).toBe(TOKEN_TYPES.PASSWORD_RESET);
       expect(data.expiresAt.getTime()).toBeLessThanOrEqual(Date.now() + 3600_000);
       const raw = (sendPasswordResetEmail as jest.Mock).mock.calls[0][2];
-      expect(sendPasswordResetEmail).toHaveBeenCalledWith('alum@aitd.edu', 'Ada Alum', raw);
+      expect(sendPasswordResetEmail).toHaveBeenCalledWith('alum@aiem.edu', 'Ada Alum', raw);
       expect(data.token).toBe(hashToken(raw));
       expect(prismaMock.refreshToken.create).not.toHaveBeenCalled();
     });
 
     it('returns the identical response for unknown emails without creating tokens (no enumeration)', async () => {
       prismaMock.user.findUnique.mockResolvedValue(null);
-      await expect(authService.forgotPassword('ghost@aitd.edu')).resolves.toEqual(GENERIC);
+      await expect(authService.forgotPassword('ghost@aiem.edu')).resolves.toEqual(GENERIC);
       expect(prismaMock.verificationToken.create).not.toHaveBeenCalled();
       expect(sendPasswordResetEmail).not.toHaveBeenCalled();
     });
 
     it('does not send reset links to deactivated accounts', async () => {
       prismaMock.user.findUnique.mockResolvedValue(dbUser({ isActive: false }));
-      await expect(authService.forgotPassword('alum@aitd.edu')).resolves.toEqual(GENERIC);
+      await expect(authService.forgotPassword('alum@aiem.edu')).resolves.toEqual(GENERIC);
       expect(sendPasswordResetEmail).not.toHaveBeenCalled();
     });
 
@@ -342,19 +342,19 @@ describe('authService', () => {
     ])('sends the reset link to an account with %s, with the identical response', async (_name, hash) => {
       prismaMock.user.findUnique.mockResolvedValue(dbUser({ passwordHash: hash, isVerified: false, emailVerifiedAt: new Date() }));
 
-      await expect(authService.forgotPassword('alum@aitd.edu')).resolves.toEqual(GENERIC);
+      await expect(authService.forgotPassword('alum@aiem.edu')).resolves.toEqual(GENERIC);
 
       const data = prismaMock.verificationToken.create.mock.calls[0][0].data;
       expect(data.type).toBe(TOKEN_TYPES.PASSWORD_RESET);
       const raw = (sendPasswordResetEmail as jest.Mock).mock.calls[0][2];
-      expect(sendPasswordResetEmail).toHaveBeenCalledWith('alum@aitd.edu', 'Ada Alum', raw);
+      expect(sendPasswordResetEmail).toHaveBeenCalledWith('alum@aiem.edu', 'Ada Alum', raw);
       expect(data.token).toBe(hashToken(raw));
     });
 
     it('does not fail (or leak) when the email provider errors', async () => {
       prismaMock.user.findUnique.mockResolvedValue(dbUser());
       (sendPasswordResetEmail as jest.Mock).mockRejectedValueOnce(new Error('smtp'));
-      await expect(authService.forgotPassword('alum@aitd.edu')).resolves.toEqual(GENERIC);
+      await expect(authService.forgotPassword('alum@aiem.edu')).resolves.toEqual(GENERIC);
       await new Promise((r) => setImmediate(r));
     });
   });
@@ -402,7 +402,7 @@ describe('authService', () => {
       // ...and the normal password sign-in now works for that account
       prismaMock.user.findUnique.mockResolvedValue({ ...legacy, passwordHash: update.data.passwordHash, tokenVersion: 1 });
       prismaMock.user.update.mockResolvedValue({} as any);
-      const session: any = await authService.login({ email: 'alum@aitd.edu', password: 'New#Password1' });
+      const session: any = await authService.login({ email: 'alum@aiem.edu', password: 'New#Password1' });
       expect(verifyAccessToken(session.accessToken).userId).toBe('u1');
     });
 
@@ -473,7 +473,7 @@ describe('authService', () => {
         }),
       });
       expect(JSON.stringify(prismaMock.auditLog.create.mock.calls[0][0])).not.toContain(NEW);
-      expect(sendPasswordChangedEmail).toHaveBeenCalledWith('alum@aitd.edu', 'Ada Alum');
+      expect(sendPasswordChangedEmail).toHaveBeenCalledWith('alum@aiem.edu', 'Ada Alum');
       expect(disconnect).toHaveBeenCalledWith('u1');
     });
 
@@ -746,7 +746,7 @@ describe('authService', () => {
       prismaMock.user.findUnique.mockResolvedValue({ ...dbUser(), workExperiences: [] });
       const profile: any = await authService.getProfile('u1');
       expect(profile.passwordHash).toBeUndefined();
-      expect(profile).toMatchObject({ id: 'u1', email: 'alum@aitd.edu', workExperiences: [] });
+      expect(profile).toMatchObject({ id: 'u1', email: 'alum@aiem.edu', workExperiences: [] });
     });
 
     it('404s for a missing user', async () => {

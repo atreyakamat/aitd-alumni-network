@@ -1,6 +1,8 @@
 # Security audit and hardening log
 
-White-box audit of the AITD Alumni Network (server, client, Docker/CI), run as: **audit → attack with tests →
+> Round 3 (running stack, Docker and Kafka, supply chain) has its own plan and runbook: [SECURITY_AUDIT_PLAN.md](SECURITY_AUDIT_PLAN.md).
+
+White-box audit of the AIEM Alumni Network (server, client, Docker/CI), run as: **audit → attack with tests →
 root-cause → fix (test-first) → re-test**. Every confirmed finding is a regression test that asserts the *secure*
 behaviour, so the suites below are the proof that a fix holds and the guard against it coming back.
 

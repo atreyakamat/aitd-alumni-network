@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { Briefcase, CalendarDays, MapPin, Newspaper, MessageSquare, Users, User as UserIcon } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
-import { getEventLocation } from '@/lib/events';
+import { eventPlaceLabel } from '@/lib/events';
 import { getInitials } from '@/lib/utils';
 import {
   SEARCH_SECTIONS,
@@ -78,7 +78,7 @@ function JobCard({ job }: { job: any }) {
 
 function EventCard({ event }: { event: any }) {
   const badge = dateBadge(event.startDate);
-  const place = event.eventType === 'ONLINE' ? 'Online' : getEventLocation(event) || 'Location to be announced';
+  const place = eventPlaceLabel(event);
   return (
     <Link href={`/events/${event.id}`} className={`${cardClass} flex gap-4`}>
       <span className="flex h-16 w-16 shrink-0 flex-col items-center justify-center rounded-md bg-primary/10 text-primary" aria-hidden="true">

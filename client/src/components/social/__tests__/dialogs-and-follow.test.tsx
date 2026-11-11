@@ -115,10 +115,10 @@ describe('ProfileFollowBar', () => {
 
 describe('RichText', () => {
   it('links hashtags, mentions and urls without injecting HTML', () => {
-    render(<RichText text={'Hi @Asha Rao see #Batch2015 https://aitd.edu <b>x</b>'} mentions={[{ id: 'u1', fullName: 'Asha Rao' }]} />);
+    render(<RichText text={'Hi @Asha Rao see #Batch2015 https://aiem.edu <b>x</b>'} mentions={[{ id: 'u1', fullName: 'Asha Rao' }]} />);
     expect(screen.getByRole('link', { name: '@Asha Rao' })).toHaveAttribute('href', '/profile/u1');
     expect(screen.getByRole('link', { name: '#Batch2015' })).toHaveAttribute('href', '/hashtags/batch2015');
-    const url = screen.getByRole('link', { name: 'https://aitd.edu' });
+    const url = screen.getByRole('link', { name: 'https://aiem.edu' });
     expect(url).toHaveAttribute('rel', expect.stringContaining('noopener'));
     expect(url).toHaveAttribute('target', '_blank');
     expect(screen.getByText(/<b>x<\/b>/)).toBeInTheDocument();

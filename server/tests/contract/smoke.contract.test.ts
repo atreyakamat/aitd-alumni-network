@@ -397,7 +397,7 @@ const cases: Record<string, Case> = {
     bad: () => ({ path: '/users/work-experience/not-a-uuid' }),
   },
   'post /users/education': {
-    ok: () => ({ path: '/users/education', body: { institution: 'AITD', degree: 'B.E.', fieldOfStudy: 'Computer', startYear: 2014, endYear: 2018, grade: 'A', description: 'Studied', isPrimary: true } }),
+    ok: () => ({ path: '/users/education', body: { institution: 'AIEM', degree: 'B.E.', fieldOfStudy: 'Computer', startYear: 2014, endYear: 2018, grade: 'A', description: 'Studied', isPrimary: true } }),
     status: 201,
     shape: 'obj',
     bad: () => ({ path: '/users/education', body: {} }),
@@ -1336,8 +1336,24 @@ const cases: Record<string, Case> = {
   },
 
   // ---- Admin ----
-  'get /admin/stats': { ok: () => ({ as: 'admin', path: '/admin/stats' }), shape: 'obj', bad: () => ({ as: 'member', path: '/admin/stats' }), badStatus: 403 },
-  'get /platform/readiness': { ok: () => ({ as: 'admin', path: '/platform/readiness' }), shape: 'any', bad: () => ({ as: 'member', path: '/platform/readiness' }), badStatus: 403 },
+  'get /admin/stats': {
+    ok: () => ({ as: 'admin', path: '/admin/stats' }),
+    shape: 'obj',
+    // member numbers count approved users; applicants are reported on their own
+    check: (b) => expect(b.data.users).toEqual(expect.objectContaining({ total: expect.any(Number), verified: expect.any(Number), pendingApproval: expect.any(Number), rejected: expect.any(Number) })),
+    bad: () => ({ as: 'member', path: '/admin/stats' }),
+    badStatus: 403,
+  },
+  'get /admin/system-status': {
+    ok: () => ({ as: 'admin', path: '/admin/system-status' }),
+    shape: 'obj',
+    check: (b) => {
+      expect(['ok', 'warning', 'error']).toContain(b.data.overall);
+      expect(b.data.services.map((s: { key: string }) => s.key)).toEqual(['database', 'cache', 'notifications', 'email', 'approvalAlerts', 'payments', 'storage']);
+    },
+    bad: () => ({ as: 'member', path: '/admin/system-status' }),
+    badStatus: 403,
+  },
   // ---- Alumni approval (the administrator's review queue) ----
   'get /admin/approvals': {
     ok: async () => {
@@ -1388,7 +1404,7 @@ const cases: Record<string, Case> = {
   'get /admin/jobs/pending': { ok: () => ({ as: 'admin', path: '/admin/jobs/pending', query: { page: 1, limit: 20 } }), shape: 'list', bad: () => ({ as: 'member', path: '/admin/jobs/pending' }), badStatus: 403 },
   'get /admin/mentorship/overview': { ok: () => ({ as: 'admin', path: '/admin/mentorship/overview' }), shape: 'obj', bad: () => ({ as: 'member', path: '/admin/mentorship/overview' }), badStatus: 403 },
   'get /admin/export/:entity': { ok: () => ({ as: 'admin', path: '/admin/export/users' }), shape: 'file', bad: () => ({ as: 'admin', path: '/admin/export/nothing' }) },
-  'get /admin/audit': { ok: () => ({ as: 'admin', path: '/admin/audit', query: { page: 1, limit: 20, action: 'CREATE', entityType: 'USER' } }), shape: 'any', check: (b) => expect(b.logs).toEqual(expect.any(Array)), bad: () => ({ as: 'member', path: '/admin/audit' }), badStatus: 403 },
+  'get /admin/audit': { ok: () => ({ as: 'admin', path: '/admin/audit', query: { page: 1, limit: 20, action: 'CREATE', entityType: 'USER' } }), shape: 'any', check: (b) => { expect(b.logs).toEqual(expect.any(Array)); for (const entry of b.logs) expect(entry).toHaveProperty('entityLabel'); }, bad: () => ({ as: 'member', path: '/admin/audit' }), badStatus: 403 },
   'get /admin/reports': { ok: () => ({ as: 'admin', path: '/admin/reports', query: { status: 'OPEN', limit: 10 } }), shape: 'obj', bad: () => ({ as: 'member', path: '/admin/reports' }), badStatus: 403 },
   'patch /admin/reports/:id': {
     ok: async (x) => {

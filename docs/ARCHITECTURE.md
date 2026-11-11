@@ -1,6 +1,6 @@
 # Architecture
 
-How AITD Connection is put together, for people who need to change it.
+How AIEM Connect is put together, for people who need to change it.
 
 ## Big picture
 
@@ -72,7 +72,7 @@ The flows, token lifetimes, error codes and settings are in [AUTHENTICATION.md](
   webhook are reachable without a token (`optionalAuth` is used by `/landing` alone).
 - **Guard rail:** `tests/routes/rbac-matrix.test.ts` lists every route with its access level; it fails when a route is
   unclassified and checks that protected routes reject anonymous, malformed-token, deactivated and under-privileged callers.
-- **Client gate:** `src/middleware.ts` redirects visitors without the `aitd_session` hint cookie from member pages to
+- **Client gate:** `src/middleware.ts` redirects visitors without the `aiem_session` hint cookie from member pages to
   `/login?next=…`. It is a UX and hardening layer; the API stays the authority.
 
 ## Data model highlights
@@ -125,7 +125,7 @@ The client has one search box in the header (`HeaderSearch`) and one results pag
 Every notification is an event on the **notification bus** (`services/notificationBus.ts`): in-app notifications
 (`notificationService.createNotification`), announcement broadcasts, and the registration flow (the e-mail to the college
 administrator when a registration is waiting, the e-mails to the applicant). With `KAFKA_BROKERS` the bus publishes to the
-`<prefix>.notifications` topic and `workers/notificationConsumer.ts` (in the API process, group `aitd-notifications`) delivers: it stores
+`<prefix>.notifications` topic and `workers/notificationConsumer.ts` (in the API process, group `aiem-notifications`) delivers: it stores
 the notification, pushes it over the socket and sends the e-mail through SMTP. Failed events are retried with a doubling pause and then
 moved to the `<prefix>.notifications.dlq` topic; invalid messages go there at once. Without a broker, and whenever publishing fails,
 the same handlers (`notificationEventHandlers.ts`) run in-process, so a Kafka outage loses nothing. Events are validated with zod when
@@ -200,7 +200,10 @@ admins. Receipts are emailed.
   unhandled rejection is logged and the server keeps running. Keep-alive and header timeouts sit above nginx's so the proxy never reuses a closed connection.
 - **Shutdown:** SIGTERM/SIGINT run `createShutdown` (`src/utils/shutdown.ts`): close socket.io and HTTP, disconnect
   Prisma and Redis, and force-exit after `SHUTDOWN_TIMEOUT_MS`.
-- **Readiness:** `GET /api/platform/readiness` (admin) reports the PRD release gate; `/admin/control` shows it.
+- **System status:** `GET /api/admin/system-status` (admin) reports, in plain words, whether the database, cache, notification queue,
+  e-mail, new-registration alerts, payments and file storage are working (`services/systemStatusService.ts`; the
+  dependencies are injected, so it is unit-tested without any of them). It returns modes and counts only, never a secret,
+  and a failing check only marks its own line. `/health` stays the machine-readable probe for the orchestrator.
 
 ## Testing
 

@@ -116,10 +116,10 @@ export const sendVerificationEmail = async (
   
   await sendEmail({
     to: email,
-    subject: 'Verify your AIEM Connection account',
+    subject: 'Verify your AIEM Connect account',
     html: `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-        <h1 style="color: #0B2A5B;">Welcome to AIEM Connection!</h1>
+        <h1 style="color: #0B2A5B;">Welcome to AIEM Connect!</h1>
         <p>Hi ${escapeEmailHtml(name)},</p>
         <p>Thank you for registering. Please verify your email address by clicking the button below:</p>
         <a href="${verificationUrl}" 
@@ -148,7 +148,7 @@ export const sendPasswordResetEmail = async (
   
   await sendEmail({
     to: email,
-    subject: 'Reset your AIEM Connection password',
+    subject: 'Reset your AIEM Connect password',
     html: `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
         <h1 style="color: #0B2A5B;">Password Reset</h1>
@@ -178,10 +178,10 @@ export const sendWelcomeEmail = async (
 ): Promise<void> => {
   await sendEmail({
     to: email,
-    subject: 'Your AIEM Connection registration is approved',
+    subject: 'Your AIEM Connect registration is approved',
     html: `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-        <h1 style="color: #0B2A5B;">Welcome to AIEM Connection!</h1>
+        <h1 style="color: #0B2A5B;">Welcome to AIEM Connect!</h1>
         <p>Hi ${escapeEmailHtml(name)},</p>
         <p>An administrator has checked your registration and approved it. You can sign in now.</p>
         <p>Here's what you can do:</p>
@@ -199,7 +199,7 @@ export const sendWelcomeEmail = async (
         </a>
         <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;" />
         <p style="color: #999; font-size: 12px;">
-          © AIEM Connection. All rights reserved.
+          © AIEM Connect. All rights reserved.
         </p>
       </div>
     `,
@@ -210,16 +210,16 @@ export const sendWelcomeEmail = async (
 export const sendApplicationReceivedEmail = async (email: string, name: string): Promise<void> => {
   await sendEmail({
     to: email,
-    subject: 'We received your AIEM Connection registration',
+    subject: 'We received your AIEM Connect registration',
     html: `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
         <h1 style="color: #0B2A5B;">Your registration is being reviewed</h1>
         <p>Hi ${escapeEmailHtml(name)},</p>
-        <p>Thank you for verifying your e-mail address. AIEM Connection is for alumni of the college only, so an
+        <p>Thank you for verifying your e-mail address. AIEM Connect is for alumni of the college only, so an
         administrator checks every registration before it is approved.</p>
         <p>You do not need to do anything. We will e-mail you as soon as the review is done; you can sign in after that.</p>
         <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;" />
-        <p style="color: #999; font-size: 12px;">© AIEM Connection. All rights reserved.</p>
+        <p style="color: #999; font-size: 12px;">© AIEM Connect. All rights reserved.</p>
       </div>
     `,
   });
@@ -236,7 +236,7 @@ export const sendNewRegistrationEmail = async (
     html: `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
         <h1 style="color: #0B2A5B;">A registration is waiting for your review</h1>
-        <p><strong>${escapeEmailHtml(applicant.fullName)}</strong> has asked to join AIEM Connection.</p>
+        <p><strong>${escapeEmailHtml(applicant.fullName)}</strong> has asked to join AIEM Connect.</p>
         <ul>
           <li>Batch: ${escapeEmailHtml(String(applicant.batchYear))}</li>
           <li>Department: ${escapeEmailHtml(applicant.department)}</li>
@@ -249,7 +249,7 @@ export const sendNewRegistrationEmail = async (
           Review registrations
         </a>
         <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;" />
-        <p style="color: #999; font-size: 12px;">© AIEM Connection. All rights reserved.</p>
+        <p style="color: #999; font-size: 12px;">© AIEM Connect. All rights reserved.</p>
       </div>
     `,
   });
@@ -259,7 +259,7 @@ export const sendNewRegistrationEmail = async (
 export const sendRejectionEmail = async (email: string, name: string, reason: string): Promise<void> => {
   await sendEmail({
     to: email,
-    subject: 'Your AIEM Connection registration was not approved',
+    subject: 'Your AIEM Connect registration was not approved',
     html: `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
         <h1 style="color: #0B2A5B;">Your registration was not approved</h1>
@@ -268,7 +268,7 @@ export const sendRejectionEmail = async (email: string, name: string, reason: st
         <p style="background: #f6f7f9; padding: 12px 16px; border-radius: 6px;">${escapeEmailHtml(reason)}</p>
         <p>If you think this is a mistake, reply to the alumni office with the details that show you studied at the college.</p>
         <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;" />
-        <p style="color: #999; font-size: 12px;">© AIEM Connection. All rights reserved.</p>
+        <p style="color: #999; font-size: 12px;">© AIEM Connect. All rights reserved.</p>
       </div>
     `,
   });
@@ -278,12 +278,12 @@ export const sendPasswordChangedEmail = async (email: string, name: string): Pro
   const resetUrl = `${config.frontendUrl}/forgot-password`;
   await sendEmail({
     to: email,
-    subject: 'Your AIEM Connection password was changed',
+    subject: 'Your AIEM Connect password was changed',
     html: `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
         <h1 style="color: #0B2A5B;">Password changed</h1>
         <p>Hi ${escapeEmailHtml(name)},</p>
-        <p>The password for your AIEM Connection account was just changed, and every other device was signed out.</p>
+        <p>The password for your AIEM Connect account was just changed, and every other device was signed out.</p>
         <p>If this was you, no further action is needed.</p>
         <p><strong>If you did not make this change</strong>, reset your password immediately and contact support:</p>
         <a href="${resetUrl}"
@@ -295,7 +295,7 @@ export const sendPasswordChangedEmail = async (email: string, name: string): Pro
         <p style="color: #999; font-size: 12px;">This is an automated security notice.</p>
       </div>
     `,
-    text: `Hi ${name}, the password for your AIEM Connection account was just changed and every other device was signed out. If this was not you, reset your password immediately at ${resetUrl} and contact support.`,
+    text: `Hi ${name}, the password for your AIEM Connect account was just changed and every other device was signed out. If this was not you, reset your password immediately at ${resetUrl} and contact support.`,
   });
 };
 
@@ -308,11 +308,11 @@ export const sendInviteEmail = async (
   
   await sendEmail({
     to: email,
-    subject: `${headerSafe(inviterName)} invited you to join AIEM Connection`,
+    subject: `${headerSafe(inviterName)} invited you to join AIEM Connect`,
     html: `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
         <h1 style="color: #0B2A5B;">You're Invited!</h1>
-        <p>${escapeEmailHtml(inviterName)} has invited you to join the AIEM Connection network.</p>
+        <p>${escapeEmailHtml(inviterName)} has invited you to join the AIEM Connect network.</p>
         <p>Connect with fellow alumni, explore career opportunities, and stay updated with events.</p>
         <a href="${inviteUrl}" 
            style="display: inline-block; background-color: #0B2A5B; color: white; padding: 12px 24px; 

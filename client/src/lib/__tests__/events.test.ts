@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   getEventCapacity,
+  eventPlaceLabel,
   getEventLocation,
   getRsvpErrorMessage,
   isVirtualEvent,
@@ -37,6 +38,16 @@ describe('event helpers', () => {
     expect(getEventLocation({ venue: 'Hall A', city: 'Pune' })).toBe('Hall A, Pune');
     expect(getEventLocation({ city: 'Pune' })).toBe('Pune');
     expect(getEventLocation({})).toBeNull();
+  });
+
+  it('labels where an event happens in one consistent way', () => {
+    // an online event has no venue: it is "Online", not "Location TBD"
+    expect(eventPlaceLabel({ eventType: 'ONLINE' })).toBe('Online');
+    expect(eventPlaceLabel({ eventType: 'ONLINE', city: 'Pune' })).toBe('Online');
+    expect(eventPlaceLabel({ eventType: 'OFFLINE', venue: 'College Auditorium', city: 'Assagao' })).toBe('College Auditorium, Assagao');
+    expect(eventPlaceLabel({ eventType: 'HYBRID', venue: 'Hall A' })).toBe('Hall A');
+    expect(eventPlaceLabel({ eventType: 'OFFLINE' })).toBe('Location to be announced');
+    expect(eventPlaceLabel(null)).toBe('Location to be announced');
   });
 
   it('detects virtual events by eventType', () => {

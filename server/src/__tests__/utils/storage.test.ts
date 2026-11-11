@@ -4,7 +4,7 @@ import path from 'path';
 
 type StorageModule = typeof import('../../utils/storage');
 
-const BUCKET = 'aitd-test-bucket';
+const BUCKET = 'aiem-test-bucket';
 const REGION = 'ap-south-1';
 const S3_HOST = `https://${BUCKET}.s3.${REGION}.amazonaws.com`;
 
@@ -59,7 +59,7 @@ let tmp: string;
 let cwdSpy: jest.SpyInstance;
 
 beforeEach(() => {
-  tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'aitd-storage-'));
+  tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'aiem-storage-'));
   cwdSpy = jest.spyOn(process, 'cwd').mockReturnValue(tmp);
   sharpCalls.length = 0;
   sharpMock.mockClear();

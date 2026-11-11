@@ -226,7 +226,7 @@ describe('verifyPayment (signed-in donor)', () => {
     expect(result).toMatchObject({ alreadyVerified: false, donation: { id: 'don-1' } });
 
     const receipt = (generateDonationReceipt as jest.Mock).mock.calls[0][0];
-    expect(receipt).toMatchObject({ amount: 500, chapterName: 'Pune', receiptNumber: 'AITD-DON-20260203-TXN1' });
+    expect(receipt).toMatchObject({ amount: 500, chapterName: 'Pune', receiptNumber: 'AIEM-DON-20260203-TXN1' });
     expect(prismaMock.transaction.update).toHaveBeenCalledWith({
       where: { id: 'txn-1' },
       data: { receiptUrl: 'https://cdn.test/receipts/d.pdf' },
@@ -427,7 +427,7 @@ describe('verifyPayment (guest)', () => {
     expect(mail.to).toBe('guest@example.com');
     expect(mail.subject).toMatch(/receipt/i);
     expect(mail.attachments).toEqual([
-      expect.objectContaining({ filename: expect.stringMatching(/^AITD-DON-.*\.pdf$/), contentType: 'application/pdf' }),
+      expect.objectContaining({ filename: expect.stringMatching(/^AIEM-DON-.*\.pdf$/), contentType: 'application/pdf' }),
     ]);
     expect(prismaMock.transaction.update).toHaveBeenCalledWith({
       where: { id: 'txn-1' },

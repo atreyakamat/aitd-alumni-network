@@ -20,7 +20,7 @@ beforeAll(() => {
 });
 
 beforeEach(() => {
-  tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'aitd-img-'));
+  tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'aiem-img-'));
   cwdSpy = jest.spyOn(process, 'cwd').mockReturnValue(tmp);
 });
 

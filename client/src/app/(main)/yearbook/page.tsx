@@ -1,9 +1,11 @@
 'use client';
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { userApi, getApiErrorMessage } from '@/lib/api';
+import { useAuth } from '@/context/auth-context';
 import { readYearbook } from '@/lib/people';
+import { departmentFilterOptions } from '@/lib/departments';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -25,21 +27,20 @@ import { getInitials } from '@/lib/utils';
 import { LoadingSpinner } from '@/components/ui/loading';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
-const departments = [
-  'All Departments',
-  'Computer Science',
-  'Information Technology',
-  'Electronics',
-  'Electrical',
-  'Mechanical',
-  'Civil',
-];
+const departments = departmentFilterOptions();
 
 const currentYear = new Date().getFullYear();
 const batchYears = Array.from({ length: 30 }, (_, i) => String(currentYear - i));
 
 export default function YearbookPage() {
-  const [selectedYear, setSelectedYear] = useState(batchYears[0]);
+  const { user } = useAuth();
+  // Open on the member's own batch: the current year has no alumni yet, so it would greet everybody with "No records found"
+  const ownYear = typeof user?.batchYear === 'number' && Number.isFinite(user.batchYear) ? String(user.batchYear) : null;
+  const years = useMemo(
+    () => (ownYear && !batchYears.includes(ownYear) ? [...batchYears, ownYear].sort((a, b) => Number(b) - Number(a)) : batchYears),
+    [ownYear]
+  );
+  const [selectedYear, setSelectedYear] = useState(ownYear ?? batchYears[0]);
   const [selectedDepartment, setSelectedDepartment] = useState('All Departments');
 
   const { data, isLoading, isError, error } = useQuery({
@@ -80,7 +81,7 @@ export default function YearbookPage() {
                   <SelectValue placeholder="Select Year" />
                 </SelectTrigger>
                 <SelectContent>
-                  {batchYears.map((year) => (
+                  {years.map((year) => (
                     <SelectItem key={year} value={year}>
                       Class of {year}
                     </SelectItem>

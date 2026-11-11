@@ -13,7 +13,7 @@ beforeEach(() => jest.clearAllMocks());
 const applicant = (overrides: Record<string, unknown> = {}) => ({
   id: 'u1',
   fullName: 'Ada Alum',
-  email: 'ada@aitd.edu',
+  email: 'ada@aiem.edu',
   approvalStatus: 'PENDING',
   emailVerifiedAt: new Date(),
   ...overrides,
@@ -24,7 +24,7 @@ const arrangeLookup = (targetFor: (id: string) => Record<string, unknown> | null
   prismaMock.user.findUnique.mockImplementation(((args: any) => {
     const id = args.where.id as string;
     if (id.startsWith('00000000')) {
-      return Promise.resolve({ id, email: 'admin@aitd.test', fullName: 'Admin', userRole: 'ADMIN', isActive: true, approvalStatus: 'APPROVED', tokenVersion: 0 });
+      return Promise.resolve({ id, email: 'admin@aiem.test', fullName: 'Admin', userRole: 'ADMIN', isActive: true, approvalStatus: 'APPROVED', tokenVersion: 0 });
     }
     return Promise.resolve(targetFor(id) ?? null);
   }) as any);

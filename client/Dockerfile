@@ -1,5 +1,5 @@
 # Client Dockerfile — build from the repository root (npm workspaces):
-#   docker build -f client/Dockerfile --build-arg NEXT_PUBLIC_API_URL=https://api.example.com/api -t aitd-web .
+#   docker build -f client/Dockerfile --build-arg NEXT_PUBLIC_API_URL=https://api.example.com/api -t aiem-web .
 FROM node:20-alpine AS base
 
 # Install workspace dependencies from the root lockfile

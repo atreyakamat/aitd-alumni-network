@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useCallback, useState } from 'react';
-import { ArrowLeft, CheckCircle2, ExternalLink, Flag, Loader2, ShieldAlert, Trash2, XCircle } from 'lucide-react';
+import { CheckCircle2, ExternalLink, Flag, Loader2, ShieldAlert, Trash2, XCircle } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -10,6 +10,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Textarea } from '@/components/ui/textarea';
+import { AdminPageHeader } from '@/components/admin/AdminPageHeader';
 import { QuotedPost } from '@/components/social/PostCard';
 import { RichText } from '@/components/social/RichText';
 import { useCursorList, type FetchPage } from '@/hooks/use-cursor-list';
@@ -58,14 +59,12 @@ export default function AdminReportsPage() {
   };
 
   return (
-    <div className="mx-auto max-w-4xl space-y-6">
-      <div>
-        <Button asChild variant="ghost" size="sm" className="mb-2">
-          <Link href="/admin"><ArrowLeft className="mr-2 h-4 w-4" aria-hidden="true" />Admin</Link>
-        </Button>
-        <h1 className="flex items-center gap-2 text-2xl font-bold"><ShieldAlert className="h-6 w-6 text-primary" aria-hidden="true" />Reported content</h1>
-        <p className="text-sm text-muted-foreground">Reports from members about posts and comments. Reports on the same item are grouped.</p>
-      </div>
+    <div className="space-y-6">
+      <AdminPageHeader
+        title="Reported content"
+        icon={ShieldAlert}
+        description="Reports from members about posts and comments. Reports on the same item are grouped."
+      />
 
       <div role="tablist" aria-label="Report status" className="flex gap-1 rounded-lg border bg-card p-1">
         {REPORT_STATUSES.map((s) => (

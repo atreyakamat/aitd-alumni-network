@@ -55,14 +55,14 @@ beforeEach(() => {
   navigations.length = 0;
   localStorage.setItem('accessToken', 'old-access');
   localStorage.setItem('refreshToken', 'refresh-1');
-  document.cookie = 'aitd_session=1; Path=/';
+  document.cookie = 'aiem_session=1; Path=/';
 });
 
 afterEach(() => {
   api.defaults.adapter = originalAdapter as any;
   vi.unstubAllGlobals();
   vi.restoreAllMocks();
-  document.cookie = 'aitd_session=; Path=/; Max-Age=0';
+  document.cookie = 'aiem_session=; Path=/; Max-Age=0';
 });
 
 describe('getApprovalState', () => {
@@ -105,7 +105,7 @@ describe('the account is not (or no longer) approved', () => {
 
     expect(localStorage.getItem('accessToken')).toBeNull();
     expect(localStorage.getItem('refreshToken')).toBeNull();
-    expect(document.cookie).not.toContain('aitd_session=1');
+    expect(document.cookie).not.toContain('aiem_session=1');
     expect(notApproved.handler).toHaveBeenCalledTimes(1);
     expect((notApproved.handler.mock.calls[0][0] as CustomEvent).detail).toMatchObject({ state, message: 'Server says no' });
     // it is not an expired session and not an ordinary "you may not do that"

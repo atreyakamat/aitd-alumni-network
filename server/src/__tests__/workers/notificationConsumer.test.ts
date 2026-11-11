@@ -2,9 +2,9 @@ const settings: any = {
   enabled: true,
   consumerEnabled: true,
   brokers: ['kafka:9092'],
-  groupId: 'aitd-notifications',
-  topic: 'aitd.notifications',
-  dlqTopic: 'aitd.notifications.dlq',
+  groupId: 'aiem-notifications',
+  topic: 'aiem.notifications',
+  dlqTopic: 'aiem.notifications.dlq',
   maxAttempts: 3,
   retryBaseMs: 10,
 };
@@ -88,10 +88,10 @@ describe('processMessage', () => {
     expect(handle).toHaveBeenCalledTimes(3);
     expect(dlqSend).toHaveBeenCalledTimes(1);
     const record = dlqSend.mock.calls[0][0];
-    expect(record.topic).toBe('aitd.notifications.dlq');
+    expect(record.topic).toBe('aiem.notifications.dlq');
     expect(record.messages[0].key.toString()).toBe('u1');
     expect(JSON.parse(record.messages[0].value.toString()).id).toBe(envelope.id);
-    expect(record.messages[0].headers).toMatchObject({ 'x-error': 'smtp down', 'x-attempts': '3', 'x-original-topic': 'aitd.notifications', 'x-reason': 'failed' });
+    expect(record.messages[0].headers).toMatchObject({ 'x-error': 'smtp down', 'x-attempts': '3', 'x-original-topic': 'aiem.notifications', 'x-reason': 'failed' });
     expect(log.error).toHaveBeenCalledWith(expect.stringMatching(/dead-letter/i), expect.objectContaining({ eventId: envelope.id }));
   });
 
@@ -144,10 +144,10 @@ describe('startNotificationConsumer', () => {
     await consumer!.ready;
     expect(ensureNotificationTopics).toHaveBeenCalledTimes(1);
     expect(consumerCalls).toEqual(['connect', 'subscribe', 'run']);
-    expect(fakeConsumer.subscribe).toHaveBeenCalledWith({ topic: 'aitd.notifications', fromBeginning: false });
+    expect(fakeConsumer.subscribe).toHaveBeenCalledWith({ topic: 'aiem.notifications', fromBeginning: false });
 
     const envelope = valid();
-    await runConfig.eachMessage({ topic: 'aitd.notifications', partition: 0, message: messageFor(envelope) });
+    await runConfig.eachMessage({ topic: 'aiem.notifications', partition: 0, message: messageFor(envelope) });
     expect(handle).toHaveBeenCalledWith(expect.objectContaining({ id: envelope.id }), { redelivery: true });
   });
 

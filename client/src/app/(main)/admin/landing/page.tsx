@@ -1,13 +1,15 @@
 'use client';
 
 import * as React from 'react';
-import { ArrowDown, ArrowUp, Eye, EyeOff, Loader2, Plus, Trash2 } from 'lucide-react';
+import { ArrowDown, ArrowUp, Eye, EyeOff, LayoutTemplate, Loader2, Plus, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { AdminPageHeader } from '@/components/admin/AdminPageHeader';
+import { AdminErrorState } from '@/components/admin/AdminErrorState';
 import { useToast } from '@/hooks/use-toast';
 import { getApiErrorMessage } from '@/lib/api';
 import { landingApi, type LandingBlock, type LandingBlockType } from '@/lib/engagement';
@@ -46,19 +48,21 @@ export default function AdminLandingPage() {
   const { toast } = useToast();
   const [blocks, setBlocks] = React.useState<LandingBlock[]>([]);
   const [loading, setLoading] = React.useState(true);
+  const [loadError, setLoadError] = React.useState<string | null>(null);
   const [newType, setNewType] = React.useState<LandingBlockType>('HERO');
   const [busy, setBusy] = React.useState(false);
 
   const load = React.useCallback(async () => {
     setLoading(true);
+    setLoadError(null);
     try {
       setBlocks(await landingApi.adminBlocks());
     } catch (err) {
-      toast({ title: 'Could not load the page', description: getApiErrorMessage(err, ''), variant: 'destructive' });
+      setLoadError(getApiErrorMessage(err, 'Please try again.'));
     } finally {
       setLoading(false);
     }
-  }, [toast]);
+  }, []);
 
   React.useEffect(() => { void load(); }, [load]);
 
@@ -121,21 +125,24 @@ export default function AdminLandingPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Landing page builder</h1>
-          <p className="text-muted-foreground">Add, arrange and edit the sections shown on the public home page.</p>
-        </div>
-        <div className="flex items-center gap-2">
-          <select className="h-10 rounded-md border border-input bg-background px-3 text-sm" value={newType} onChange={(e) => setNewType(e.target.value as LandingBlockType)}>
-            {TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
-          </select>
-          <Button onClick={add} disabled={busy}><Plus className="mr-2 h-4 w-4" aria-hidden /> Add block</Button>
-        </div>
-      </div>
+      <AdminPageHeader
+        title="Landing page builder"
+        icon={LayoutTemplate}
+        description="Add, arrange and edit the sections shown on the public home page."
+        actions={
+          <>
+            <select aria-label="Type of the new block" className="h-10 rounded-md border border-input bg-background px-3 text-sm" value={newType} onChange={(e) => setNewType(e.target.value as LandingBlockType)}>
+              {TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
+            </select>
+            <Button onClick={add} disabled={busy}><Plus className="mr-2 h-4 w-4" aria-hidden /> Add block</Button>
+          </>
+        }
+      />
 
       {loading ? (
         <div className="flex justify-center py-16"><Loader2 className="h-6 w-6 animate-spin text-primary" aria-label="Loading" /></div>
+      ) : loadError ? (
+        <AdminErrorState title="Could not load the landing page" message={loadError} onRetry={() => void load()} />
       ) : blocks.length === 0 ? (
         <Card><CardContent className="py-16 text-center text-muted-foreground">No custom blocks yet. Add one to customise the landing page.</CardContent></Card>
       ) : (

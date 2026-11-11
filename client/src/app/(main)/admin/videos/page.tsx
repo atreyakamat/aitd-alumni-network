@@ -5,9 +5,12 @@ import { Check, Clapperboard, Eye, Loader2, Plus, Trash2, X } from 'lucide-react
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
+import { AdminPageHeader } from '@/components/admin/AdminPageHeader';
+import { AdminErrorState } from '@/components/admin/AdminErrorState';
 import { useToast } from '@/hooks/use-toast';
 import { getApiErrorMessage } from '@/lib/api';
 import { mediaSrc } from '@/lib/social';
+import { formatDate } from '@/lib/format';
 import { videosApi, type CollegeVideo, type VideoStatus } from '@/lib/videos';
 import { SubmitVideoDialog } from '@/components/videos/SubmitVideoDialog';
 
@@ -22,20 +25,22 @@ export default function AdminVideosPage() {
   const [status, setStatus] = React.useState<VideoStatus>('PENDING');
   const [videos, setVideos] = React.useState<CollegeVideo[]>([]);
   const [loading, setLoading] = React.useState(true);
+  const [loadError, setLoadError] = React.useState<string | null>(null);
   const [busyId, setBusyId] = React.useState<string | null>(null);
   const [uploadOpen, setUploadOpen] = React.useState(false);
 
   const load = React.useCallback(async () => {
     setLoading(true);
+    setLoadError(null);
     try {
       const res = await videosApi.list({ status, limit: 50 });
       setVideos(res.items ?? []);
     } catch (err) {
-      toast({ title: 'Could not load videos', description: getApiErrorMessage(err, ''), variant: 'destructive' });
+      setLoadError(getApiErrorMessage(err, 'Please try again.'));
     } finally {
       setLoading(false);
     }
-  }, [status, toast]);
+  }, [status]);
 
   React.useEffect(() => {
     void load();
@@ -66,17 +71,18 @@ export default function AdminVideosPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">College Videos</h1>
-          <p className="text-muted-foreground">Review member submissions and publish college videos.</p>
-        </div>
-        <Button onClick={() => setUploadOpen(true)}>
-          <Plus className="mr-2 h-4 w-4" aria-hidden /> Upload video
-        </Button>
-      </div>
+      <AdminPageHeader
+        title="College Videos"
+        icon={Clapperboard}
+        description="Review member submissions and publish college videos."
+        actions={
+          <Button onClick={() => setUploadOpen(true)}>
+            <Plus className="mr-2 h-4 w-4" aria-hidden /> Upload video
+          </Button>
+        }
+      />
 
-      <div role="tablist" className="flex w-fit gap-1 rounded-lg border bg-card p-1">
+      <div role="tablist" aria-label="Video status" className="flex w-fit max-w-full gap-1 overflow-x-auto rounded-lg border bg-card p-1">
         {TABS.map(({ key, label }) => (
           <button
             key={key}
@@ -94,6 +100,8 @@ export default function AdminVideosPage() {
         <div className="flex justify-center py-16">
           <Loader2 className="h-6 w-6 animate-spin text-primary" aria-label="Loading" />
         </div>
+      ) : loadError ? (
+        <AdminErrorState title="Could not load the videos" message={loadError} onRetry={() => void load()} />
       ) : videos.length === 0 ? (
         <Card>
           <CardContent className="py-16 text-center text-muted-foreground">Nothing here right now.</CardContent>
@@ -114,7 +122,7 @@ export default function AdminVideosPage() {
                 <div className="min-w-0 flex-1">
                   <h3 className="font-medium">{v.title}</h3>
                   <p className="text-sm text-muted-foreground">
-                    by {v.submittedBy?.fullName ?? 'Unknown'} · {new Date(v.createdAt).toLocaleDateString()}
+                    by {v.submittedBy?.fullName ?? 'Unknown'} · {formatDate(v.createdAt)}
                   </p>
                   {v.category && <Badge variant="secondary" className="mt-1">{v.category}</Badge>}
                   {v.description && <p className="mt-1 line-clamp-2 text-sm text-muted-foreground">{v.description}</p>}

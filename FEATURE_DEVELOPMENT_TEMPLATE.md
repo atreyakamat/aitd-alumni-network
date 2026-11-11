@@ -2,7 +2,7 @@
 
 ## Quick Start: Adding New Features in 10 Steps
 
-This template guides you through adding a new feature to the AITD Alumni Network.
+This template guides you through adding a new feature to the AIEM Alumni Network.
 
 ### Example Feature: "Alumni Skill Endorsements"
 

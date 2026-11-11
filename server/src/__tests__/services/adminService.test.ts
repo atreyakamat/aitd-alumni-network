@@ -5,7 +5,7 @@ import { prismaMock } from '../../../tests/helpers';
 const actor = (userRole: any, id = 'actor') => ({ id, userRole });
 const target = (userRole: any, extra: Record<string, unknown> = {}) => ({
   id: 'target',
-  email: 't@aitd.test',
+  email: 't@aiem.test',
   fullName: 'Target',
   userRole,
   isActive: true,
@@ -39,6 +39,15 @@ describe('adminService', () => {
       ]);
       expect(args.select.passwordHash).toBeUndefined();
       expect(result.pagination).toMatchObject({ page: 2, limit: 20, total: 41, totalPages: 3 });
+    });
+
+    it('tells the administrator whether each person is a member, waiting for approval, or rejected', async () => {
+      prismaMock.user.findMany.mockResolvedValue([]);
+      prismaMock.user.count.mockResolvedValue(0);
+      await adminService.listUsers({});
+      const args = prismaMock.user.findMany.mock.calls[0][0];
+      expect(args.select.approvalStatus).toBe(true);
+      expect(args.select.passwordHash).toBeUndefined();
     });
 
     it('ignores unknown roles and caps the page size', async () => {

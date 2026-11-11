@@ -87,7 +87,7 @@ describe('profile', () => {
     });
 
     const edu = await send('post', '/users/education', 'member', {
-      institution: 'AITD',
+      institution: 'AIEM',
       degree: 'B.E.',
       fieldOfStudy: 'Computer',
       startYear: 2014,
@@ -98,7 +98,7 @@ describe('profile', () => {
     });
     expect(edu.status).toBe(201);
     const eduRow = await fx.prisma.education.findUniqueOrThrow({ where: { id: edu.body.data.id } });
-    expect(eduRow).toMatchObject({ institution: 'AITD', degree: 'B.E.', fieldOfStudy: 'Computer', startYear: 2014, endYear: 2018, grade: 'A', description: 'Studied', isPrimary: true });
+    expect(eduRow).toMatchObject({ institution: 'AIEM', degree: 'B.E.', fieldOfStudy: 'Computer', startYear: 2014, endYear: 2018, grade: 'A', description: 'Studied', isPrimary: true });
 
     const editedEdu = await send('patch', `/users/education/${eduRow.id}`, 'member', {
       institution: 'MIT',

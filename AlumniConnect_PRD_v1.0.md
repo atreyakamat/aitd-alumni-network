@@ -1,12 +1,12 @@
-# AITD Connection Product Requirements Document (Enhanced)
+# AIEM Connect Product Requirements Document (Enhanced)
 
 **Version:** 1.1 (Execution Grade)  
 **Status:** Active  
-**Product:** AITD Connection (Alumni Network Platform)
+**Product:** AIEM Connect (Alumni Network Platform)
 
 ## 1. Product Vision
 
-AITD Connection is the trusted digital platform for alumni, students, faculty, and administrators to build professional relationships, collaborate, mentor, hire, contribute, and strengthen institutional outcomes.
+AIEM Connect is the trusted digital platform for alumni, students, faculty, and administrators to build professional relationships, collaborate, mentor, hire, contribute, and strengthen institutional outcomes.
 
 The platform must be:
 1. **Useful daily** for members (networking, opportunities, communication)

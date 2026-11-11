@@ -26,6 +26,8 @@ import { CreateEventDialog } from '@/components/events/CreateEventDialog';
 import Link from 'next/link';
 import { LoadingSpinner } from '@/components/ui/loading';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { eventPlaceLabel } from '@/lib/events';
 import {
   Select,
   SelectContent,
@@ -51,16 +53,18 @@ export default function EventsPage() {
   const { user } = useAuth();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedType, setSelectedType] = useState('ALL');
+  const [when, setWhen] = useState<'upcoming' | 'past'>('upcoming');
   const [page, setPage] = useState(1);
 
   const { data, isLoading, isError, error, refetch } = useQuery({
-    queryKey: ['events', searchQuery, selectedType, page],
+    queryKey: ['events', searchQuery, selectedType, when, page],
     queryFn: async () => {
       const params: any = {
         page,
         limit: 12,
         search: searchQuery || undefined,
         type: selectedType !== 'ALL' ? selectedType : undefined,
+        ...(when === 'upcoming' ? { upcoming: true } : { past: true }),
       };
       const response = await eventApi.getEvents(params);
       return response.data;
@@ -122,7 +126,7 @@ export default function EventsPage() {
           </div>
           <div className="flex items-center gap-2">
             <MapPin className="h-4 w-4" />
-            <span className="truncate">{event.location || event.venue || 'Location TBD'}</span>
+            <span className="truncate">{eventPlaceLabel(event)}</span>
           </div>
         </div>
 
@@ -142,7 +146,7 @@ export default function EventsPage() {
     <div className="space-y-6">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold">Upcoming Events</h1>
+          <h1 className="text-2xl font-bold">Events</h1>
           <p className="text-muted-foreground">
             Stay connected through webinars, meetups, and reunions
           </p>
@@ -154,6 +158,19 @@ export default function EventsPage() {
           </Button>
         )}
       </div>
+
+      <Tabs
+        value={when}
+        onValueChange={(value) => {
+          setWhen(value as 'upcoming' | 'past');
+          setPage(1);
+        }}
+      >
+        <TabsList aria-label="When">
+          <TabsTrigger value="upcoming">Upcoming</TabsTrigger>
+          <TabsTrigger value="past">Past</TabsTrigger>
+        </TabsList>
+      </Tabs>
 
       {/* Filters */}
       <Card>
@@ -206,8 +223,14 @@ export default function EventsPage() {
       ) : events.length === 0 ? (
         <div className="text-center py-12 border rounded-lg bg-muted/20">
           <Calendar className="h-12 w-12 mx-auto text-muted-foreground mb-4 opacity-20" />
-          <h3 className="text-lg font-medium">No events found</h3>
-          <p className="text-muted-foreground">Try adjusting your search or filters</p>
+          <h3 className="text-lg font-medium">{searchQuery || selectedType !== 'ALL' ? 'No events found' : `No ${when} events`}</h3>
+          <p className="text-muted-foreground">
+            {searchQuery || selectedType !== 'ALL'
+              ? 'Try adjusting your search or filters'
+              : when === 'upcoming'
+                ? 'Nothing is scheduled yet. Check the Past tab for earlier events.'
+                : 'Events that have already taken place will be listed here.'}
+          </p>
         </div>
       ) : (
         <>

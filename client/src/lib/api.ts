@@ -195,10 +195,62 @@ function endSession(reason: 'expired' | ApprovalState, serverMessage?: string | 
     reason === 'expired' ? buildLoginHref(`${pathname}${search}`) : buildLoginHref(null, { approval: reason });
 }
 
+// ---------------------------------------------------------------------------
+// Renewing an access token that has already expired, before the request that needs it
+// ---------------------------------------------------------------------------
+
+/** Expiry of a JWT access token in ms since the epoch; null when the token cannot be read. A UI hint, never verified here. */
+export function tokenExpiresAt(token: string): number | null {
+  try {
+    const payload = token.split('.')[1];
+    if (!payload) return null;
+    const exp = JSON.parse(atob(payload.replace(/-/g, '+').replace(/_/g, '/')))?.exp;
+    return typeof exp === 'number' && Number.isFinite(exp) ? exp * 1000 : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Renew this long before the token runs out, so a request does not leave with a token that dies on the way. */
+const RENEW_LEAD_MS = 10_000;
+/** A wrong clock can make every new token look expired: never renew proactively more often than this. */
+const PROACTIVE_REFRESH_MIN_GAP_MS = 60_000;
+let lastProactiveRefreshAt = 0;
+
+/** For tests: forget when the last proactive renewal happened. */
+export const resetProactiveRefreshGuard = () => {
+  lastProactiveRefreshAt = 0;
+};
+
+/**
+ * The token to send with a request. When the stored access token says it has expired and a refresh token exists, renew
+ * first (single-flight, shared with the 401 handler), so the first call after a break does not fail with a red 401.
+ * Any problem here falls back to the old behaviour: send the request and let the server decide.
+ */
+async function accessTokenFor(url: unknown): Promise<string | null> {
+  const token = localStorage.getItem('accessToken');
+  if (!token) return null;
+  const path = typeof url === 'string' ? url : '';
+  if (NO_REFRESH_PATHS.some((p) => path.includes(p)) || !localStorage.getItem('refreshToken')) return token;
+  const expiresAt = tokenExpiresAt(token);
+  if (expiresAt === null || expiresAt - Date.now() > RENEW_LEAD_MS) return token;
+
+  const joinsRunningRenewal = refreshPromise !== null;
+  if (!joinsRunningRenewal) {
+    if (Date.now() - lastProactiveRefreshAt < PROACTIVE_REFRESH_MIN_GAP_MS) return token;
+    lastProactiveRefreshAt = Date.now();
+  }
+  try {
+    return await refreshAccessToken();
+  } catch {
+    return token;
+  }
+}
+
 // Request interceptor to add auth token
 api.interceptors.request.use(
-  (config) => {
-    const token = typeof window !== 'undefined' ? localStorage.getItem('accessToken') : null;
+  async (config) => {
+    const token = typeof window !== 'undefined' ? await accessTokenFor(config.url) : null;
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
@@ -241,6 +293,12 @@ api.interceptors.response.use(
       originalRequest.baseURL = fallbackApiUrl;
       return api(originalRequest);
     };
+
+    // A request the page cancelled itself (tab switched, search term changed, page left) is not a failure: pass it on
+    // untouched, without telling the person that the connection is down.
+    if (axios.isCancel(error) || error?.code === 'ERR_CANCELED') {
+      return Promise.reject(error);
+    }
 
     // Handle network errors
     if (!error.response) {
@@ -759,7 +817,7 @@ export const jobApi = {
 
 // Event API
 export const eventApi = {
-  getEvents: (params?: { page?: number; limit?: number; type?: string; upcoming?: boolean }) => 
+  getEvents: (params?: { page?: number; limit?: number; type?: string; upcoming?: boolean; past?: boolean; search?: string }) => 
     api.get('/events', { params }),
   getEvent: (id: string) => api.get(`/events/${id}`),
   getUpcoming: (limit?: number) =>
@@ -1217,6 +1275,27 @@ export interface AuditLogPage {
   pagination: PaginationMeta;
 }
 
+/** Whether one thing the platform depends on works: "off" means it is not configured or not used here. */
+export type SystemServiceState = 'ok' | 'warning' | 'error' | 'off';
+
+export interface SystemServiceStatus {
+  key: string;
+  label: string;
+  status: SystemServiceState;
+  /** One plain-English sentence for the administrator. */
+  detail: string;
+}
+
+/** GET /admin/system-status: is everything the platform depends on working? */
+export interface SystemStatus {
+  checkedAt: string;
+  environment: string;
+  version: string;
+  uptimeSeconds: number;
+  overall: 'ok' | 'warning' | 'error';
+  services: SystemServiceStatus[];
+}
+
 export const adminApi = {
   getStats: () => api.get('/admin/stats'),
   listUsers: (filters?: AdminUserFilters) =>
@@ -1253,6 +1332,8 @@ export const adminApi = {
   /** SUPER_ADMIN only. Deletes audit entries older than `daysToKeep` days (server floor: 30). */
   cleanupAuditLogs: (daysToKeep: number = AUDIT_RETENTION_DAYS) =>
     api.post<{ success: true; message: string; deletedCount: number }>('/admin/audit/cleanup', { daysToKeep }),
+  /** Health of the services the platform depends on (database, e-mail, storage, ...), in plain language. */
+  getSystemStatus: () => api.get<ApiSuccess<SystemStatus>>('/admin/system-status'),
 };
 
 // Account self-service API (PRD §8.5)
@@ -1283,11 +1364,6 @@ export const transactionApi = {
   /** PDF download; `response.data` is a Blob. */
   downloadReceipt: (id: string) =>
     api.get<Blob>(`/transactions/${seg(id)}/receipt`, { responseType: 'blob' }),
-};
-
-// Platform control API
-export const platformApi = {
-  getReadiness: () => api.get('/platform/readiness'),
 };
 
 export default api;

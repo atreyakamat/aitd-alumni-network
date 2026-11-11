@@ -133,7 +133,7 @@ describe('profile validators', () => {
   });
 
   describe('educationSchema', () => {
-    const valid = { institution: 'AITD', degree: 'B.Tech', startYear: 2015 };
+    const valid = { institution: 'AIEM', degree: 'B.Tech', startYear: 2015 };
     const parse = (body: Record<string, unknown>) => educationSchema.safeParse({ body: { ...valid, ...body } });
 
     it('accepts a valid education entry', () => {

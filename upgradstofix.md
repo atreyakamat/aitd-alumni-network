@@ -1,4 +1,4 @@
-# AIEM Connection — Upgrades & Fixes (for review)
+# AIEM Connect — Upgrades & Fixes (for review)
 
 > **Status:** Draft for your review. Nothing in here is applied yet.
 > **How to use this:** Each item has a **Decision** tag. Tell me which to proceed with.
@@ -17,7 +17,7 @@ This is a **mature, well-built full-stack app** — Next.js 14 client + Express/
 
 So this is **polish and targeted hardening**, not a rewrite. The work you asked for breaks into five tracks:
 
-1. **Rebrand** AITD Connection → **AIEM Connection** + blue/gold/white theme + landing fixes.
+1. **Rebrand** AIEM Connect → **AIEM Connect** + blue/gold/white theme + landing fixes.
 2. **Remove** the consumer Reels section.
 3. **Add** admin-managed **College Videos** + notify.
 4. **Harden** profile/banner **image upload** (it's already decent).
@@ -25,19 +25,19 @@ So this is **polish and targeted hardening**, not a rewrite. The work you asked 
 
 ---
 
-## 1. Rebrand: AITD Connection → AIEM Connection  🟡 NEEDS-OK (naming) / 🟢 FIX-NOW (mechanical)
+## 1. Rebrand: AIEM Connect → AIEM Connect  🟡 NEEDS-OK (naming) / 🟢 FIX-NOW (mechanical)
 
-**Context:** The college renamed from *Agnel Institute of Technology & Design (AITD)* to **Agnel Institute of Engineering & Management (AIEM)**, Goa. New site `aiemgoa.ac.in`, tagline **"Excellence Is Our Sole Goal."**
+**Context:** The college renamed from *Agnel Institute of Engineering & Management (AIEM)* to **Agnel Institute of Engineering & Management (AIEM)**, Goa. New site `aiemgoa.ac.in`, tagline **"Excellence Is Our Sole Goal."**
 
-**Current state:** 82 user-facing "AITD" strings across 27 source files. There is **no central brand constant** — the name is hardcoded everywhere (layout title, nav, footer, legal pages, auth pages, invite copy, emails, PDF receipts).
+**Current state:** 82 user-facing "AIEM" strings across 27 source files. There is **no central brand constant** — the name is hardcoded everywhere (layout title, nav, footer, legal pages, auth pages, invite copy, emails, PDF receipts).
 
 ### Plan
-- **1a.** 🟡 Introduce a single brand config (`client/src/lib/brand.ts` + `server/src/config/brand.ts`) with `APP_NAME = "AIEM Connection"`, `ORG_NAME`, `TAGLINE`, support email, address, domain. Then replace the 82 hardcoded strings to read from it. **Why:** next rename is one line, not 27 files.
+- **1a.** 🟡 Introduce a single brand config (`client/src/lib/brand.ts` + `server/src/config/brand.ts`) with `APP_NAME = "AIEM Connect"`, `ORG_NAME`, `TAGLINE`, support email, address, domain. Then replace the 82 hardcoded strings to read from it. **Why:** next rename is one line, not 27 files.
 yes do that please
-- **1b.** 🟢 Update `package.json` names (`aitd-connection` → `aiem-connection`), `<title>`/meta in `layout.tsx`, and all page `metadata`.
-- **1c.** 🟡 **Placeholder contact details** still say `alumni@aitd.edu`, `privacy@aitdconnection.aitd.edu`, `legal@aitdconnection.aitd.edu`, `+91-XXXX-XXXXXX`, `[College Address]`. **I need the real email(s), phone, and address** for AIEM — otherwise I'll leave `aiem`-style placeholders.
+- **1b.** 🟢 Update `package.json` names (`aiem-connect` → `aiem-connection`), `<title>`/meta in `layout.tsx`, and all page `metadata`.
+- **1c.** 🟡 **Placeholder contact details** still say `alumni@aiem.edu`, `privacy@aiemconnect.aiem.edu`, `legal@aiemconnect.aiem.edu`, `+91-XXXX-XXXXXX`, `[College Address]`. **I need the real email(s), phone, and address** for AIEM — otherwise I'll leave `aiem`-style placeholders.
 You can get it from the webstei aiemgoa.ac.in
-- **1d.** 🟢 `Education` section copy ("This is my AITD degree", "the one from AITD") → AIEM.
+- **1d.** 🟢 `Education` section copy ("This is my AIEM degree", "the one from AIEM") → AIEM.
 
 **Open question (🔵 DISCUSS):** Repo/folder is `aitd-alumni-network`. Renaming the Git repo/dir is disruptive (remotes, CI, Netlify). **Recommendation:** rename only the *product* strings and package names now; leave the repo folder name alone unless you specifically want it moved.
 yeah yeah no worries kepe it same
@@ -176,7 +176,7 @@ Full audit done. **Good news:** all money paths (Razorpay order → verify → w
 
 - **8a.** 🟢 Hardcoded external hero image (see 3c/2c) — single point of failure on the landing page.
 - **8b.** 🔵 No central config for the many invented marketing numbers / copy — minor. might need that 
-- **8c.** 🟢 `pdfReceipt.ts` and emails carry `aitd.edu` + `+91-XXXX` placeholders — real contact info needed (ties to 1c).
+- **8c.** 🟢 `pdfReceipt.ts` and emails carry `aiem.edu` + `+91-XXXX` placeholders — real contact info needed (ties to 1c).
 - **8d.** 🔵 `force-dynamic` globally (see 3a) also means no CDN caching of public pages — worth fixing for SEO/perf of a public alumni site. yes
 - **8e.** 🔵 Broadcast notifications (see 5) will need batching before any "notify all" feature ships. yes
 

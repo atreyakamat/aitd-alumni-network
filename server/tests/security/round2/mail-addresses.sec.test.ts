@@ -59,7 +59,7 @@ describe('single plain mailbox only', () => {
   it('every accepted invitation address is exactly one mailbox in the eyes of nodemailer', async () => {
     const inviter = await createUser('MEMBER');
     const stamp = Date.now();
-    for (const email of [`plain.${stamp}@aitd.test`, `o'brien+tag.${stamp}@mail.example.co.in`, `UPPER.${stamp}@Example.ORG`]) {
+    for (const email of [`plain.${stamp}@aiem.test`, `o'brien+tag.${stamp}@mail.example.co.in`, `UPPER.${stamp}@Example.ORG`]) {
       const normalised = normalizeEmail(email);
       expect(normalised).not.toBeNull();
       const parsed = nodemailer(normalised!);

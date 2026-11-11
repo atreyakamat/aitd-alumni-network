@@ -14,6 +14,8 @@ by tests); **historical** ones are kept for context only.
 | Call or change the API | [API_REFERENCE.md](API_REFERENCE.md) (generated from the router: `npm run docs:api`) and [SOCIAL_API.md](SOCIAL_API.md) for the social layer |
 | Write or run tests | [TESTING.md](TESTING.md): the test layers, TDD loop, how to add an endpoint |
 | Put it on a server | **[PRODUCTION_CHECKLIST.md](PRODUCTION_CHECKLIST.md) first**, then [DOCKER.md](DOCKER.md) |
+| Prove the Docker stack and Kafka work on a Docker machine (and fix what fails) | [DOCKER_TEST_GUIDE.md](DOCKER_TEST_GUIDE.md): one command, evidence bundle, the same suite runs in GitHub CI |
+| Audit the security of the running stack | [SECURITY_AUDIT_PLAN.md](SECURITY_AUDIT_PLAN.md): round 3, rules of engagement, the tools and the evidence expected |
 | See how it behaves when things go wrong, and what is still open | [ROBUSTNESS.md](ROBUSTNESS.md): timeouts, retries, logging and request ids, error boundaries, the backlog |
 | See what was audited and fixed | [SECURITY_AUDIT.md](SECURITY_AUDIT.md): every finding, the fix and its test; two rounds; the decisions taken |
 | See what is built | [FEATURE_STATUS.md](FEATURE_STATUS.md) and the overview in [PROJECT_OVERVIEW.md](PROJECT_OVERVIEW.md) |
@@ -29,6 +31,8 @@ by tests); **historical** ones are kept for context only.
 | [ARCHITECTURE.md](ARCHITECTURE.md) | current | |
 | [SECURITY_AUDIT.md](SECURITY_AUDIT.md) | current | Round 1, round 2, decisions implemented, test results |
 | [DOCKER.md](DOCKER.md) | current | Compose services, configuration, backups, upgrades, migrating old MySQL data |
+| [DOCKER_TEST_GUIDE.md](DOCKER_TEST_GUIDE.md) | current | Hand-over guide: prove the Docker/Kafka stack works, the gates, the fix loop, the proof bundle |
+| [SECURITY_AUDIT_PLAN.md](SECURITY_AUDIT_PLAN.md) | current | Round-3 audit plan and runbook |
 | [TESTING.md](TESTING.md) | current | |
 | [API_REFERENCE.md](API_REFERENCE.md) | generated | `tests/docs/api-reference.test.ts` fails when it is stale |
 | [SOCIAL_API.md](SOCIAL_API.md) | current | Contract of the social layer (posts, reactions, comments, reposts, follows, reports) |

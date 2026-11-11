@@ -33,6 +33,8 @@ const ADMIN_USER_SELECT = {
   userRole: true,
   isActive: true,
   isVerified: true,
+  /** PENDING / APPROVED / REJECTED: an applicant is not a member until an administrator has approved them. */
+  approvalStatus: true,
   lastLoginAt: true,
   createdAt: true,
 } satisfies Prisma.UserSelect;

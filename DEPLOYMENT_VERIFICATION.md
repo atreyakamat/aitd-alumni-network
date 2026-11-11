@@ -2,7 +2,7 @@
 
 # Production Deployment Verification Report
 
-## Project: AITD Alumni Network
+## Project: AIEM Alumni Network
 **Domain**: aitd.stixnvibes.com  
 **Date**: 2026-04-30  
 **Status**: ✅ Ready for Production
@@ -231,8 +231,8 @@ FRONTEND_URL=https://aitd.stixnvibes.com
 NODE_ENV=production
 PORT=5000
 CORS_ORIGINS=https://aitd.stixnvibes.com,http://localhost:5564
-JWT_SECRET=aitd-connection-secret-2026
-JWT_REFRESH_SECRET=aitd-connection-refresh-secret-2026
+JWT_SECRET=aiem-connect-secret-2026
+JWT_REFRESH_SECRET=aiem-connect-refresh-secret-2026
 ```
 
 ---

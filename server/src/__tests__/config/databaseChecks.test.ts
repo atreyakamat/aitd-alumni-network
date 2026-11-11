@@ -59,7 +59,7 @@ describe('findDatabaseProblems', () => {
   });
 
   it('fails when test-suite accounts exist', async () => {
-    const found = await codes([row({ userRole: 'SUPER_ADMIN' }), row({ id: 't', email: 'member.1.2@aitd.test' })]);
+    const found = await codes([row({ userRole: 'SUPER_ADMIN' }), row({ id: 't', email: 'member.1.2@aiem.test' })]);
     expect(found).toContain('DEMO_ACCOUNTS_PRESENT');
   });
 

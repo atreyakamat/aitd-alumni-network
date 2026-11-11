@@ -1,6 +1,6 @@
 > **Superseded (2026-11-08):** the "ready" claims in this report are historical and no longer accurate (the platform moved to PostgreSQL, and two rounds of security fixes changed what must be configured). Go-live is gated by [docs/PRODUCTION_CHECKLIST.md](docs/PRODUCTION_CHECKLIST.md); run `npm run preflight -w server` before deploying.
 
-# AITD Alumni Network - FINAL DEPLOYMENT READINESS REPORT
+# AIEM Alumni Network - FINAL DEPLOYMENT READINESS REPORT
 
 ## Executive Summary
 
@@ -329,7 +329,7 @@ All code is compiled, tested, documented, and configured for production deployme
 ### Step 3: Configure DNS (5 minutes)
 ```bash
 # Go to domain registrar
-# Add CNAME: aitd → aitd-stixnvibes-xyz.netlify.app
+# Add CNAME: aiem → aitd-stixnvibes-xyz.netlify.app
 # Add CNAME: api → railway-domain.railway.app
 # Wait 5-15 minutes for propagation
 ```
@@ -372,7 +372,7 @@ All code is compiled, tested, documented, and configured for production deployme
 ```
 ╔════════════════════════════════════════════════════════════════╗
 ║                                                                ║
-║  ✅ AITD ALUMNI NETWORK - PRODUCTION DEPLOYMENT READY          ║
+║  ✅ AIEM ALUMNI NETWORK - PRODUCTION DEPLOYMENT READY          ║
 ║                                                                ║
 ║  Frontend:  Ready for Netlify deployment                       ║
 ║  Backend:   Ready for Railway/Render deployment                ║

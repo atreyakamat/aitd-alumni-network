@@ -2,11 +2,10 @@
  * Single source of truth for product/organisation branding on the server
  * (emails, PDF receipts, invite copy). Mirror of client/src/lib/brand.ts.
  *
- * Renamed AITD Connection -> AIEM Connection (Agnel Institute of Technology & Design
- * -> Agnel Institute of Engineering & Management). Change values here, not inline.
+ * The product is called "AIEM Connect" (Agnel Institute of Engineering & Management). Change values here, not inline.
  */
 export const BRAND = {
-  appName: 'AIEM Connection',
+  appName: 'AIEM Connect',
   shortName: 'AIEM',
   orgName: 'AIEM Alumni Association',
   instituteName: 'Agnel Institute of Engineering & Management',

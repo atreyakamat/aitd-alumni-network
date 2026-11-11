@@ -1,5 +1,5 @@
 # Server Dockerfile — build from the repository root (npm workspaces):
-#   docker build -f server/Dockerfile -t aitd-api .
+#   docker build -f server/Dockerfile -t aiem-api .
 FROM node:20-alpine AS base
 RUN apk add --no-cache openssl
 

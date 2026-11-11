@@ -293,7 +293,7 @@ const MATRIX: Record<string, Level> = {
 
   // Admin
   'get /admin/stats': 'admin',
-  'get /platform/readiness': 'admin',
+  'get /admin/system-status': 'admin',
   'get /admin/approvals': 'admin',
   'get /admin/approvals/summary': 'admin',
   'post /admin/approvals/:id/approve': 'admin',

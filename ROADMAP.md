@@ -1,4 +1,4 @@
-# AIEM Connection — Next Build Roadmap
+# AIEM Connect — Next Build Roadmap
 
 > **Status:** Proposal for your review. Annotate inline (like `upgradstofix.md`) — tell me which to build, tweak scope, or drop.
 > **Scope chosen by you:** weekly digest email (admin), job referrals, admin/college jobs, a college requirements board, and a landing-page builder. **No AI features** (intentionally skipped).

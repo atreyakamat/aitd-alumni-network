@@ -3,8 +3,8 @@ import Link from 'next/link';
 import { getContactEmail, mailtoHref } from '@/lib/contact';
 
 export const metadata: Metadata = {
-  title: 'Contact Us | AIEM Connection',
-  description: 'How to reach the AIEM Alumni Association team behind AIEM Connection',
+  title: 'Contact Us | AIEM Connect',
+  description: 'How to reach the AIEM Alumni Association team behind AIEM Connect',
 };
 
 const topics = [

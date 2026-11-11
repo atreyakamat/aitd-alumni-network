@@ -23,8 +23,8 @@ const VIEWER = 'viewer-id';
 
 const profileRow = (overrides: Record<string, unknown> = {}) => ({
   id: OWNER,
-  email: 'owner@aitd.test',
-  secondaryEmail: 'alt@aitd.test',
+  email: 'owner@aiem.test',
+  secondaryEmail: 'alt@aiem.test',
   passwordHash: '$2a$10$secret',
   fullName: 'Owner',
   phoneNumber: '+91 99999 00000',
@@ -64,7 +64,7 @@ describe('userService', () => {
       expect(profile.phoneNumber).toBe('+91 99999 00000');
       expect(profile.locationLat).toBeCloseTo(19.076);
       expect(profile.locationLng).toBeCloseTo(72.8777);
-      expect(profile.email).toBe('owner@aitd.test');
+      expect(profile.email).toBe('owner@aiem.test');
       expect(profile.twoFactorEnabled).toBe(true);
       expect(prismaMock.connection.findFirst).not.toHaveBeenCalled();
     });
@@ -108,7 +108,7 @@ describe('userService', () => {
       expect(profile).not.toHaveProperty('emailVerifiedAt');
       expect(profile.isOwnProfile).toBe(false);
       // Logged-in members can see the contact e-mail
-      expect(profile.email).toBe('owner@aitd.test');
+      expect(profile.email).toBe('owner@aiem.test');
     });
 
     it('hides contact e-mails from anonymous visitors', async () => {
@@ -498,7 +498,7 @@ describe('userService', () => {
   });
 
   describe('education', () => {
-    const valid = { institution: 'AITD', degree: 'B.Tech', startYear: 2016, endYear: 2020, isPrimary: true };
+    const valid = { institution: 'AIEM', degree: 'B.Tech', startYear: 2016, endYear: 2020, isPrimary: true };
 
     it('creates for the authenticated user only, ignoring a userId in the body', async () => {
       prismaMock.education.create.mockResolvedValue({ id: 'e1' });

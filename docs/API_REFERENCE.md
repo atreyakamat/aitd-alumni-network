@@ -301,6 +301,7 @@ Auth endpoints (login, register, password reset, 2FA, email verification) are li
 | GET | `/admin/reports` | Admin+ |  |
 | PATCH | `/admin/reports/:id` | Admin+ |  |
 | GET | `/admin/stats` | Admin+ |  |
+| GET | `/admin/system-status` | Admin+ |  |
 | GET | `/admin/users` | Admin+ |  |
 | PATCH | `/admin/users/:id/role` | Admin+ |  |
 | PATCH | `/admin/users/:id/status` | Admin+ |  |
@@ -409,10 +410,4 @@ Auth endpoints (login, register, password reset, 2FA, email verification) are li
 | GET | `/mentorship/requests/mentee` | Signed in |  |
 | GET | `/mentorship/requests/mentor` | Signed in |  |
 | POST | `/mentorship/sessions/:sessionId/complete` | Signed in |  |
-
-## Platform
-
-| Method | Path | Access | Validated |
-|---|---|---|---|
-| GET | `/platform/readiness` | Admin+ |  |
 

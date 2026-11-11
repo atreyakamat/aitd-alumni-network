@@ -115,7 +115,7 @@ describe('getAuditLogs', () => {
     expect(args.take).toBe(25);
     expect(args.orderBy).toEqual({ createdAt: 'desc' });
     expect(prismaMock.auditLog.count).toHaveBeenCalledWith({ where: args.where });
-    expect(result).toEqual({ logs: [{ id: 'l1', user: null }], pagination: { page: 3, limit: 25, total: 120, totalPages: 5 } });
+    expect(result).toEqual({ logs: [{ id: 'l1', user: null, entityLabel: null }], pagination: { page: 3, limit: 25, total: 120, totalPages: 5 } });
     expect(prismaMock.user.findMany).not.toHaveBeenCalled();
   });
 
@@ -127,7 +127,7 @@ describe('getAuditLogs', () => {
       { id: 'l4', userId: null },
     ]);
     prismaMock.auditLog.count.mockResolvedValue(4);
-    prismaMock.user.findMany.mockResolvedValue([{ id: 'u1', fullName: 'Ada Admin', email: 'ada@aitd.test' }]);
+    prismaMock.user.findMany.mockResolvedValue([{ id: 'u1', fullName: 'Ada Admin', email: 'ada@aiem.test' }]);
 
     const result = await getAuditLogs({});
 
@@ -136,12 +136,12 @@ describe('getAuditLogs', () => {
       where: { id: { in: ['u1', 'gone'] } },
       select: { id: true, fullName: true, email: true },
     });
-    const ada = { id: 'u1', fullName: 'Ada Admin', email: 'ada@aitd.test' };
+    const ada = { id: 'u1', fullName: 'Ada Admin', email: 'ada@aiem.test' };
     expect(result.logs).toEqual([
-      { id: 'l1', userId: 'u1', user: ada },
-      { id: 'l2', userId: 'u1', user: ada },
-      { id: 'l3', userId: 'gone', user: null },
-      { id: 'l4', userId: null, user: null },
+      { id: 'l1', userId: 'u1', user: ada, entityLabel: null },
+      { id: 'l2', userId: 'u1', user: ada, entityLabel: null },
+      { id: 'l3', userId: 'gone', user: null, entityLabel: null },
+      { id: 'l4', userId: null, user: null, entityLabel: null },
     ]);
   });
 
@@ -152,7 +152,134 @@ describe('getAuditLogs', () => {
 
     const result = await getAuditLogs({});
 
-    expect(result.logs).toEqual([{ id: 'l1', userId: 'u1', user: null }]);
+    expect(result.logs).toEqual([{ id: 'l1', userId: 'u1', user: null, entityLabel: null }]);
+  });
+
+  describe('entityLabel (a readable name for the person an entry is about)', () => {
+    const ada = { id: 'admin-1', fullName: 'Ada Admin', email: 'ada@aiem.test' };
+    const grace = { id: 'user-2', fullName: 'Grace Hopper', email: 'grace@aiem.test' };
+    const alan = { id: 'user-3', fullName: 'Alan Turing', email: 'alan@aiem.test' };
+
+    const arrange = (logs: unknown[], users: unknown[]) => {
+      prismaMock.auditLog.findMany.mockResolvedValue(logs);
+      prismaMock.auditLog.count.mockResolvedValue(logs.length);
+      prismaMock.user.findMany.mockResolvedValue(users);
+    };
+
+    it('labels USER targets as "Full Name (email)"', async () => {
+      arrange([{ id: 'l1', userId: 'admin-1', action: 'APPROVE', entityType: 'USER', entityId: 'user-2' }], [ada, grace]);
+
+      const result = await getAuditLogs({});
+
+      expect(result.logs[0].entityLabel).toBe('Grace Hopper (grace@aiem.test)');
+      // the raw id is still there for anyone who needs it, and the acting administrator is resolved as before
+      expect(result.logs[0]).toMatchObject({ entityType: 'USER', entityId: 'user-2', user: ada });
+    });
+
+    it('is null for a user that no longer exists', async () => {
+      arrange([{ id: 'l1', userId: 'admin-1', action: 'DELETE', entityType: 'USER', entityId: 'deleted-user' }], [ada]);
+
+      const result = await getAuditLogs({});
+
+      expect(result.logs[0].entityLabel).toBeNull();
+    });
+
+    it('is null for other entity types, even when their id happens to match a user, and for entries without a target', async () => {
+      arrange(
+        [
+          { id: 'l1', userId: 'admin-1', entityType: 'POST', entityId: 'user-2' },
+          { id: 'l2', userId: 'admin-1', entityType: 'SYSTEM', entityId: 'audit-logs' },
+          { id: 'l3', userId: 'admin-1', entityType: 'USER', entityId: null },
+          { id: 'l4', userId: 'admin-1', entityType: 'USER' },
+          { id: 'l5', userId: 'admin-1', entityType: 'USER', entityId: '' },
+        ],
+        [ada, grace],
+      );
+
+      const result = await getAuditLogs({});
+
+      expect(result.logs.map((entry) => entry.entityLabel)).toEqual([null, null, null, null, null]);
+    });
+
+    it('resolves every row of the page with ONE query (targets and acting administrators together)', async () => {
+      const entries = Array.from({ length: 100 }, (_, i) => ({
+        id: `l${i}`,
+        userId: 'admin-1',
+        action: 'ACTIVATE',
+        entityType: 'USER',
+        entityId: i % 2 === 0 ? 'user-2' : 'user-3',
+      }));
+      arrange(entries, [ada, grace, alan]);
+
+      const result = await getAuditLogs({ limit: 100 });
+
+      expect(prismaMock.user.findMany).toHaveBeenCalledTimes(1);
+      const query = prismaMock.user.findMany.mock.calls[0][0];
+      expect([...query.where.id.in].sort()).toEqual(['admin-1', 'user-2', 'user-3']); // each id once, not once per row
+      expect(query.select).toEqual({ id: true, fullName: true, email: true }); // nothing beyond name and e-mail is read
+      expect(result.logs).toHaveLength(100);
+      expect(result.logs[0].entityLabel).toBe('Grace Hopper (grace@aiem.test)');
+      expect(result.logs[1].entityLabel).toBe('Alan Turing (alan@aiem.test)');
+      expect(result.logs[99].entityLabel).toBe('Alan Turing (alan@aiem.test)');
+    });
+
+    it('asks for the target of a USER entry that has no acting user (for example a system action)', async () => {
+      arrange([{ id: 'l1', userId: null, entityType: 'USER', entityId: 'user-3' }], [alan]);
+
+      const result = await getAuditLogs({});
+
+      expect(prismaMock.user.findMany).toHaveBeenCalledTimes(1);
+      expect(prismaMock.user.findMany.mock.calls[0][0].where).toEqual({ id: { in: ['user-3'] } });
+      expect(result.logs[0]).toMatchObject({ user: null, entityLabel: 'Alan Turing (alan@aiem.test)' });
+    });
+
+    it('does not query users at all when no row needs one', async () => {
+      arrange([{ id: 'l1', userId: null, entityType: 'SYSTEM', entityId: 'audit-logs' }], []);
+
+      const result = await getAuditLogs({});
+
+      expect(prismaMock.user.findMany).not.toHaveBeenCalled();
+      expect(result.logs).toEqual([{ id: 'l1', userId: null, entityType: 'SYSTEM', entityId: 'audit-logs', user: null, entityLabel: null }]);
+    });
+
+    it('falls back to whichever of name and e-mail exists', async () => {
+      arrange(
+        [
+          { id: 'l1', userId: null, entityType: 'USER', entityId: 'no-name' },
+          { id: 'l2', userId: null, entityType: 'USER', entityId: 'no-email' },
+        ],
+        [
+          { id: 'no-name', fullName: '  ', email: 'anon@aiem.test' },
+          { id: 'no-email', fullName: 'Only Name', email: '' },
+        ],
+      );
+
+      const result = await getAuditLogs({});
+
+      expect(result.logs.map((entry) => entry.entityLabel)).toEqual(['anon@aiem.test', 'Only Name']);
+    });
+
+    it('still returns the entries, with null labels, when the lookup fails', async () => {
+      arrange([{ id: 'l1', userId: 'admin-1', entityType: 'USER', entityId: 'user-2' }], []);
+      prismaMock.user.findMany.mockRejectedValue(new Error('db hiccup'));
+
+      const result = await getAuditLogs({});
+
+      expect(result.logs).toEqual([{ id: 'l1', userId: 'admin-1', entityType: 'USER', entityId: 'user-2', user: null, entityLabel: null }]);
+    });
+
+    it('never puts more than the name and e-mail of a user into the label', async () => {
+      // even if the query result carried more fields (it cannot: see the select above), only name and e-mail are used
+      arrange(
+        [{ id: 'l1', userId: null, entityType: 'USER', entityId: 'user-2' }],
+        [{ ...grace, passwordHash: 'secret-hash', phoneNumber: '+91 99999 99999' }],
+      );
+
+      const result = await getAuditLogs({});
+
+      expect(result.logs[0].entityLabel).toBe('Grace Hopper (grace@aiem.test)');
+      expect(JSON.stringify(result.logs[0].entityLabel)).not.toMatch(/secret-hash|99999/);
+    });
   });
 
   it('defaults to page 1 / 50 with no filters', async () => {

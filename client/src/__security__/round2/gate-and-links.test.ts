@@ -114,7 +114,7 @@ describe('the gate is the same for every spelling of a members-only path', () =>
   });
 
   it('a forged hint cookie in the wrong shape does not open the gate', () => {
-    for (const cookie of ['aitd_session=0', 'aitd_session=', 'xaitd_session=1', 'aitd_session=1x', 'aitd_session%3D1', 'a=aitd_session=1']) {
+    for (const cookie of ['aiem_session=0', 'aiem_session=', 'xaiem_session=1', 'aiem_session=1x', 'aiem_session%3D1', 'a=aiem_session=1']) {
       expect({ cookie, location: middleware(req('/dashboard', cookie)).headers.get('location') !== null }).toEqual({ cookie, location: true });
     }
   });

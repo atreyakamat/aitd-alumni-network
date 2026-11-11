@@ -1,7 +1,7 @@
 'use client';
 
 import * as React from 'react';
-import { Check, Loader2, Plus, Trash2, X } from 'lucide-react';
+import { Check, HandHeart, Loader2, Plus, Trash2, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
@@ -9,6 +9,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { AdminPageHeader } from '@/components/admin/AdminPageHeader';
+import { AdminErrorState } from '@/components/admin/AdminErrorState';
 import { useToast } from '@/hooks/use-toast';
 import { getApiErrorMessage } from '@/lib/api';
 import { requirementsApi, REQUIREMENT_CATEGORIES, type CollegeRequirement, type RequirementCategory, type RequirementResponse } from '@/lib/engagement';
@@ -19,6 +21,7 @@ export default function AdminRequirementsPage() {
   const { toast } = useToast();
   const [items, setItems] = React.useState<CollegeRequirement[]>([]);
   const [loading, setLoading] = React.useState(true);
+  const [loadError, setLoadError] = React.useState<string | null>(null);
   const [createOpen, setCreateOpen] = React.useState(false);
   const [expanded, setExpanded] = React.useState<string | null>(null);
   const [responses, setResponses] = React.useState<RequirementResponse[]>([]);
@@ -31,6 +34,7 @@ export default function AdminRequirementsPage() {
 
   const load = React.useCallback(async () => {
     setLoading(true);
+    setLoadError(null);
     try {
       // Admin list: pull each status so the board shows everything.
       const [open, fulfilled, closed] = await Promise.all([
@@ -40,11 +44,11 @@ export default function AdminRequirementsPage() {
       ]);
       setItems([...(open.items ?? []), ...(fulfilled.items ?? []), ...(closed.items ?? [])]);
     } catch (err) {
-      toast({ title: 'Could not load requirements', description: getApiErrorMessage(err, ''), variant: 'destructive' });
+      setLoadError(getApiErrorMessage(err, 'Please try again.'));
     } finally {
       setLoading(false);
     }
-  }, [toast]);
+  }, []);
 
   React.useEffect(() => { void load(); }, [load]);
 
@@ -107,16 +111,17 @@ export default function AdminRequirementsPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">College Requirements</h1>
-          <p className="text-muted-foreground">Post what the college needs; review alumni offers to help.</p>
-        </div>
-        <Button onClick={() => setCreateOpen(true)}><Plus className="mr-2 h-4 w-4" aria-hidden /> Post requirement</Button>
-      </div>
+      <AdminPageHeader
+        title="College Requirements"
+        icon={HandHeart}
+        description="Post what the college needs; review alumni offers to help."
+        actions={<Button onClick={() => setCreateOpen(true)}><Plus className="mr-2 h-4 w-4" aria-hidden /> Post requirement</Button>}
+      />
 
       {loading ? (
         <div className="flex justify-center py-16"><Loader2 className="h-6 w-6 animate-spin text-primary" aria-label="Loading" /></div>
+      ) : loadError ? (
+        <AdminErrorState title="Could not load the requirements" message={loadError} onRetry={() => void load()} />
       ) : items.length === 0 ? (
         <Card><CardContent className="py-16 text-center text-muted-foreground">No requirements yet.</CardContent></Card>
       ) : (

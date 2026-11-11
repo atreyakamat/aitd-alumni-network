@@ -17,6 +17,7 @@ export const parseEventFilters = (query: Request['query']): EventFilters => ({
   city: str(query.city),
   chapterId: str(query.chapterId),
   upcoming: query.upcoming === 'true' || query.upcoming === '1',
+  past: query.past === 'true' || query.past === '1',
   search: str(query.search) ?? str(query.q),
   page: int(query.page) ?? 1,
   limit: int(query.limit) ?? 12,

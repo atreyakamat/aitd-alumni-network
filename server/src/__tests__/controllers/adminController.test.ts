@@ -50,7 +50,7 @@ describe('adminController.getStats', () => {
     const body = res.json.mock.calls[0][0];
     expect(body.success).toBe(true);
     expect(hasBadNumber(body.data)).toBe(false);
-    expect(body.data.users).toMatchObject({ total: 0, growthPercent: 0, byRole: [], byBatch: [] });
+    expect(body.data.users).toMatchObject({ total: 0, growthPercent: 0, pendingApproval: 0, rejected: 0, byRole: [], byBatch: [] });
     expect(body.data.users.monthlyGrowth).toHaveLength(12);
     expect(body.data.financial.donations).toMatchObject({ totalAmount: 0, totalCount: 0, thisMonth: 0, thisYear: 0 });
     expect(body.data.financial.donations.monthly).toHaveLength(12);
@@ -203,6 +203,158 @@ describe('adminController.getStats', () => {
     await adminController.getStats(req, res, next);
     expect(next).toHaveBeenCalledWith(expect.any(Error));
     expect(res.json).not.toHaveBeenCalled();
+  });
+});
+
+/**
+ * The platform is private: a registration is only a request until an administrator approves it. The dashboard numbers
+ * therefore describe members (APPROVED), never applicants. A tiny in-memory user table stands in for PostgreSQL so these
+ * tests check what the numbers MEAN, independent of the order in which the controller asks for them.
+ */
+describe('adminController.getStats counts members only', () => {
+  type Row = {
+    id: string;
+    isActive: boolean;
+    isVerified: boolean;
+    approvalStatus: 'PENDING' | 'APPROVED' | 'REJECTED';
+    userRole: string;
+    batchYear: number;
+    city: string | null;
+    createdAt: Date;
+    lastLoginAt: Date | null;
+  };
+
+  const now = new Date();
+  const inMonth = (offset: number) => new Date(now.getFullYear(), now.getMonth() - offset, 2, 12);
+  const row = (id: string, overrides: Partial<Row>): Row => ({
+    id,
+    isActive: true,
+    isVerified: false,
+    approvalStatus: 'APPROVED',
+    userRole: 'MEMBER',
+    batchYear: 2020,
+    city: null,
+    createdAt: inMonth(0),
+    lastLoginAt: null,
+    ...overrides,
+  });
+
+  const table: Row[] = [
+    row('a', { isVerified: true, city: 'Pune', lastLoginAt: new Date() }), // approved, new this month, recently active
+    row('b', { isVerified: true, userRole: 'ADMIN', city: 'Pune', createdAt: inMonth(1) }), // approved, joined last month
+    row('c', { approvalStatus: 'PENDING', batchYear: 2024, city: 'Goa', lastLoginAt: new Date() }), // applicant
+    row('d', { approvalStatus: 'PENDING', batchYear: 2024, city: 'Goa' }), // applicant
+    row('e', { approvalStatus: 'REJECTED', batchYear: 2024, city: 'Goa', createdAt: inMonth(1) }), // turned down
+    row('f', { isVerified: true, isActive: false, batchYear: 2019, city: 'Pune', createdAt: inMonth(2) }), // approved but deactivated
+  ];
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const matches = (candidate: Row, where: Record<string, any> = {}): boolean =>
+    Object.entries(where).every(([key, condition]) => {
+      const value = (candidate as unknown as Record<string, unknown>)[key];
+      if (condition === null || typeof condition !== 'object' || condition instanceof Date) return value === condition;
+      return Object.entries(condition as Record<string, unknown>).every(([operator, operand]) => {
+        if (operator === 'gte') return value != null && (value as Date) >= (operand as Date);
+        if (operator === 'lt') return value != null && (value as Date) < (operand as Date);
+        if (operator === 'not') return value !== operand;
+        throw new Error(`the in-memory user table does not support "${key}.${operator}"`);
+      });
+    });
+
+  const arrangeUserTable = () => {
+    arrangeEmptyDb();
+    prismaMock.user.count.mockImplementation((async (args: any) => table.filter((r) => matches(r, args?.where)).length) as any);
+    prismaMock.user.groupBy.mockImplementation((async (args: any) => {
+      const key = args.by[0] as keyof Row;
+      const counts = new Map<unknown, number>();
+      for (const r of table.filter((candidate) => matches(candidate, args.where))) counts.set(r[key], (counts.get(r[key]) ?? 0) + 1);
+      return [...counts].map(([value, count]) => ({ [key]: value, _count: { _all: count } }));
+    }) as any);
+  };
+
+  const getData = async () => {
+    const { req, res, next } = mockReqRes();
+    await adminController.getStats(req, res, next);
+    expect(next).not.toHaveBeenCalled();
+    return res.json.mock.calls[0][0].data;
+  };
+
+  it('counts only approved, active members as the total and the recently active', async () => {
+    arrangeUserTable();
+    const { users } = await getData();
+    expect(users.total).toBe(2); // a, b: the pending/rejected applicants and the deactivated member are not counted
+    expect(users.active).toBe(1); // a signed in within 30 days; c is an applicant who did too, and must not count
+  });
+
+  it('keeps users.verified as the number of approved members', async () => {
+    arrangeUserTable();
+    const { users } = await getData();
+    expect(users.verified).toBe(3); // a, b, f
+  });
+
+  it('adds the number of registrations waiting for approval and the number rejected', async () => {
+    arrangeUserTable();
+    const { users } = await getData();
+    expect(users.pendingApproval).toBe(2); // c, d
+    expect(users.rejected).toBe(1); // e
+  });
+
+  it('measures new members and growth from approved users only', async () => {
+    arrangeUserTable();
+    const { users } = await getData();
+    // This month: a (approved) - c and d are applicants. Last month: b (approved) - e was rejected.
+    expect(users.newThisMonth).toBe(1);
+    expect(users.growthPercent).toBe(0);
+  });
+
+  it('groups members by role, batch and city without the applicants', async () => {
+    arrangeUserTable();
+    const { users } = await getData();
+    expect(users.byRole).toEqual(expect.arrayContaining([{ role: 'MEMBER', count: 2 }, { role: 'ADMIN', count: 1 }]));
+    expect(users.byRole).toHaveLength(2);
+    expect(users.byBatch).toEqual(expect.arrayContaining([{ year: 2020, count: 2 }, { year: 2019, count: 1 }]));
+    expect(users.byBatch.some((b: { year: number }) => b.year === 2024)).toBe(false);
+    expect(users.byLocation).toEqual([{ city: 'Pune', count: 2 }]); // Goa has applicants only; f is deactivated
+  });
+
+  it('builds the monthly registration series from approved users only', async () => {
+    arrangeUserTable();
+    const { users } = await getData();
+    const series = users.monthlyGrowth as Array<{ month: string; count: number }>;
+    expect(series).toHaveLength(12);
+    // [..., two months ago, last month, this month]: f, b, a
+    expect(series.slice(-3).map((m) => m.count)).toEqual([1, 1, 1]);
+    expect(series.reduce((sum, m) => sum + m.count, 0)).toBe(3);
+  });
+
+  it('never asks the database for a member number without the approval filter', async () => {
+    arrangeUserTable();
+    await getData();
+    const queries = [...prismaMock.user.count.mock.calls, ...prismaMock.user.groupBy.mock.calls].map(([args]: any[]) => args?.where?.approvalStatus);
+    expect(queries.length).toBeGreaterThan(0);
+    expect(queries.every((status: unknown) => ['APPROVED', 'PENDING', 'REJECTED'].includes(status as string))).toBe(true);
+    expect(queries.filter((status: unknown) => status === 'PENDING')).toHaveLength(1);
+    expect(queries.filter((status: unknown) => status === 'REJECTED')).toHaveLength(1);
+  });
+
+  it('keeps every status in the recent registrations feed and says which one each has', async () => {
+    arrangeEmptyDb();
+    const recent = [
+      { id: 'u1', fullName: 'New Applicant', email: 'new@aiem.test', createdAt: new Date(), batchYear: 2024, approvalStatus: 'PENDING' },
+      { id: 'u2', fullName: 'Rejected One', email: 'no@aiem.test', createdAt: new Date(), batchYear: 2021, approvalStatus: 'REJECTED' },
+      { id: 'u3', fullName: 'A Member', email: 'm@aiem.test', createdAt: new Date(), batchYear: 2015, approvalStatus: 'APPROVED' },
+    ];
+    prismaMock.user.findMany.mockResolvedValue(recent);
+
+    const { req, res, next } = mockReqRes();
+    await adminController.getStats(req, res, next);
+    expect(next).not.toHaveBeenCalled();
+
+    expect(res.json.mock.calls[0][0].data.recentActivity.users).toEqual(recent);
+    const feedQuery = prismaMock.user.findMany.mock.calls[0][0];
+    expect(feedQuery.select).toMatchObject({ id: true, fullName: true, email: true, createdAt: true, batchYear: true, approvalStatus: true });
+    expect(feedQuery.where).toBeUndefined(); // all statuses: the feed is "who registered lately"
+    expect(feedQuery).toMatchObject({ take: 5, orderBy: { createdAt: 'desc' } });
   });
 });
 

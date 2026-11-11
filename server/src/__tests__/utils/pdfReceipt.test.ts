@@ -13,29 +13,29 @@ describe('generateReceiptNumber', () => {
     const a = generateReceiptNumber('DON', '1a2b3c4d-5e6f-4000-8000-000000000000', date);
     const b = generateReceiptNumber('DON', '1a2b3c4d-5e6f-4000-8000-000000000000', date);
     expect(a).toBe(b);
-    expect(a).toBe('AITD-DON-20260305-1A2B3C4D');
+    expect(a).toBe('AIEM-DON-20260305-1A2B3C4D');
   });
 
   it('distinguishes type, date and transaction', () => {
     const date = new Date('2026-12-31T23:59:59Z');
-    expect(generateReceiptNumber('MEM', 'abcdef12-0000', date)).toBe('AITD-MEM-20261231-ABCDEF12');
+    expect(generateReceiptNumber('MEM', 'abcdef12-0000', date)).toBe('AIEM-MEM-20261231-ABCDEF12');
     expect(generateReceiptNumber('MEM', 'ffff0000', date)).not.toBe(generateReceiptNumber('MEM', 'abcdef12', date));
   });
 
   it('matches the documented format and tolerates bad input', () => {
     expect(generateReceiptNumber('DON', 'x', new Date('2026-01-01T00:00:00Z'))).toMatch(
-      /^AITD-(DON|MEM)-\d{8}-[A-Z0-9]+$/
+      /^AIEM-(DON|MEM)-\d{8}-[A-Z0-9]+$/
     );
-    expect(generateReceiptNumber('DON', '', new Date('invalid'))).toBe('AITD-DON-00000000-UNKNOWN');
+    expect(generateReceiptNumber('DON', '', new Date('invalid'))).toBe('AIEM-DON-00000000-UNKNOWN');
   });
 });
 
 describe('PDF receipts', () => {
   it('renders a donation receipt PDF with optional fields', async () => {
     const buf = await generateDonationReceipt({
-      receiptNumber: 'AITD-DON-20260101-ABCDEF12',
+      receiptNumber: 'AIEM-DON-20260101-ABCDEF12',
       donorName: 'Asha',
-      donorEmail: 'asha@aitd.test',
+      donorEmail: 'asha@aiem.test',
       amount: 2500,
       date: new Date('2026-01-01'),
       paymentId: 'pay_1',
@@ -62,9 +62,9 @@ describe('PDF receipts', () => {
 
   it('renders membership receipts for fixed-term and lifetime tiers', async () => {
     const base = {
-      receiptNumber: 'AITD-MEM-20260101-ABCDEF12',
+      receiptNumber: 'AIEM-MEM-20260101-ABCDEF12',
       memberName: 'Ravi',
-      memberEmail: 'ravi@aitd.test',
+      memberEmail: 'ravi@aiem.test',
       membershipTier: 'Gold',
       amount: 999,
       startDate: new Date('2026-01-01'),

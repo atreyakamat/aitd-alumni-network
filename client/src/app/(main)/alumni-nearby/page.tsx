@@ -8,6 +8,7 @@ import { AlertTriangle, Compass, Loader2, LocateFixed, MapPin, Navigation, Refre
 import { useAuth } from '@/context/auth-context';
 import { getApiErrorMessage, userApi } from '@/lib/api';
 import { geolocationErrorMessage, profileQueryKey, type EditableProfile } from '@/lib/profile';
+import { DEPARTMENTS } from '@/lib/departments';
 import {
   boundsEqual,
   buildFilterParams,
@@ -66,15 +67,6 @@ interface SearchCentre {
   label: string;
 }
 
-const DEPARTMENTS = [
-  'Computer Science',
-  'Computer Engineering',
-  'Information Technology',
-  'Electronics',
-  'Electrical',
-  'Mechanical',
-  'Civil',
-];
 
 const CURRENT_YEAR = new Date().getFullYear();
 const BATCH_YEARS = Array.from({ length: CURRENT_YEAR + 4 - 1980 + 1 }, (_, i) => CURRENT_YEAR + 4 - i);

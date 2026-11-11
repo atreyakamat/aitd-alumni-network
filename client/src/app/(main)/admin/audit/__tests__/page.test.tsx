@@ -34,7 +34,7 @@ import AdminAuditPage from '@/app/(main)/admin/audit/page';
 const entry = (id: string, extra: Record<string, unknown> = {}) => ({
   id,
   userId: 'u1',
-  user: { id: 'u1', fullName: 'Ada Admin', email: 'ada@aitd.test' },
+  user: { id: 'u1', fullName: 'Ada Admin', email: 'ada@aiem.test' },
   action: 'ROLE_CHANGE',
   entityType: 'USER',
   entityId: `target-${id}`,
@@ -74,13 +74,81 @@ describe('Admin audit log page', () => {
     renderPage();
 
     const row = (await screen.findByText('Ada Admin')).closest('tr')!;
-    expect(within(row).getByText('ada@aitd.test')).toBeInTheDocument();
+    expect(within(row).getByText('ada@aiem.test')).toBeInTheDocument();
     expect(within(row).getByText('ROLE_CHANGE')).toBeInTheDocument();
     expect(within(row).getByText('USER')).toBeInTheDocument();
     expect(within(row).getByText('target-1')).toBeInTheDocument();
     expect(within(row).getByText('10.0.0.1')).toBeInTheDocument();
     expect(within(row).getByText(/2 hours ago/)).toBeInTheDocument();
     expect(lastParams()).toMatchObject({ page: 1 });
+  });
+
+  it('starts with the shared page header: one h1, no back link of its own', async () => {
+    renderPage();
+    await screen.findByText('Ada Admin');
+    expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1);
+    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('Audit log');
+    expect(screen.queryByRole('link', { name: /admin dashboard/i })).not.toBeInTheDocument();
+  });
+
+  describe('Entity column', () => {
+    const UUID = '3f2b8c1e-5d4a-4c1b-9a7e-0f6d2b1c8a90';
+
+    it('shows who it was done to when the server sends a label, with the entity type as a small caption', async () => {
+      adminApi.getAuditLogs.mockResolvedValue(pageOf([entry('1', { entityId: UUID, entityLabel: 'Jane Doe (jane@x.edu)' })]));
+      renderPage();
+
+      const row = (await screen.findByText('Jane Doe (jane@x.edu)')).closest('tr')!;
+      const caption = within(row).getByText('USER');
+      expect(caption.className).toMatch(/text-xs/);
+      expect(caption.className).toMatch(/muted/);
+      // the raw id is not what the administrator reads
+      expect(row.textContent).not.toContain(UUID);
+      expect(row.textContent).not.toContain('3f2b8c1e');
+    });
+
+    it('shortens a bare id and keeps the full id in a title when there is no label', async () => {
+      adminApi.getAuditLogs.mockResolvedValue(pageOf([entry('1', { entityId: UUID, entityLabel: null })]));
+      renderPage();
+
+      const short = await screen.findByText('3f2b8c1e…');
+      expect(short).toHaveAttribute('title', UUID);
+      expect(within(short.closest('tr')!).getByText('USER')).toBeInTheDocument();
+      expect(short.closest('tr')!.textContent).not.toContain(UUID);
+    });
+
+    it('also copes with a server that has no entityLabel at all', async () => {
+      adminApi.getAuditLogs.mockResolvedValue(pageOf([entry('1', { entityId: UUID })]));
+      renderPage();
+      expect(await screen.findByText('3f2b8c1e…')).toHaveAttribute('title', UUID);
+    });
+
+    it('leaves a short id as it is', async () => {
+      renderPage();
+      expect(await screen.findByText('target-1')).toHaveAttribute('title', 'target-1');
+    });
+
+    it('shows nothing under the type for an entry without an entity id or label', async () => {
+      adminApi.getAuditLogs.mockResolvedValue(pageOf([entry('1', { entityType: 'SYSTEM', entityId: null })]));
+      renderPage();
+      const table = await screen.findByRole('table');
+      const row = within(table).getByText('SYSTEM').closest('tr')!;
+      expect(row.querySelector('[title]')).toBeNull();
+    });
+
+    it('still gives the full entity id in the expanded details', async () => {
+      adminApi.getAuditLogs.mockResolvedValue(pageOf([entry('1', { entityId: UUID, entityLabel: 'Jane Doe (jane@x.edu)' })]));
+      renderPage();
+      await userEvent.click(await screen.findByRole('button', { name: /show details/i }));
+      expect(within(screen.getByTestId('audit-details-1')).getByText(UUID)).toBeInTheDocument();
+    });
+
+    it('treats a label as plain text, never as HTML', async () => {
+      adminApi.getAuditLogs.mockResolvedValue(pageOf([entry('1', { entityLabel: '<img src=x onerror=alert(1)> (a@b.c)' })]));
+      const { container } = renderPage();
+      expect(await screen.findByText(/<img src=x/)).toBeInTheDocument();
+      expect(container.querySelector('img')).toBeNull();
+    });
   });
 
   it('falls back to the user id, or "System", when no actor is resolved', async () => {

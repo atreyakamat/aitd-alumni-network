@@ -338,7 +338,7 @@ describe('userController (unit)', () => {
 describe('user routes (HTTP)', () => {
   const target = (overrides: Record<string, unknown> = {}) => ({
     id: OTHER_USER_ID,
-    email: 'other@aitd.test',
+    email: 'other@aiem.test',
     passwordHash: '$2a$10$hash',
     fullName: 'Other',
     phoneNumber: '+91 1',
@@ -411,7 +411,7 @@ describe('user routes (HTTP)', () => {
       expect(res.status).toBe(200);
       expect(res.body.data.phoneNumber).toBe('+91 1');
       expect(res.body.data.isConnected).toBe(true);
-      expect(res.body.data.email).toBe('other@aitd.test');
+      expect(res.body.data.email).toBe('other@aiem.test');
     });
 
     it('404s for a deactivated account', async () => {

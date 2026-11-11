@@ -281,7 +281,7 @@ describe('validate: parsed body replaces req.body (mass-assignment guard)', () =
 
   it('strips privileged keys from registration and applies normalisation', () => {
     const req = run(registerSchema, {
-      email: '  New@AITD.edu ',
+      email: '  New@AIEM.edu ',
       password: 'Strong#Pass1',
       fullName: ' New Alum ',
       batchYear: 2020,
@@ -291,7 +291,7 @@ describe('validate: parsed body replaces req.body (mass-assignment guard)', () =
       ...SMUGGLED,
     });
     expect(req.body).toEqual({
-      email: 'new@aitd.edu',
+      email: 'new@aiem.edu',
       password: 'Strong#Pass1',
       fullName: 'New Alum',
       batchYear: 2020,

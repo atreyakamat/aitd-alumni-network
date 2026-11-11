@@ -88,10 +88,10 @@ describe('readKafkaSettings', () => {
     expect(s).toMatchObject({
       enabled: true,
       brokers: ['kafka-1:9092', 'kafka-2:9092'],
-      clientId: 'aitd-api',
-      groupId: 'aitd-notifications',
-      topic: 'aitd.notifications',
-      dlqTopic: 'aitd.notifications.dlq',
+      clientId: 'aiem-api',
+      groupId: 'aiem-notifications',
+      topic: 'aiem.notifications',
+      dlqTopic: 'aiem.notifications.dlq',
       ssl: false,
       partitions: 3,
       replicationFactor: 1,
@@ -105,7 +105,7 @@ describe('readKafkaSettings', () => {
   it('builds topic names from a prefix and refuses a prefix Kafka would reject', () => {
     expect(readKafkaSettings({ ...ENV, KAFKA_TOPIC_PREFIX: 'college.prod' } as NodeJS.ProcessEnv).topic).toBe('college.prod.notifications');
     const bad = readKafkaSettings({ ...ENV, KAFKA_TOPIC_PREFIX: 'bad prefix/!' } as NodeJS.ProcessEnv);
-    expect(bad.topic).toBe('aitd.notifications');
+    expect(bad.topic).toBe('aiem.notifications');
     expect(bad.problems.join(' ')).toMatch(/KAFKA_TOPIC_PREFIX/);
   });
 
@@ -177,7 +177,7 @@ describe('kafka client', () => {
     process.env.KAFKA_SASL_USERNAME = 'u';
     process.env.KAFKA_SASL_PASSWORD = 'p';
     await getProducer();
-    expect(lastKafkaConfig).toMatchObject({ clientId: 'aitd-api', brokers: ['kafka:9092'], ssl: true, sasl: { mechanism: 'plain', username: 'u', password: 'p' } });
+    expect(lastKafkaConfig).toMatchObject({ clientId: 'aiem-api', brokers: ['kafka:9092'], ssl: true, sasl: { mechanism: 'plain', username: 'u', password: 'p' } });
     delete process.env.KAFKA_SSL;
     delete process.env.KAFKA_SASL_MECHANISM;
     delete process.env.KAFKA_SASL_USERNAME;
@@ -209,7 +209,7 @@ describe('kafka client', () => {
     await ensureNotificationTopics();
     expect(createdTopics).toHaveLength(1);
     const call = createdTopics[0] as { topics: Array<{ topic: string; numPartitions: number; replicationFactor: number }>; waitForLeaders: boolean };
-    expect(call.topics.map((t) => t.topic)).toEqual(['aitd.notifications', 'aitd.notifications.dlq']);
+    expect(call.topics.map((t) => t.topic)).toEqual(['aiem.notifications', 'aiem.notifications.dlq']);
     expect(call.topics[0]).toMatchObject({ numPartitions: 6, replicationFactor: 1 });
     expect(call.topics[1].numPartitions).toBe(1);
     expect(call.waitForLeaders).toBe(true);

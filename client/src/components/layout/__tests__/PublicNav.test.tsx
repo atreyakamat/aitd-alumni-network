@@ -16,7 +16,7 @@ describe('PublicNav (the header of the landing page and of the guest donation pa
     render(<PublicNav />);
     expect(screen.getByRole('link', { name: 'Sign In' })).toHaveAttribute('href', '/login');
     expect(screen.getByRole('link', { name: 'Join Now' })).toHaveAttribute('href', '/register');
-    expect(screen.getByRole('link', { name: /aiem connection/i })).toHaveAttribute('href', '/');
+    expect(screen.getByRole('link', { name: /aiem connect/i })).toHaveAttribute('href', '/');
   });
 
   it('has a "Donate" link to /donations, the one section open to visitors', () => {

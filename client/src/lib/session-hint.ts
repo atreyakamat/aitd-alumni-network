@@ -1,5 +1,5 @@
 /**
- * Session HINT cookie (`aitd_session=1`).
+ * Session HINT cookie (`aiem_session=1`).
  *
  * SECURITY NOTE - read before changing:
  * - This cookie is NOT a credential and carries NO secret. Anyone can set it by hand.
@@ -16,7 +16,7 @@
  * from `/auth/me`, and cross-tab logout.
  */
 
-export const SESSION_COOKIE = 'aitd_session';
+export const SESSION_COOKIE = 'aiem_session';
 
 /** Matches the API refresh-token lifetime (JWT_REFRESH_EXPIRES_IN default: 7d). */
 export const SESSION_HINT_MAX_AGE_SECONDS = 7 * 24 * 60 * 60;

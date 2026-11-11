@@ -1,6 +1,6 @@
 # Authentication, sessions and account security
 
-How a person proves who they are in AITD Connection, what the server refuses, and which settings change that. The code
+How a person proves who they are in AIEM Connect, what the server refuses, and which settings change that. The code
 lives in `server/src/services/authService.ts` (rules), `controllers/authController.ts` (HTTP), `middleware/auth.ts`
 (guards); the client side is `client/src/context/auth-context.tsx`,
 `src/lib/api.ts` and `src/middleware.ts`.
@@ -162,7 +162,7 @@ Full request/response shapes: [API_REFERENCE.md](API_REFERENCE.md).
 
 ## The browser side
 
-* `src/middleware.ts` redirects visitors without the `aitd_session` hint cookie away from member pages
+* `src/middleware.ts` redirects visitors without the `aiem_session` hint cookie away from member pages
   (`/dashboard`, `/admin/*`, `/directory`, ...) to `/login?next=…`. The cookie is only a hint; **the API is the authority** and
   the member layout re-checks the session. Open pages are listed in `src/lib/public-paths.ts` (`/`, `/login`, `/register`,
   `/verify-email`, `/forgot-password`, `/reset-password` and the legal pages). **There are no public sections any more:** events, news,

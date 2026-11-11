@@ -84,7 +84,7 @@ describe('ProfileClient actions', () => {
           workExperiences: [
             { id: 'w1', company: 'Acme', role: 'Engineer', startDate: '2020-01-01T00:00:00.000Z', isCurrent: true },
           ],
-          educations: [{ id: 'e1', institution: 'AITD', degree: 'B.Tech', startYear: 2011, endYear: 2015, isPrimary: true }],
+          educations: [{ id: 'e1', institution: 'AIEM', degree: 'B.Tech', startYear: 2011, endYear: 2015, isPrimary: true }],
         },
       },
     });
@@ -95,7 +95,7 @@ describe('ProfileClient actions', () => {
     expect(screen.getByRole('link', { name: 'LinkedIn' })).toHaveAttribute('href', 'https://linkedin.com/in/ravi');
     expect(screen.getByText('Engineer')).toBeInTheDocument();
     expect(screen.getByText('Jan 2020 - Present')).toBeInTheDocument();
-    expect(screen.getByText('AITD')).toBeInTheDocument();
+    expect(screen.getByText('AIEM')).toBeInTheDocument();
     expect(screen.getByText('Go')).toBeInTheDocument();
   });
 

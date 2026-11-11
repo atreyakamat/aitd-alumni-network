@@ -7,7 +7,7 @@ export function rawPost(overrides: Record<string, unknown> = {}) {
   return {
     id: 'p1',
     type: 'GENERAL',
-    content: 'Hello #AITD alumni',
+    content: 'Hello #AIEM alumni',
     mediaUrls: [],
     videoUrl: null,
     thumbnailUrl: null,
@@ -21,7 +21,7 @@ export function rawPost(overrides: Record<string, unknown> = {}) {
     counts: { reactions: 2, comments: 0, reposts: 0, views: 0 },
     reactionSummary: { LIKE: 2 },
     topReactions: ['LIKE'],
-    hashtags: ['aitd'],
+    hashtags: ['aiem'],
     mentions: [],
     viewer: { reaction: null, saved: false, reposted: false, isAuthor: false, followsAuthor: true },
     repostOf: null,

@@ -1,4 +1,4 @@
-# AITD Alumni Network - API Routes
+# AIEM Alumni Network - API Routes
 
 The endpoint reference now lives in [docs/API_REFERENCE.md](docs/API_REFERENCE.md). It is generated from the
 live Express router (`npm run docs:api` in `server/`), lists every endpoint with its access level, and a test

@@ -3,6 +3,14 @@ import bcrypt from 'bcryptjs';
 
 const prisma = new PrismaClient();
 
+/** Demo dates are relative to the day the seed runs, so a fresh database always has upcoming events. */
+const inDays = (days: number, hour: number, minute = 0): Date => {
+  const date = new Date();
+  date.setDate(date.getDate() + days);
+  date.setHours(hour, minute, 0, 0);
+  return date;
+};
+
 async function main() {
   console.log('🌱 Seeding database...');
 
@@ -192,7 +200,7 @@ async function main() {
   // Create admin user. In production the password must come from the
   // environment; re-running the seed never resets an existing password.
   const isProduction = process.env.NODE_ENV === 'production';
-  const adminEmail = process.env.SEED_ADMIN_EMAIL || 'admin@aitdconnection.edu';
+  const adminEmail = process.env.SEED_ADMIN_EMAIL || 'admin@aiemconnect.edu';
   const adminPlainPassword = process.env.SEED_ADMIN_PASSWORD || (isProduction ? '' : 'Admin@123');
   if (!adminPlainPassword || (isProduction && adminPlainPassword.length < 12)) {
     throw new Error('Set SEED_ADMIN_PASSWORD (12+ characters) to seed the super admin in production.');
@@ -221,7 +229,7 @@ async function main() {
       emailVerifiedAt: new Date(),
       profileCompleteness: 50,
       currentDesignation: 'Platform Administrator',
-      shortBio: 'Managing the AITD Connection platform',
+      shortBio: 'Managing the AIEM Connect platform',
       membershipTierId: patronTier.id,
     },
   });
@@ -311,8 +319,8 @@ async function main() {
       eventType: 'OFFLINE' as const,
       venue: 'College Auditorium',
       city: 'Mumbai',
-      startDate: new Date('2026-05-15T10:00:00'),
-      endDate: new Date('2026-05-15T18:00:00'),
+      startDate: inDays(30, 10),
+      endDate: inDays(30, 18),
       capacity: 500,
       tags: ['Reunion', 'Networking', 'Annual Event'],
       status: 'PUBLISHED' as const,
@@ -323,8 +331,8 @@ async function main() {
       description: 'An insightful webinar on the latest developments in Artificial Intelligence and Machine Learning.',
       eventType: 'ONLINE' as const,
       joinLink: 'https://meet.google.com/abc-defg-hij',
-      startDate: new Date('2026-04-20T15:00:00'),
-      endDate: new Date('2026-04-20T16:30:00'),
+      startDate: inDays(14, 15),
+      endDate: inDays(14, 16, 30),
       capacity: 200,
       tags: ['Tech', 'AI', 'Webinar'],
       status: 'PUBLISHED' as const,
@@ -337,8 +345,8 @@ async function main() {
       venue: 'College Campus',
       city: 'Pune',
       joinLink: 'https://meet.google.com/xyz-uvwx-rst',
-      startDate: new Date('2026-06-10T09:00:00'),
-      endDate: new Date('2026-06-10T17:00:00'),
+      startDate: inDays(45, 9),
+      endDate: inDays(45, 17),
       capacity: 300,
       tags: ['Career', 'Jobs', 'Networking'],
       status: 'PUBLISHED' as const,
@@ -357,9 +365,9 @@ async function main() {
   // Create sample news articles
   const newsData = [
     {
-      title: 'AITD Connection Platform Launches',
+      title: 'AIEM Connect Platform Launches',
       slug: 'alumni-connect-platform-launches',
-      content: 'We are excited to announce the launch of our new AITD Connection platform...',
+      content: 'We are excited to announce the launch of our new AIEM Connect platform...',
       excerpt: 'The new platform brings modern features for better networking.',
       category: 'INSTITUTE_UPDATE' as const,
       authorId: adminUser.id,

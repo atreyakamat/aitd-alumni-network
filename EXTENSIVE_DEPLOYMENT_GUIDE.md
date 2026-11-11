@@ -1,10 +1,10 @@
 > **Superseded (2026-10-18):** this guide describes the old MySQL shared-host deployment. The platform now runs on PostgreSQL. For go-live follow [docs/PRODUCTION_CHECKLIST.md](docs/PRODUCTION_CHECKLIST.md) and the Docker runbook [docs/DOCKER.md](docs/DOCKER.md).
 
-# AITD Alumni Network - Extensive Production Deployment Guide
+# AIEM Alumni Network - Extensive Production Deployment Guide
 
 ## Complete Reference Manual for aitd.stixnvibes.com
 
-This document covers every single detail required for successful production deployment of the AITD Alumni Network.
+This document covers every single detail required for successful production deployment of the AIEM Alumni Network.
 
 ---
 
@@ -92,7 +92,7 @@ NODE_ENV=production
 PORT=3001
 
 # Database
-DATABASE_URL=mysql://username:password@119.18.54.49:3306/aitd_alumni
+DATABASE_URL=mysql://username:password@119.18.54.49:3306/aiem_alumni
 
 # JWT Configuration
 JWT_SECRET=your_super_secret_jwt_key_minimum_32_characters_long
@@ -150,7 +150,7 @@ LOG_LEVEL=info
    - Format: `mysql://username:password@host:port/database`
    - Host: 119.18.54.49 (your MySQL server)
    - Port: 3306 (default MySQL port)
-   - Database: aitd_alumni (create this database beforehand)
+   - Database: aiem_alumni (create this database beforehand)
 4. **JWT_SECRET**: Use strong random string (minimum 32 chars): `openssl rand -hex 32`
 5. **JWT_REFRESH_SECRET**: Different from JWT_SECRET for extra security
 6. **JWT_EXPIRY**: How long access token lasts (7d = 7 days)
@@ -326,7 +326,7 @@ Add all variables from `server/.env` in Render dashboard
 
 #### 3. App Spec Configuration
 ```yaml
-name: aitd-api
+name: aiem-api
 services:
 - name: api
   github:
@@ -357,15 +357,15 @@ services:
 #### 1. Create Database
 
 ```sql
-CREATE DATABASE aitd_alumni CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-CREATE USER 'aitd_user'@'119.18.54.49' IDENTIFIED BY 'strong_password_here';
-GRANT ALL PRIVILEGES ON aitd_alumni.* TO 'aitd_user'@'119.18.54.49';
+CREATE DATABASE aiem_alumni CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+CREATE USER 'aiem_user'@'119.18.54.49' IDENTIFIED BY 'strong_password_here';
+GRANT ALL PRIVILEGES ON aiem_alumni.* TO 'aiem_user'@'119.18.54.49';
 FLUSH PRIVILEGES;
 ```
 
 #### 2. Connection String Format
 ```
-mysql://aitd_user:strong_password_here@119.18.54.49:3306/aitd_alumni?charset=utf8mb4
+mysql://aiem_user:strong_password_here@119.18.54.49:3306/aiem_alumni?charset=utf8mb4
 ```
 
 #### 3. Run Prisma Migrations
@@ -388,9 +388,9 @@ npx prisma db seed
 #!/bin/bash
 BACKUP_DIR="/backups/mysql"
 TIMESTAMP=$(date +%Y%m%d_%H%M%S)
-mysqldump -u aitd_user -p'password' \
+mysqldump -u aiem_user -p'password' \
   -h 119.18.54.49 \
-  aitd_alumni > $BACKUP_DIR/backup_$TIMESTAMP.sql
+  aiem_alumni > $BACKUP_DIR/backup_$TIMESTAMP.sql
 gzip $BACKUP_DIR/backup_$TIMESTAMP.sql
 # Keep only last 30 days
 find $BACKUP_DIR -mtime +30 -delete
@@ -398,7 +398,7 @@ find $BACKUP_DIR -mtime +30 -delete
 
 #### Restore from Backup
 ```bash
-mysql -u aitd_user -p -h 119.18.54.49 aitd_alumni < backup_20240115_120000.sql
+mysql -u aiem_user -p -h 119.18.54.49 aiem_alumni < backup_20240115_120000.sql
 ```
 
 ---
@@ -432,12 +432,12 @@ mysql -u aitd_user -p -h 119.18.54.49 aitd_alumni < backup_20240115_120000.sql
 
 #### 1. Create Google Cloud Project
 - Go to https://console.cloud.google.com
-- Create new project: "AITD Alumni"
+- Create new project: "AIEM Alumni"
 
 #### 2. Create OAuth 2.0 Credentials
 - Go to Credentials → Create Credentials → OAuth 2.0 Client ID
 - Application type: "Web application"
-- Name: "AITD Alumni Network"
+- Name: "AIEM Alumni Network"
 
 #### 3. Add Authorized URLs
 - Authorized JavaScript origins: `https://aitd.stixnvibes.com`
@@ -454,7 +454,7 @@ mysql -u aitd_user -p -h 119.18.54.49 aitd_alumni < backup_20240115_120000.sql
 #### 1. Create LinkedIn App
 - Go to https://www.linkedin.com/developers/apps
 - Click "Create app"
-- App name: "AITD Alumni Network"
+- App name: "AIEM Alumni Network"
 - LinkedIn Page: Select or create
 
 #### 2. Add Authorized Redirect URLs
@@ -489,7 +489,7 @@ mysql -u aitd_user -p -h 119.18.54.49 aitd_alumni < backup_20240115_120000.sql
 
 #### 2. Create IAM User
 - Go to IAM → Users → Create user
-- Username: `aitd-app`
+- Username: `aiem-app`
 - Enable programmatic access
 
 #### 3. Create S3 Bucket
@@ -536,7 +536,7 @@ mysql -u aitd_user -p -h 119.18.54.49 aitd_alumni < backup_20240115_120000.sql
 #### Frontend DNS Record
 ```
 Type: CNAME
-Name: aitd
+Name: aiem
 Value: aitd-stixnvibes-xyz.netlify.app
 TTL: 3600
 ```
@@ -805,28 +805,28 @@ When traffic increases:
 # Backup script
 #!/bin/bash
 TIMESTAMP=$(date +%Y%m%d_%H%M%S)
-mysqldump -u aitd_user -p'password' -h 119.18.54.49 aitd_alumni | \
-  gzip > /backups/aitd_alumni_$TIMESTAMP.sql.gz
+mysqldump -u aiem_user -p'password' -h 119.18.54.49 aiem_alumni | \
+  gzip > /backups/aiem_alumni_$TIMESTAMP.sql.gz
 
 # Upload to S3
-aws s3 cp /backups/aitd_alumni_$TIMESTAMP.sql.gz \
-  s3://aitd-backups/database/
+aws s3 cp /backups/aiem_alumni_$TIMESTAMP.sql.gz \
+  s3://aiem-backups/database/
 ```
 
 ### Recovery Procedure
 
 ```bash
 # 1. Download backup
-aws s3 cp s3://aitd-backups/database/aitd_alumni_20240115_020000.sql.gz .
+aws s3 cp s3://aiem-backups/database/aiem_alumni_20240115_020000.sql.gz .
 
 # 2. Decompress
-gunzip aitd_alumni_20240115_020000.sql.gz
+gunzip aiem_alumni_20240115_020000.sql.gz
 
 # 3. Restore
-mysql -u aitd_user -p -h 119.18.54.49 aitd_alumni < aitd_alumni_20240115_020000.sql
+mysql -u aiem_user -p -h 119.18.54.49 aiem_alumni < aiem_alumni_20240115_020000.sql
 
 # 4. Verify
-mysql -u aitd_user -p -h 119.18.54.49 aitd_alumni -e "SELECT COUNT(*) FROM users;"
+mysql -u aiem_user -p -h 119.18.54.49 aiem_alumni -e "SELECT COUNT(*) FROM users;"
 ```
 
 ---
@@ -888,7 +888,7 @@ curl -v https://api.aitd.stixnvibes.com/health
 **Solution**:
 ```bash
 # Test connection
-mysql -u aitd_user -p -h 119.18.54.49 -e "SELECT 1;"
+mysql -u aiem_user -p -h 119.18.54.49 -e "SELECT 1;"
 
 # Check connection string format
 mysql://username:password@host:port/database
@@ -977,6 +977,6 @@ Authorization: Bearer <jwt_token>
 
 ## SUMMARY
 
-This comprehensive guide covers every aspect of deploying and maintaining the AITD Alumni Network in production. Follow each section carefully to ensure a smooth, secure, and performant deployment.
+This comprehensive guide covers every aspect of deploying and maintaining the AIEM Alumni Network in production. Follow each section carefully to ensure a smooth, secure, and performant deployment.
 
 **For questions or issues, refer to the troubleshooting section or check the application logs.**

@@ -36,7 +36,7 @@ export interface ConfigEvaluation {
 /** Database passwords that were committed to this repository's history (treat them as public). */
 export const LEAKED_DB_PASSWORDS: readonly string[] = ['AitdTech@2026'];
 
-const COMMON_DB_PASSWORDS = new Set(['postgres', 'password', 'admin', 'root', 'test', 'secret', 'aitd', 'alumni']);
+const COMMON_DB_PASSWORDS = new Set(['postgres', 'password', 'admin', 'root', 'test', 'secret', 'aitd', 'aiem', 'alumni']);
 const PLACEHOLDER = /change[-_ ]?me|your[-_ ]|example|placeholder|^default[-_]|todo|xxxx/i;
 const LOCAL_HOST = /(^|\/\/|@)(localhost|127\.\d+\.\d+\.\d+|0\.0\.0\.0|\[::1\])([:/]|$)/i;
 

@@ -22,7 +22,7 @@ describe('middleware', () => {
   });
 
   it('serves member pages when the hint cookie is present', () => {
-    const res = middleware(req('/dashboard', 'foo=bar; aitd_session=1'));
+    const res = middleware(req('/dashboard', 'foo=bar; aiem_session=1'));
     expect(res.headers.get('location')).toBeNull();
     expect(res.headers.get('x-middleware-next')).toBe('1');
   });

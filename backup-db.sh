@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# backup-db.sh - PostgreSQL backup for AITD Connection (run daily from cron; see docs/PRODUCTION_CHECKLIST.md).
+# backup-db.sh - PostgreSQL backup for AIEM Connect (run daily from cron; see docs/PRODUCTION_CHECKLIST.md).
 #
 # Two ways to reach the database:
 #   compose (default when docker-compose.yml is in the current directory and docker is installed):
@@ -10,18 +10,18 @@
 # Settings (environment):
 #   BACKUP_DIR        where dumps go                              (default ./backups)
 #   BACKUP_KEEP_DAYS  delete dumps older than this many days      (default 30)
-#   BACKUP_S3_URI     e.g. s3://my-bucket/aitd/db  (needs the aws CLI; uploaded encrypted)
+#   BACKUP_S3_URI     e.g. s3://my-bucket/aiem/db  (needs the aws CLI; uploaded encrypted)
 #   BACKUP_MODE       compose | direct                            (default: auto)
 #
 # Restore (into an EMPTY database; try it on a scratch server regularly, an untested backup is a hope, not a backup):
-#   pg_restore --no-owner --clean --if-exists -d "$DATABASE_URL" backups/aitd_YYYYmmdd_HHMMSS.dump
+#   pg_restore --no-owner --clean --if-exists -d "$DATABASE_URL" backups/aiem_YYYYmmdd_HHMMSS.dump
 set -euo pipefail
 umask 077   # dumps hold personal data: readable by the owner only
 
 BACKUP_DIR="${BACKUP_DIR:-./backups}"
 KEEP_DAYS="${BACKUP_KEEP_DAYS:-30}"
 STAMP="$(date +%Y%m%d_%H%M%S)"
-FILE="$BACKUP_DIR/aitd_${STAMP}.dump"
+FILE="$BACKUP_DIR/aiem_${STAMP}.dump"
 TMP="$FILE.partial"
 # Whatever happens, never leave a half-written dump next to the good ones
 trap 'rm -f "$TMP"' EXIT
@@ -75,5 +75,5 @@ if [ -n "${BACKUP_S3_URI:-}" ]; then
   fi
 fi
 
-find "$BACKUP_DIR" -name 'aitd_*.dump' -mtime +"$KEEP_DAYS" -delete
+find "$BACKUP_DIR" \( -name 'aiem_*.dump' -o -name 'aitd_*.dump' \) -mtime +"$KEEP_DAYS" -delete
 echo "[$(date)] Done (dumps older than $KEEP_DAYS days removed)"

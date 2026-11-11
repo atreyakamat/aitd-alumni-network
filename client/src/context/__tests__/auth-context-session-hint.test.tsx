@@ -23,7 +23,7 @@ vi.mock('@/lib/api', async (importOriginal) => {
 import { AuthProvider, useAuth } from '@/context/auth-context';
 
 const tokenFor = (userId: string) => `h.${btoa(JSON.stringify({ userId })).replace(/=+$/, '')}.sig`;
-const profile = (id: string) => ({ data: { data: { id, email: `${id}@aitd.test`, fullName: id, userRole: 'MEMBER' } } });
+const profile = (id: string) => ({ data: { data: { id, email: `${id}@aiem.test`, fullName: id, userRole: 'MEMBER' } } });
 
 let ctx: ReturnType<typeof useAuth>;
 function Probe() {
@@ -42,21 +42,21 @@ beforeEach(() => {
   me.mockReset();
   login.mockReset();
   logoutApi.mockReset();
-  document.cookie = 'aitd_session=; Path=/; Max-Age=0';
+  document.cookie = 'aiem_session=; Path=/; Max-Age=0';
 });
 
-describe('aitd_session hint cookie follows the session', () => {
+describe('aiem_session hint cookie follows the session', () => {
   it('is set when a stored session is confirmed by /auth/me on load', async () => {
     localStorage.setItem('accessToken', tokenFor('u1'));
     localStorage.setItem('refreshToken', 'r1');
     me.mockResolvedValue(profile('u1'));
     mount();
-    expect(await screen.findByText('u1@aitd.test')).toBeInTheDocument();
+    expect(await screen.findByText('u1@aiem.test')).toBeInTheDocument();
     expect(cookieSet()).toBe(true);
   });
 
   it('is cleared when /auth/me rejects the stored session (401)', async () => {
-    document.cookie = 'aitd_session=1; Path=/';
+    document.cookie = 'aiem_session=1; Path=/';
     localStorage.setItem('accessToken', tokenFor('u1'));
     localStorage.setItem('refreshToken', 'r1');
     me.mockRejectedValue({ response: { status: 401 } });
@@ -66,14 +66,14 @@ describe('aitd_session hint cookie follows the session', () => {
   });
 
   it('is cleared on load when there are no stored tokens', async () => {
-    document.cookie = 'aitd_session=1; Path=/';
+    document.cookie = 'aiem_session=1; Path=/';
     mount();
     expect(await screen.findByText('anonymous')).toBeInTheDocument();
     expect(cookieSet()).toBe(false);
   });
 
   it('is kept across a transient network error (tokens are kept too)', async () => {
-    document.cookie = 'aitd_session=1; Path=/';
+    document.cookie = 'aiem_session=1; Path=/';
     localStorage.setItem('accessToken', tokenFor('u1'));
     localStorage.setItem('refreshToken', 'r1');
     me.mockRejectedValue(new Error('Network Error'));
@@ -85,7 +85,7 @@ describe('aitd_session hint cookie follows the session', () => {
   it('is set on login and cleared on logout', async () => {
     me.mockResolvedValue(profile('u1'));
     login.mockResolvedValue({
-      data: { data: { accessToken: tokenFor('u1'), refreshToken: 'r1', user: { id: 'u1', email: 'u1@aitd.test', fullName: 'u1', userRole: 'MEMBER' } } },
+      data: { data: { accessToken: tokenFor('u1'), refreshToken: 'r1', user: { id: 'u1', email: 'u1@aiem.test', fullName: 'u1', userRole: 'MEMBER' } } },
     });
     logoutApi.mockResolvedValue({});
     mount();
@@ -93,7 +93,7 @@ describe('aitd_session hint cookie follows the session', () => {
     expect(cookieSet()).toBe(false);
 
     await act(async () => {
-      await ctx.login('u1@aitd.test', 'pw');
+      await ctx.login('u1@aiem.test', 'pw');
     });
     expect(cookieSet()).toBe(true);
 
@@ -105,13 +105,13 @@ describe('aitd_session hint cookie follows the session', () => {
   });
 
   it('is cleared even when the logout request fails', async () => {
-    document.cookie = 'aitd_session=1; Path=/';
+    document.cookie = 'aiem_session=1; Path=/';
     localStorage.setItem('accessToken', tokenFor('u1'));
     localStorage.setItem('refreshToken', 'r1');
     me.mockResolvedValue(profile('u1'));
     logoutApi.mockRejectedValue(new Error('offline'));
     mount();
-    await screen.findByText('u1@aitd.test');
+    await screen.findByText('u1@aiem.test');
     await act(async () => {
       await ctx.logout().catch(() => undefined);
     });
@@ -132,7 +132,7 @@ describe('aitd_session hint cookie follows the session', () => {
     localStorage.setItem('refreshToken', 'r1');
     me.mockResolvedValue(profile('u1'));
     mount();
-    await screen.findByText('u1@aitd.test');
+    await screen.findByText('u1@aiem.test');
     expect(cookieSet()).toBe(true);
 
     localStorage.removeItem('accessToken');

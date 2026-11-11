@@ -1,6 +1,6 @@
 > **Superseded (2026-10-18):** this guide describes the old MySQL shared-host deployment. The platform now runs on PostgreSQL. For go-live follow [docs/PRODUCTION_CHECKLIST.md](docs/PRODUCTION_CHECKLIST.md) and the Docker runbook [docs/DOCKER.md](docs/DOCKER.md).
 
-# AITD Alumni Network - Deployment Execution Guide
+# AIEM Alumni Network - Deployment Execution Guide
 
 ## Current Status: READY FOR DEPLOYMENT ✅
 
@@ -92,7 +92,7 @@ curl -I https://aitd.stixnvibes.com
 ```env
 NODE_ENV=production
 PORT=3001
-DATABASE_URL=mysql://username:password@119.18.54.49:3306/aitd_alumni
+DATABASE_URL=mysql://username:password@119.18.54.49:3306/aiem_alumni
 JWT_SECRET=<32+ character random string>
 JWT_REFRESH_SECRET=<32+ character random string>
 FRONTEND_URL=https://aitd.stixnvibes.com
@@ -121,7 +121,7 @@ CORS_ORIGINS=https://aitd.stixnvibes.com,https://www.aitd.stixnvibes.com
 4. Upload `app-spec.yml`:
 
 ```yaml
-name: aitd-api
+name: aiem-api
 services:
   - name: api
     source:
@@ -156,7 +156,7 @@ Go to your domain registrar (GoDaddy, Namecheap, etc.):
 
 ```
 Type: CNAME
-Name: aitd (or @)
+Name: aiem (or @)
 Value: aitd-stixnvibes-xyz.netlify.app
 TTL: 3600
 ```
@@ -187,9 +187,9 @@ nslookup api.aitd.stixnvibes.com
 ```bash
 # 1. Create database (run on your MySQL server)
 mysql -u root -p -h 119.18.54.49 <<EOF
-CREATE DATABASE aitd_alumni CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-CREATE USER 'aitd_user'@'%' IDENTIFIED BY 'strong_password_here';
-GRANT ALL PRIVILEGES ON aitd_alumni.* TO 'aitd_user'@'%';
+CREATE DATABASE aiem_alumni CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+CREATE USER 'aiem_user'@'%' IDENTIFIED BY 'strong_password_here';
+GRANT ALL PRIVILEGES ON aiem_alumni.* TO 'aiem_user'@'%';
 FLUSH PRIVILEGES;
 EOF
 
@@ -322,9 +322,9 @@ SENTRY_DSN=https://xxx@sentry.io/project (backend)
 # Backup script:
 #!/bin/bash
 TIMESTAMP=$(date +%Y%m%d_%H%M%S)
-mysqldump -u aitd_user -p'password' -h 119.18.54.49 aitd_alumni | \
-  gzip > /backups/aitd_$TIMESTAMP.sql.gz
-aws s3 cp /backups/aitd_$TIMESTAMP.sql.gz s3://aitd-backups/
+mysqldump -u aiem_user -p'password' -h 119.18.54.49 aiem_alumni | \
+  gzip > /backups/aiem_$TIMESTAMP.sql.gz
+aws s3 cp /backups/aiem_$TIMESTAMP.sql.gz s3://aiem-backups/
 ```
 
 ---

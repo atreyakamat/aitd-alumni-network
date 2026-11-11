@@ -133,10 +133,10 @@ describe('/verify-email (the link in the registration e-mail)', () => {
     fireEvent.click(screen.getByRole('button', { name: /confirm email/i }));
     expect(await screen.findByText(/invalid or has expired/i)).toBeInTheDocument();
 
-    fireEvent.change(screen.getByLabelText(/^email/i), { target: { value: 'me@aitd.edu' } });
+    fireEvent.change(screen.getByLabelText(/^email/i), { target: { value: 'me@aiem.edu' } });
     fireEvent.click(screen.getByRole('button', { name: /send a new link/i }));
 
-    await waitFor(() => expect(resendVerification).toHaveBeenCalledWith('me@aitd.edu'));
+    await waitFor(() => expect(resendVerification).toHaveBeenCalledWith('me@aiem.edu'));
     expect(await screen.findByText(/new verification link has been sent/i)).toBeInTheDocument();
   });
 

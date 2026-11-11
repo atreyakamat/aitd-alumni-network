@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# One-command setup for AIEM Connection.
+# One-command setup for AIEM Connect.
 #
 #   ./start.sh
 #
@@ -110,7 +110,7 @@ while :; do
 done
 
 echo
-green "AIEM Connection is up."
+green "AIEM Connect is up."
 echo "  Web:  http://localhost:3000"
 echo "  API:  http://localhost:5000/health"
 echo "  Admin login is in your .env (SEED_ADMIN_EMAIL / SEED_ADMIN_PASSWORD)."

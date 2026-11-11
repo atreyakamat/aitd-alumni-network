@@ -27,7 +27,7 @@ exit 0
 `;
 
 const setup = () => {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'aitd-start-'));
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'aiem-start-'));
   fs.copyFileSync(path.join(REPO, 'start.sh'), path.join(dir, 'start.sh'));
   fs.mkdirSync(path.join(dir, 'bin'));
   fs.writeFileSync(path.join(dir, 'bin', 'docker'), DOCKER_SHIM, { mode: 0o755 });

@@ -1,6 +1,6 @@
 # Testing & TDD Workflow
 
-AITD Connection is developed test-first. Every behaviour change starts with a failing test.
+AIEM Connect is developed test-first. Every behaviour change starts with a failing test.
 
 ## Test layers
 
@@ -27,6 +27,13 @@ npm run typecheck        # server: src + tests
 npm run test:coverage    # server unit coverage report (server/coverage)
 npm run test:all         # unit + integration + security + contract
 ```
+
+## Docker and Kafka verification
+
+The application tests above do not need Docker. The deployment itself (compose, Kafka, nginx, the images) is proved by a separate suite that runs
+the real stack with a mail catcher: `npm run docker:verify` (guide: [DOCKER_TEST_GUIDE.md](DOCKER_TEST_GUIDE.md)). Its own unit tests, which run every gate
+against an in-memory stand-in and plant defects to prove each gate can fail, need no Docker: `npm run test:scripts`. GitHub CI runs both
+([workflow](../.github/workflows/docker-verify.yml)).
 
 ## The TDD loop
 

@@ -74,6 +74,22 @@ describe('eventService', () => {
       ]);
     });
 
+    it('lists past events (started before now), newest first', async () => {
+      await eventService.getEvents({ past: true });
+      const args = prismaMock.event.findMany.mock.calls[0][0];
+      expect(args.where.startDate.lt).toBeInstanceOf(Date);
+      expect(args.where.startDate).not.toHaveProperty('gte');
+      expect(args.orderBy).toEqual({ startDate: 'desc' });
+    });
+
+    it('keeps upcoming events oldest first, and upcoming wins when both filters are sent', async () => {
+      await eventService.getEvents({ upcoming: true, past: true });
+      const args = prismaMock.event.findMany.mock.calls[0][0];
+      expect(args.where.startDate.gte).toBeInstanceOf(Date);
+      expect(args.where.startDate).not.toHaveProperty('lt');
+      expect(args.orderBy).toEqual({ startDate: 'asc' });
+    });
+
     it('rejects an unknown event type', async () => {
       await expect(eventService.getEvents({ eventType: 'VR' })).rejects.toMatchObject({ statusCode: 400 });
     });

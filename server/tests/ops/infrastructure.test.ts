@@ -129,7 +129,7 @@ describe('docker-compose.yml', () => {
 
     it('the settings an operator may change are passed through with safe defaults', () => {
       const api = services.api.environment;
-      expect(api.KAFKA_TOPIC_PREFIX).toContain('${KAFKA_TOPIC_PREFIX:-aitd}');
+      expect(api.KAFKA_TOPIC_PREFIX).toContain('${KAFKA_TOPIC_PREFIX:-aiem}');
       expect(api.KAFKA_PARTITIONS).toContain(':-3');
       expect(api.APPROVAL_NOTIFY_EMAIL).toContain('${APPROVAL_NOTIFY_EMAIL:-}');
     });

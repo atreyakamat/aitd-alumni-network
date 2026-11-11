@@ -55,10 +55,10 @@ export const readKafkaSettings = (env: NodeJS.ProcessEnv = process.env): KafkaSe
   const problems: string[] = [];
   const brokers = list(env.KAFKA_BROKERS);
 
-  let prefix = (env.KAFKA_TOPIC_PREFIX ?? '').trim() || 'aitd';
+  let prefix = (env.KAFKA_TOPIC_PREFIX ?? '').trim() || 'aiem';
   if (!TOPIC_PREFIX.test(prefix)) {
-    problems.push('KAFKA_TOPIC_PREFIX may only contain letters, digits, ".", "_" and "-" (using "aitd")');
-    prefix = 'aitd';
+    problems.push('KAFKA_TOPIC_PREFIX may only contain letters, digits, ".", "_" and "-" (using "aiem")');
+    prefix = 'aiem';
   }
 
   for (const broker of brokers) {
@@ -82,8 +82,8 @@ export const readKafkaSettings = (env: NodeJS.ProcessEnv = process.env): KafkaSe
   return {
     enabled: brokers.length > 0 && env.NODE_ENV !== 'test',
     brokers,
-    clientId: (env.KAFKA_CLIENT_ID ?? '').trim() || 'aitd-api',
-    groupId: (env.KAFKA_GROUP_ID ?? '').trim() || 'aitd-notifications',
+    clientId: (env.KAFKA_CLIENT_ID ?? '').trim() || 'aiem-api',
+    groupId: (env.KAFKA_GROUP_ID ?? '').trim() || 'aiem-notifications',
     topic: `${prefix}.notifications`,
     dlqTopic: `${prefix}.notifications.dlq`,
     ssl: flag(env.KAFKA_SSL, false),

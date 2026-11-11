@@ -213,7 +213,7 @@ describe('TransactionController.getReceipt', () => {
     amount: 500,
     gatewayPaymentId: 'pay_1',
     createdAt: new Date('2026-04-05T12:00:00Z'),
-    user: { fullName: 'Member', email: 'm@aitd.test' },
+    user: { fullName: 'Member', email: 'm@aiem.test' },
     donations: [{ dedicatedTo: null, message: 'hi', chapter: { name: 'Pune' } }],
     memberships: [],
     ...overrides,
@@ -243,7 +243,7 @@ describe('TransactionController.getReceipt', () => {
     expect(buf.subarray(0, 5).toString('latin1')).toBe('%PDF-');
     expect(ctx.res.setHeader).toHaveBeenCalledWith('Content-Length', buf.length);
     expect((generateDonationReceipt as jest.Mock).mock.calls[0][0]).toMatchObject({
-      receiptNumber: 'AITD-DON-20260405-7E57AB1E',
+      receiptNumber: 'AIEM-DON-20260405-7E57AB1E',
       amount: 500,
       chapterName: 'Pune',
       paymentId: 'pay_1',
@@ -318,7 +318,7 @@ describe('TransactionController.getReceipt', () => {
     );
     expect(ctx.res.send).toHaveBeenCalled();
     expect((generateMembershipReceipt as jest.Mock).mock.calls[0][0]).toMatchObject({
-      receiptNumber: 'AITD-MEM-20260405-7E57AB1E',
+      receiptNumber: 'AIEM-MEM-20260405-7E57AB1E',
       membershipTier: 'Lifetime',
       endDate: null,
       paymentId: '7e57ab1e-0000-4000-8000-000000000000',

@@ -3,7 +3,8 @@
 import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { userApi, networkApi, getApiErrorMessage } from '@/lib/api';
-import { readConnections, readDirectory, readRequests } from '@/lib/people';
+import { batchLine, readConnections, readDirectory, readRequests } from '@/lib/people';
+import { departmentFilterOptions } from '@/lib/departments';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -35,15 +36,7 @@ import { useAuth } from '@/context/auth-context';
 import { useToast } from '@/hooks/use-toast';
 import Link from 'next/link';
 
-const departments = [
-  'All Departments',
-  'Computer Science',
-  'Information Technology',
-  'Electronics',
-  'Electrical',
-  'Mechanical',
-  'Civil',
-];
+const departments = departmentFilterOptions();
 
 const currentYear = new Date().getFullYear();
 const batchYears = ['All Years', ...Array.from({ length: 30 }, (_, i) => String(currentYear - i))];
@@ -255,12 +248,12 @@ export default function DirectoryPage() {
                         </AvatarFallback>
                       </Avatar>
                       <h3 className="font-semibold">{person.fullName}</h3>
-                      <p className="text-sm text-muted-foreground line-clamp-2 mt-1">
-                        {person.headline || 'No headline'}
-                      </p>
+                      {person.headline && (
+                        <p className="text-sm text-muted-foreground line-clamp-2 mt-1">{person.headline}</p>
+                      )}
                       <div className="flex items-center gap-1 mt-2 text-xs text-muted-foreground">
                         <GraduationCap className="h-3 w-3" />
-                        <span>{person.department} • {person.batchYear}</span>
+                        <span>{batchLine(person)}</span>
                       </div>
                       {(person.locationCity || person.locationCountry) && (
                         <div className="flex items-center gap-1 mt-1 text-xs text-muted-foreground">
@@ -321,11 +314,11 @@ export default function DirectoryPage() {
                       </Avatar>
                       <div className="flex-1 min-w-0">
                         <h3 className="font-semibold">{person.fullName}</h3>
-                        <p className="text-sm text-muted-foreground">{person.headline || 'No headline'}</p>
+                        {person.headline && <p className="text-sm text-muted-foreground">{person.headline}</p>}
                         <div className="flex flex-wrap items-center justify-center sm:justify-start gap-4 mt-2 text-xs text-muted-foreground">
                           <div className="flex items-center gap-1">
                             <GraduationCap className="h-3 w-3" />
-                            <span>{person.department} • {person.batchYear}</span>
+                            <span>{batchLine(person)}</span>
                           </div>
                           {(person.locationCity || person.locationCountry) && (
                             <div className="flex items-center gap-1">

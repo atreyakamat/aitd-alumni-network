@@ -19,8 +19,8 @@ import { marketplaceService } from '../../services/marketplaceService';
 import { uploadToStorage } from '../../utils/storage';
 import { mockReqRes, prismaMock, api, authAs, getApp } from '../../../tests/helpers';
 
-const member = { id: 'u1', email: 'u1@aitd.test', fullName: 'U1', userRole: 'MEMBER' as const };
-const admin = { id: 'a1', email: 'a1@aitd.test', fullName: 'A1', userRole: 'ADMIN' as const };
+const member = { id: 'u1', email: 'u1@aiem.test', fullName: 'U1', userRole: 'MEMBER' as const };
+const admin = { id: 'a1', email: 'a1@aiem.test', fullName: 'A1', userRole: 'ADMIN' as const };
 const memberActor = { id: 'u1', userRole: 'MEMBER' };
 const adminActor = { id: 'a1', userRole: 'ADMIN' };
 

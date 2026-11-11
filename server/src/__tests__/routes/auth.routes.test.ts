@@ -20,7 +20,7 @@ beforeEach(() => jest.clearAllMocks());
 
 const dbUser = (overrides: Record<string, unknown> = {}) => ({
   id: 'u1',
-  email: 'alum@aitd.edu',
+  email: 'alum@aiem.edu',
   fullName: 'Ada Alum',
   passwordHash,
   profilePhotoUrl: null,
@@ -37,7 +37,7 @@ const dbUser = (overrides: Record<string, unknown> = {}) => ({
 describe('auth routes', () => {
   it('POST /auth/register rejects weak passwords with 400 VALIDATION_ERROR', async () => {
     const res = await api().post('/api/auth/register').send({
-      email: 'new@aitd.edu',
+      email: 'new@aiem.edu',
       password: 'password',
       fullName: 'New Alum',
       batchYear: 2020,
@@ -57,7 +57,7 @@ describe('auth routes', () => {
 
   it('POST /auth/login never returns credentials material', async () => {
     prismaMock.user.findUnique.mockResolvedValue(dbUser());
-    const res = await api().post('/api/auth/login').send({ email: 'alum@aitd.edu', password: PASSWORD });
+    const res = await api().post('/api/auth/login').send({ email: 'alum@aiem.edu', password: PASSWORD });
     expect(res.status).toBe(200);
     expect(verifyAccessToken(res.body.data.accessToken).userId).toBe('u1');
     expect(JSON.stringify(res.body)).not.toContain(passwordHash);
@@ -66,8 +66,8 @@ describe('auth routes', () => {
 
   it('POST /auth/login gives identical 401s for unknown email and wrong password', async () => {
     prismaMock.user.findUnique.mockResolvedValueOnce(null).mockResolvedValueOnce(dbUser());
-    const unknown = await api().post('/api/auth/login').send({ email: 'ghost@aitd.edu', password: PASSWORD });
-    const wrong = await api().post('/api/auth/login').send({ email: 'alum@aitd.edu', password: 'Wrong#Pass1' });
+    const unknown = await api().post('/api/auth/login').send({ email: 'ghost@aiem.edu', password: PASSWORD });
+    const wrong = await api().post('/api/auth/login').send({ email: 'alum@aiem.edu', password: 'Wrong#Pass1' });
     expect(unknown.status).toBe(401);
     expect(unknown.body).toEqual(wrong.body);
   });
@@ -75,7 +75,7 @@ describe('auth routes', () => {
   it('runs the full 2FA login: password -> challenge -> OTP -> session', async () => {
     prismaMock.user.findUnique.mockResolvedValue(dbUser({ twoFactorEnabled: true }));
 
-    const login = await api().post('/api/auth/login').send({ email: 'alum@aitd.edu', password: PASSWORD });
+    const login = await api().post('/api/auth/login').send({ email: 'alum@aiem.edu', password: PASSWORD });
     expect(login.status).toBe(200);
     expect(login.body.data).toMatchObject({ requires2FA: true, userId: 'u1', twoFactorToken: expect.any(String) });
     expect(login.body.data.accessToken).toBeUndefined();
@@ -119,7 +119,7 @@ describe('auth routes', () => {
 
   it('POST /auth/refresh-token rotates the token', async () => {
     prismaMock.user.findUnique.mockResolvedValue(dbUser());
-    const login = await api().post('/api/auth/login').send({ email: 'alum@aitd.edu', password: PASSWORD });
+    const login = await api().post('/api/auth/login').send({ email: 'alum@aiem.edu', password: PASSWORD });
     const { refreshToken } = login.body.data;
 
     prismaMock.refreshToken.findUnique.mockResolvedValue({
@@ -141,7 +141,7 @@ describe('auth routes', () => {
 
   it('POST /auth/refresh-token answers a replayed token with 401 REFRESH_TOKEN_REUSED', async () => {
     prismaMock.user.findUnique.mockResolvedValue(dbUser());
-    const login = await api().post('/api/auth/login').send({ email: 'alum@aitd.edu', password: PASSWORD });
+    const login = await api().post('/api/auth/login').send({ email: 'alum@aiem.edu', password: PASSWORD });
     const { refreshToken } = login.body.data;
 
     prismaMock.refreshToken.findUnique.mockResolvedValue({
@@ -237,8 +237,8 @@ describe('auth routes', () => {
 
   it('POST /auth/forgot-password responds identically for unknown accounts', async () => {
     prismaMock.user.findUnique.mockResolvedValueOnce(null).mockResolvedValueOnce(dbUser());
-    const unknown = await api().post('/api/auth/forgot-password').send({ email: 'ghost@aitd.edu' });
-    const known = await api().post('/api/auth/forgot-password').send({ email: 'alum@aitd.edu' });
+    const unknown = await api().post('/api/auth/forgot-password').send({ email: 'ghost@aiem.edu' });
+    const known = await api().post('/api/auth/forgot-password').send({ email: 'alum@aiem.edu' });
     expect(unknown.status).toBe(200);
     expect(unknown.body).toEqual(known.body);
   });

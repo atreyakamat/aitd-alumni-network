@@ -41,6 +41,12 @@ export function isVirtualEvent(event: any): boolean {
   return event?.eventType === 'ONLINE' || event?.isVirtual === true;
 }
 
+/** Where an event happens, worded the same on every page: "Online", the venue and city, or a fallback. */
+export function eventPlaceLabel(event: any): string {
+  if (event?.eventType === 'ONLINE') return 'Online';
+  return getEventLocation(event) || 'Location to be announced';
+}
+
 /** Friendly RSVP failures (409 EVENT_FULL, 400 EVENT_PAST, ...). */
 export function getRsvpErrorMessage(err: unknown): string {
   const code = (err as any)?.response?.data?.error?.code;

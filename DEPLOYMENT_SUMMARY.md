@@ -1,10 +1,10 @@
 > **Superseded (2026-10-18):** this guide describes the old MySQL shared-host deployment. The platform now runs on PostgreSQL. For go-live follow [docs/PRODUCTION_CHECKLIST.md](docs/PRODUCTION_CHECKLIST.md) and the Docker runbook [docs/DOCKER.md](docs/DOCKER.md).
 
-# AITD Alumni Network - Complete Deployment Summary
+# AIEM Alumni Network - Complete Deployment Summary
 
 ## 🎯 MISSION ACCOMPLISHED
 
-Your AITD Alumni Network project is **fully prepared and documented for production deployment to aitd.stixnvibes.com**
+Your AIEM Alumni Network project is **fully prepared and documented for production deployment to aitd.stixnvibes.com**
 
 ---
 
@@ -104,7 +104,7 @@ Documentation:
 ### Step 3: Configure DNS (5 min)
 ```
 Go to your domain registrar:
-1. Add CNAME: aitd → [netlify-domain].netlify.app
+1. Add CNAME: aiem → [netlify-domain].netlify.app
 2. Add CNAME: api → [railway-domain].railway.app
 3. Wait 5-15 minutes for propagation
 ```
@@ -197,7 +197,7 @@ NEXT_PUBLIC_LINKEDIN_CLIENT_ID=<your_linkedin_client_id>
 ```
 NODE_ENV=production
 PORT=3001
-DATABASE_URL=mysql://user:pass@119.18.54.49:3306/aitd_alumni
+DATABASE_URL=mysql://user:pass@119.18.54.49:3306/aiem_alumni
 JWT_SECRET=<32+ char random string>
 JWT_REFRESH_SECRET=<32+ char random string>
 FRONTEND_URL=https://aitd.stixnvibes.com
@@ -420,7 +420,7 @@ For any questions, refer to the comprehensive documentation provided.
 
 ---
 
-**Project**: AITD Alumni Network  
+**Project**: AIEM Alumni Network  
 **Domain**: aitd.stixnvibes.com  
 **Status**: ✅ Production Ready  
 **Date**: January 15, 2024

@@ -24,6 +24,13 @@ const previewContent = (content: unknown): string => {
   return content.length > 100 ? `${content.substring(0, 100)}...` : content;
 };
 
+/**
+ * The platform is private: a registration is only a request until an administrator approves it. Every member number on
+ * the dashboard (totals, growth, groupings) counts approved users only; applicants are reported separately
+ * (`pendingApproval`, `rejected`) and in the recent registrations feed.
+ */
+const MEMBER = { approvalStatus: 'APPROVED' } as const;
+
 export const adminController = {
   /**
    * Get comprehensive admin dashboard statistics
@@ -43,6 +50,8 @@ export const adminController = {
         verifiedUsers,
         newUsersThisMonth,
         newUsersLastMonth,
+        pendingUsers,
+        rejectedUsers,
         usersByRole,
         usersByBatch,
         usersByCity,
@@ -77,21 +86,25 @@ export const adminController = {
         recentPosts,
       ] = await Promise.all([
         // User counts
-        prisma.user.count({ where: { isActive: true } }),
-        prisma.user.count({ where: { isActive: true, lastLoginAt: { gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) } } }),
-        prisma.user.count({ where: { isVerified: true } }),
-        prisma.user.count({ where: { createdAt: { gte: startOfMonth } } }),
-        prisma.user.count({ where: { createdAt: { gte: startOfLastMonth, lt: startOfMonth } } }),
-        prisma.user.groupBy({ by: ['userRole'], _count: true }),
-        prisma.user.groupBy({ 
-          by: ['batchYear'], 
-          _count: true, 
+        prisma.user.count({ where: { ...MEMBER, isActive: true } }),
+        prisma.user.count({ where: { ...MEMBER, isActive: true, lastLoginAt: { gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) } } }),
+        // `verified` keeps its name for the existing client; it now means "approved member"
+        prisma.user.count({ where: { ...MEMBER } }),
+        prisma.user.count({ where: { ...MEMBER, createdAt: { gte: startOfMonth } } }),
+        prisma.user.count({ where: { ...MEMBER, createdAt: { gte: startOfLastMonth, lt: startOfMonth } } }),
+        prisma.user.count({ where: { approvalStatus: 'PENDING' } }),
+        prisma.user.count({ where: { approvalStatus: 'REJECTED' } }),
+        prisma.user.groupBy({ by: ['userRole'], where: { ...MEMBER }, _count: true }),
+        prisma.user.groupBy({
+          by: ['batchYear'],
+          where: { ...MEMBER },
+          _count: true,
           orderBy: { batchYear: 'desc' },
           take: 10,
         }),
         prisma.user.groupBy({
           by: ['city'],
-          where: { isActive: true, city: { not: null } },
+          where: { ...MEMBER, isActive: true, city: { not: null } },
           _count: { _all: true },
           orderBy: { _count: { city: 'desc' } },
           take: 10,
@@ -141,7 +154,8 @@ export const adminController = {
         prisma.user.findMany({
           take: 5,
           orderBy: { createdAt: 'desc' },
-          select: { id: true, fullName: true, email: true, createdAt: true, batchYear: true },
+          // Every status on purpose: this is the "who registered lately" feed, and the status tells the administrator who still needs a decision
+          select: { id: true, fullName: true, email: true, createdAt: true, batchYear: true, approvalStatus: true },
         }),
         prisma.post.findMany({
           take: 5,
@@ -168,6 +182,8 @@ export const adminController = {
             total: totalUsers,
             active: activeUsers,
             verified: verifiedUsers,
+            pendingApproval: pendingUsers,
+            rejected: rejectedUsers,
             newThisMonth: newUsersThisMonth,
             growthPercent: userGrowthPercent,
             byRole: (usersByRole || []).map(r => ({ role: r.userRole, count: countOf(r._count) })),
@@ -243,7 +259,7 @@ export const adminController = {
   },
 };
 
-// Helper function to get monthly registration stats
+// Helper function to get monthly member growth (approved users by sign-up month)
 async function getMonthlyStats(prisma: any, months: number) {
   const now = new Date();
   const ranges = Array.from({ length: months }, (_, i) => months - 1 - i);
@@ -254,6 +270,7 @@ async function getMonthlyStats(prisma: any, months: number) {
     
     const count = await prisma.user.count({
       where: {
+        ...MEMBER,
         createdAt: { gte: startDate, lt: endDate },
       },
     });

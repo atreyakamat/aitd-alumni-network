@@ -200,7 +200,7 @@ export default function EventDetailsPage() {
                   </div>
                   <div>
                     <p className="text-xs font-medium">Location</p>
-                    <p className="text-sm font-semibold text-foreground">{isVirtual ? 'Virtual Event' : locationText || 'Location TBD'}</p>
+                    <p className="text-sm font-semibold text-foreground">{isVirtual ? 'Virtual Event' : locationText || 'Location to be announced'}</p>
                   </div>
                 </div>
               </div>

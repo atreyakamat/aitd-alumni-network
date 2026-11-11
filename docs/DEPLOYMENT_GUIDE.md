@@ -188,7 +188,7 @@ ps aux | grep "node\|express\|npm"
 - [ ] Reverse proxy/Functions route `/api/*` to backend (if using same domain)
 - [ ] Backend health check passes: `curl https://your-backend/health`
 - [ ] Registration/login work on production
-- [ ] Admin account seeded: admin@aitdconnection.edu / Admin@123
+- [ ] Admin account seeded: admin@aiemconnect.edu / Admin@123
 
 ---
 
@@ -203,7 +203,7 @@ ps aux | grep "node\|express\|npm"
 
 ---
 
-## For the AITD Project
+## For the AIEM Project
 
 Based on your setup (`aitd.stixnvibes.com`):
 

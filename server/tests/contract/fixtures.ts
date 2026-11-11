@@ -119,7 +119,7 @@ export const newWork = (userId: string) =>
   prisma.workExperience.create({ data: { userId, company: 'Contract Co', role: 'Engineer', startDate: new Date('2020-01-01') } });
 
 export const newEducation = (userId: string) =>
-  prisma.education.create({ data: { userId, institution: 'AITD', degree: 'B.E.', startYear: 2014 } });
+  prisma.education.create({ data: { userId, institution: 'AIEM', degree: 'B.E.', startYear: 2014 } });
 
 /** A college video; the file names are unique because two videos cannot share one stored file. */
 export const newVideo = (submittedById: string, status: 'PENDING' | 'APPROVED' | 'REJECTED' = 'APPROVED') =>

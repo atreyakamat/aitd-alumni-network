@@ -1,4 +1,4 @@
-# AIEM Connection — full stack on PostgreSQL.
+# AIEM Connect — full stack on PostgreSQL.
 #
 # One-command setup (generates .env with secrets, builds, starts, runs migrations + seed):
 #   ./start.sh          (or: make up)
@@ -111,7 +111,7 @@ services:
       REDIS_URL: redis://redis:6379
       # Notification events travel through Kafka (docs/KAFKA.md)
       KAFKA_BROKERS: kafka:9092
-      KAFKA_TOPIC_PREFIX: ${KAFKA_TOPIC_PREFIX:-aitd}
+      KAFKA_TOPIC_PREFIX: ${KAFKA_TOPIC_PREFIX:-aiem}
       KAFKA_PARTITIONS: ${KAFKA_PARTITIONS:-3}
       # Extra address(es) for "a registration is waiting" (for example the alumni office); the administrator accounts are always told
       APPROVAL_NOTIFY_EMAIL: ${APPROVAL_NOTIFY_EMAIL:-}

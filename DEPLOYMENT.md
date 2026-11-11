@@ -1,6 +1,6 @@
 > **Superseded (2026-10-18):** this guide describes the old MySQL shared-host deployment. The platform now runs on PostgreSQL. For go-live follow [docs/PRODUCTION_CHECKLIST.md](docs/PRODUCTION_CHECKLIST.md) and the Docker runbook [docs/DOCKER.md](docs/DOCKER.md).
 
-# AITD Alumni Network - Deployment Guide
+# AIEM Alumni Network - Deployment Guide
 
 ## Overview
 This is a full-stack application with a Next.js frontend and Express.js backend. This guide covers deployment to production at `aitd.stixnvibes.com`.

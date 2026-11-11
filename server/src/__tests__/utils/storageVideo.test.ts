@@ -4,7 +4,7 @@ import path from 'path';
 
 type StorageModule = typeof import('../../utils/storage');
 
-const BUCKET = 'aitd-test-bucket';
+const BUCKET = 'aiem-test-bucket';
 const REGION = 'ap-south-1';
 
 const MP4 = Buffer.concat([Buffer.from([0, 0, 0, 0x18]), Buffer.from('ftypisom'), Buffer.alloc(16)]);
@@ -43,7 +43,7 @@ let tmp: string;
 let cwdSpy: jest.SpyInstance;
 
 beforeEach(() => {
-  tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'aitd-video-'));
+  tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'aiem-video-'));
   cwdSpy = jest.spyOn(process, 'cwd').mockReturnValue(tmp);
 });
 
@@ -166,7 +166,7 @@ describe('videoUpload middleware', () => {
     const storage = options.storage;
     const dest = jest.fn();
     storage.destination({}, {}, dest);
-    expect(dest.mock.calls[0][1]).toBe(path.join(os.tmpdir(), 'aitd-video-uploads'));
+    expect(dest.mock.calls[0][1]).toBe(path.join(os.tmpdir(), 'aiem-video-uploads'));
     const name = jest.fn();
     storage.filename({}, {}, name);
     expect(name.mock.calls[0][1]).toMatch(/^[0-9a-f-]{36}\.upload$/);

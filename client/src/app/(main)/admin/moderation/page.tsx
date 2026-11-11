@@ -5,7 +5,6 @@ import Link from 'next/link';
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   AlertCircle,
-  ArrowLeft,
   Briefcase,
   Building2,
   CheckCircle2,
@@ -35,6 +34,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Pagination } from '@/components/shared/Pagination';
+import { AdminPageHeader } from '@/components/admin/AdminPageHeader';
 
 const PAGE_SIZE = 10;
 const MIN_REJECT_REASON = 5;
@@ -107,19 +107,12 @@ export default function AdminModerationPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <Button variant="link" asChild className="px-0 h-auto mb-1 text-muted-foreground">
-          <Link href="/admin">
-            <ArrowLeft className="h-4 w-4 mr-1" />
-            Admin dashboard
-          </Link>
-        </Button>
-        <div className="flex items-center gap-3">
-          <h1 className="text-2xl font-bold">Moderation queue</h1>
-          {typeof total === 'number' && total > 0 && <Badge variant="warning">{total} pending</Badge>}
-        </div>
-        <p className="text-muted-foreground">Review job postings before they are published to members.</p>
-      </div>
+      <AdminPageHeader
+        title="Moderation queue"
+        icon={ClipboardCheck}
+        badge={typeof total === 'number' && total > 0 ? <Badge variant="warning">{total} pending</Badge> : undefined}
+        description="Review job postings before they are published to members."
+      />
 
       {jobsQuery.isError ? (
         <Alert variant="destructive">

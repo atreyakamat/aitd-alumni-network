@@ -26,7 +26,7 @@ afterEach(() => {
 
 const dbUser = (overrides: Record<string, unknown> = {}) => ({
   id: 'u1',
-  email: 'alum@aitd.edu',
+  email: 'alum@aiem.edu',
   fullName: 'Ada Alum',
   passwordHash,
   profilePhotoUrl: null,
@@ -43,11 +43,11 @@ const dbUser = (overrides: Record<string, unknown> = {}) => ({
   ...overrides,
 });
 
-const credentials = { email: 'alum@aitd.edu', password: PASSWORD };
+const credentials = { email: 'alum@aiem.edu', password: PASSWORD };
 
 describe('registration', () => {
   const input = {
-    email: 'New@AITD.edu',
+    email: 'New@AIEM.edu',
     password: PASSWORD,
     fullName: '  Ada Alum ',
     batchYear: 2015,

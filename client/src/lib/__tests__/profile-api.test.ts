@@ -42,7 +42,7 @@ describe('userApi profile endpoints', () => {
     await userApi.addWorkExperience({ company: 'A', role: 'R', startDate: '2020-01-01' });
     await userApi.updateWorkExperience('w1', { role: 'R2' });
     await userApi.deleteWorkExperience('w1');
-    await userApi.addEducation({ institution: 'AITD', degree: 'B.Tech', startYear: 2011 });
+    await userApi.addEducation({ institution: 'AIEM', degree: 'B.Tech', startYear: 2011 });
     await userApi.updateSkills(['Go']);
 
     expect(mockInstance.post).toHaveBeenCalledWith('/users/work-experience', expect.objectContaining({ startDate: '2020-01-01' }));

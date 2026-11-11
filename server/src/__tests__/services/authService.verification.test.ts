@@ -38,7 +38,7 @@ afterEach(() => {
 
 const dbUser = (overrides: Record<string, unknown> = {}) => ({
   id: 'u1',
-  email: 'alum@aitd.edu',
+  email: 'alum@aiem.edu',
   fullName: 'Ada Alum',
   passwordHash,
   profilePhotoUrl: null,
@@ -61,7 +61,7 @@ const arrangeOneTimeToken = (user: Record<string, unknown> | null = dbUser(), cl
 };
 
 describe('login while the e-mail address is unverified', () => {
-  const credentials = { email: 'alum@aitd.edu', password: PASSWORD };
+  const credentials = { email: 'alum@aiem.edu', password: PASSWORD };
 
   it('refuses a session with 403 EMAIL_NOT_VERIFIED once the password is proven (policy on)', async () => {
     config.auth.requireEmailVerification = true;
@@ -170,12 +170,12 @@ describe('verifyEmail with the registration password (policy on)', () => {
 });
 
 describe('registration does not wait for the mail server', () => {
-  const input = { email: 'new@aitd.edu', password: PASSWORD, fullName: 'New Member', batchYear: 2020, department: 'Civil', degree: 'B.E.' };
+  const input = { email: 'new@aiem.edu', password: PASSWORD, fullName: 'New Member', batchYear: 2020, department: 'Civil', degree: 'B.E.' };
   const neverFinishes = () => new Promise<void>(() => undefined);
 
   it('a new sign-up returns at once even if the mail server hangs (the member can use "resend")', async () => {
     prismaMock.user.findUnique.mockResolvedValue(null);
-    prismaMock.user.create.mockResolvedValue(dbUser({ id: 'new1', email: 'new@aitd.edu' }));
+    prismaMock.user.create.mockResolvedValue(dbUser({ id: 'new1', email: 'new@aiem.edu' }));
     (sendVerificationEmail as jest.Mock).mockImplementationOnce(neverFinishes);
 
     await expect(authService.register(input)).resolves.toMatchObject({ id: 'new1' });
@@ -188,12 +188,12 @@ describe('registration does not wait for the mail server', () => {
     prismaMock.user.update.mockResolvedValue(dbUser());
     (sendVerificationEmail as jest.Mock).mockImplementationOnce(neverFinishes);
 
-    await expect(authService.register({ ...input, email: 'alum@aitd.edu' })).resolves.toMatchObject({ id: 'u1' });
+    await expect(authService.register({ ...input, email: 'alum@aiem.edu' })).resolves.toMatchObject({ id: 'u1' });
   });
 
   it('a failing mail server does not fail the sign-up or leave an unhandled rejection', async () => {
     prismaMock.user.findUnique.mockResolvedValue(null);
-    prismaMock.user.create.mockResolvedValue(dbUser({ id: 'new2', email: 'new@aitd.edu' }));
+    prismaMock.user.create.mockResolvedValue(dbUser({ id: 'new2', email: 'new@aiem.edu' }));
     (sendVerificationEmail as jest.Mock).mockRejectedValueOnce(new Error('smtp down'));
 
     await expect(authService.register(input)).resolves.toMatchObject({ id: 'new2' });
@@ -203,7 +203,7 @@ describe('registration does not wait for the mail server', () => {
 
 describe('register over an address whose account is still unverified (policy on)', () => {
   const input = {
-    email: 'Alum@AITD.edu',
+    email: 'Alum@AIEM.edu',
     password: PASSWORD,
     fullName: 'Real Owner',
     batchYear: 2015,
@@ -269,9 +269,9 @@ describe('resendVerification', () => {
     prismaMock.user.findUnique.mockResolvedValue(dbUser());
     prismaMock.verificationToken.findFirst.mockResolvedValue(null);
 
-    await expect(authService.resendVerification(' Alum@AITD.edu ')).resolves.toEqual(GENERIC);
+    await expect(authService.resendVerification(' Alum@AIEM.edu ')).resolves.toEqual(GENERIC);
 
-    expect(prismaMock.user.findUnique).toHaveBeenCalledWith({ where: { email: 'alum@aitd.edu' } });
+    expect(prismaMock.user.findUnique).toHaveBeenCalledWith({ where: { email: 'alum@aiem.edu' } });
     expect(prismaMock.verificationToken.deleteMany).toHaveBeenCalledWith({
       where: { userId: 'u1', type: TOKEN_TYPES.EMAIL_VERIFY },
     });
@@ -291,7 +291,7 @@ describe('resendVerification', () => {
   ])('answers identically and sends nothing for %s (no enumeration)', async (_label, user) => {
     prismaMock.user.findUnique.mockResolvedValue(user as any);
 
-    await expect(authService.resendVerification('alum@aitd.edu')).resolves.toEqual(GENERIC);
+    await expect(authService.resendVerification('alum@aiem.edu')).resolves.toEqual(GENERIC);
 
     expect(prismaMock.verificationToken.create).not.toHaveBeenCalled();
     expect(sendVerificationEmail).not.toHaveBeenCalled();
@@ -301,7 +301,7 @@ describe('resendVerification', () => {
     prismaMock.user.findUnique.mockResolvedValue(dbUser());
     prismaMock.verificationToken.findFirst.mockResolvedValue({ id: 'recent', createdAt: new Date(Date.now() - 10_000) } as any);
 
-    await expect(authService.resendVerification('alum@aitd.edu')).resolves.toEqual(GENERIC);
+    await expect(authService.resendVerification('alum@aiem.edu')).resolves.toEqual(GENERIC);
 
     expect(prismaMock.verificationToken.create).not.toHaveBeenCalled();
     expect(sendVerificationEmail).not.toHaveBeenCalled();
@@ -314,7 +314,7 @@ describe('resendVerification', () => {
     prismaMock.user.findUnique.mockResolvedValue(dbUser());
     prismaMock.verificationToken.findFirst.mockResolvedValue(null);
     (sendVerificationEmail as jest.Mock).mockRejectedValueOnce(new Error('smtp down'));
-    await expect(authService.resendVerification('alum@aitd.edu')).resolves.toEqual(GENERIC);
+    await expect(authService.resendVerification('alum@aiem.edu')).resolves.toEqual(GENERIC);
     await new Promise((resolve) => setImmediate(resolve));
   });
 });

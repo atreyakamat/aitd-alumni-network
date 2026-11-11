@@ -1,8 +1,8 @@
 import { Metadata } from 'next';
 
 export const metadata: Metadata = {
-  title: 'Terms of Service | AIEM Connection',
-  description: 'Terms of Service for the AIEM AIEM Connection platform',
+  title: 'Terms of Service | AIEM Connect',
+  description: 'Terms of Service for the AIEM AIEM Connect platform',
 };
 
 export default function TermsOfServicePage() {
@@ -23,7 +23,7 @@ export default function TermsOfServicePage() {
             <section className="mb-8">
               <h2>1. Agreement to Terms</h2>
               <p>
-                By accessing or using the AIEM Connection platform ("Platform"), you agree to be bound 
+                By accessing or using the AIEM Connect platform ("Platform"), you agree to be bound 
                 by these Terms of Service ("Terms"). If you do not agree to these Terms, please do not 
                 use the Platform.
               </p>
@@ -172,7 +172,7 @@ export default function TermsOfServicePage() {
 
               <h3>8.2 Trademarks</h3>
               <p>
-                "AIEM Connection," "AIEM," and related logos are trademarks of the AIEM Alumni 
+                "AIEM Connect," "AIEM," and related logos are trademarks of the AIEM Alumni 
                 Association. You may not use these trademarks without our prior written consent.
               </p>
             </section>

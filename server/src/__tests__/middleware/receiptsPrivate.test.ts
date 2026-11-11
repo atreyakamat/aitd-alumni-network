@@ -8,7 +8,7 @@ describe('uploads static handler', () => {
   let cwdSpy: jest.SpyInstance;
 
   beforeEach(() => {
-    tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'aitd-uploads-'));
+    tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'aiem-uploads-'));
     fs.mkdirSync(path.join(tmp, 'uploads', 'receipts'), { recursive: true });
     fs.mkdirSync(path.join(tmp, 'uploads', 'posts'), { recursive: true });
     fs.writeFileSync(path.join(tmp, 'uploads', 'receipts', 'receipt_1.pdf'), '%PDF donor name and amount');

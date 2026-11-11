@@ -325,7 +325,7 @@ export const deleteFromStorage = async (fileUrl: string): Promise<void> => {
 // ---------------------------------------------------------------------------
 
 export const VIDEO_MAX_BYTES = 100 * 1024 * 1024;
-const VIDEO_TEMP_DIR = path.join(os.tmpdir(), 'aitd-video-uploads');
+const VIDEO_TEMP_DIR = path.join(os.tmpdir(), 'aiem-video-uploads');
 const VIDEO_EXTENSIONS = new Set(['.mp4', '.m4v', '.mov', '.webm']);
 const VIDEO_MIME_TYPES = new Set(['video/mp4', 'video/x-m4v', 'video/quicktime', 'video/webm']);
 

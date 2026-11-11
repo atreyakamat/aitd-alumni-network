@@ -1,6 +1,6 @@
-# Getting Started with AITD Connection
+# Getting Started with AIEM Connect
 
-This guide will walk you through setting up the AITD Connection platform on your local development environment.
+This guide will walk you through setting up the AIEM Connect platform on your local development environment.
 
 ## Prerequisites
 
@@ -83,7 +83,7 @@ SMTP_HOST="smtp.gmail.com"
 SMTP_PORT=587
 SMTP_USER="your-email@gmail.com"
 SMTP_PASS="your-app-password"
-EMAIL_FROM="noreply@aitdconnection.edu"
+EMAIL_FROM="noreply@aiemconnect.edu"
 
 # Optional: Razorpay (for payments)
 RAZORPAY_KEY_ID="rzp_test_xxx"
@@ -140,7 +140,7 @@ npx prisma db seed
 
 Seeded credentials (**development only**: these passwords are published in the repository, and `npm run preflight` fails
 when a production database still contains them):
-- Admin: `admin@aitdconnection.edu` / `Admin@123` (in production the seed needs `SEED_ADMIN_PASSWORD`, 12+ characters)
+- Admin: `admin@aiemconnect.edu` / `Admin@123` (in production the seed needs `SEED_ADMIN_PASSWORD`, 12+ characters)
 - Sample alumni: `user1@example.com` to `user6@example.com` / `User@123` (created outside production; in production only with `SEED_SAMPLE_DATA=true`, which the preflight rejects)
 
 ## Going to production
@@ -443,4 +443,4 @@ If you encounter issues:
 
 ## License
 
-This project is proprietary software for AITD Alumni Association.
+This project is proprietary software for AIEM Alumni Association.

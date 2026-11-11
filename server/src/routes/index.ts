@@ -13,7 +13,7 @@ import { inviteController } from '../controllers/inviteController';
 import { auditController } from '../controllers/auditController';
 import { mentorshipController } from '../controllers/mentorshipController';
 import { adminController } from '../controllers/adminController';
-import { platformController } from '../controllers/platformController';
+import { systemStatusController } from '../controllers/systemStatusController';
 import { adminUserController, accountController } from '../controllers/adminUserController';
 import { memberApprovalController } from '../controllers/memberApprovalController';
 import { geoController } from '../controllers/geoController';
@@ -360,7 +360,8 @@ router.post('/mentorship/sessions/:sessionId/complete', authenticate, mentorship
 
 // ============== ADMIN ROUTES ==============
 router.get('/admin/stats', authenticate, isAdmin, adminController.getStats);
-router.get('/platform/readiness', authenticate, isAdmin, platformController.getReadiness);
+// System status in plain words (database, e-mail, payments, ...): counts and modes only, never a secret
+router.get('/admin/system-status', authenticate, isAdmin, systemStatusController.get);
 // Alumni approval: the administrator's review queue (a registration is a claim until it is checked)
 router.get('/admin/approvals', authenticate, isAdmin, memberApprovalController.list);
 router.get('/admin/approvals/summary', authenticate, isAdmin, memberApprovalController.summary);

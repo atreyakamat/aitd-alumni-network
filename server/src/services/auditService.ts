@@ -104,25 +104,63 @@ export interface AuditActor {
   email: string;
 }
 
+const idOrNull = (value: unknown): string | null => (typeof value === 'string' && value !== '' ? value : null);
+
+/** "Full Name (email@x.y)": what an administrator recognises. Falls back to whichever of the two exists. */
+const describePerson = (person: { fullName?: string | null; email?: string | null }): string | null => {
+  const name = person.fullName?.trim();
+  const email = person.email?.trim();
+  if (name && email) return `${name} (${email})`;
+  return name || email || null;
+};
+
 /**
- * AuditLog has no relation to User (entries must outlive deleted accounts), so the acting
- * user is resolved with one batched lookup. Best-effort: a failed lookup leaves `user: null`.
+ * AuditLog has no relation to User (entries must outlive deleted accounts), so the people an entry names are resolved
+ * with ONE batched lookup for the whole page:
+ *  - `user`: who did it (userId);
+ *  - `entityLabel`: for entries about a USER, who it was done to, as "Full Name (email)". It is null for every other
+ *    entity type (those carry no readable name here) and for a user that no longer exists, so the UI can fall back to
+ *    the raw id. Only the name and e-mail are ever read.
+ * Best-effort: a failed lookup leaves `user` and `entityLabel` null rather than failing the page.
  */
-async function attachActors<T extends { userId?: string | null }>(logs: T[]): Promise<Array<T & { user: AuditActor | null }>> {
-  const ids = Array.from(new Set(logs.map((entry) => entry.userId).filter((v): v is string => typeof v === 'string' && v !== '')));
+async function attachPeople<T extends { userId?: string | null; entityType?: string | null; entityId?: string | null }>(
+  logs: T[]
+): Promise<Array<T & { user: AuditActor | null; entityLabel: string | null }>> {
+  const targetOf = (entry: T) => (entry.entityType === 'USER' ? idOrNull(entry.entityId) : null);
+
+  const wanted = new Set<string>();
+  for (const entry of logs) {
+    const actorId = idOrNull(entry.userId);
+    if (actorId) wanted.add(actorId);
+  }
+  for (const entry of logs) {
+    const targetId = targetOf(entry);
+    if (targetId) wanted.add(targetId);
+  }
+
   const byId = new Map<string, AuditActor>();
-  if (ids.length > 0) {
+  if (wanted.size > 0) {
     try {
       const users = (await prisma.user.findMany({
-        where: { id: { in: ids } },
+        where: { id: { in: Array.from(wanted) } },
         select: { id: true, fullName: true, email: true },
       })) || [];
       for (const user of users) byId.set(user.id, user);
     } catch (error) {
-      log.error('Failed to resolve audit log actors', { err: error });
+      log.error('Failed to resolve the people named in audit log entries', { err: error });
     }
   }
-  return logs.map((entry) => ({ ...entry, user: (entry.userId && byId.get(entry.userId)) || null }));
+
+  return logs.map((entry) => {
+    const actorId = idOrNull(entry.userId);
+    const targetId = targetOf(entry);
+    const target = targetId ? byId.get(targetId) : undefined;
+    return {
+      ...entry,
+      user: (actorId && byId.get(actorId)) || null,
+      entityLabel: target ? describePerson(target) : null,
+    };
+  });
 }
 
 /**
@@ -165,7 +203,7 @@ export async function getAuditLogs(options: {
   ]);
 
   return {
-    logs: await attachActors(logs),
+    logs: await attachPeople(logs),
     pagination: {
       page,
       limit,

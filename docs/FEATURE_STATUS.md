@@ -1,6 +1,6 @@
-# AITD Connection Feature Status (PRD v1.1 aligned)
+# AIEM Connect Feature Status (PRD v1.1 aligned)
 
-Updated 2026-11-08. Live status is served by `GET /api/platform/readiness` (admin control view at `/admin/control`).
+Updated 2026-11-09. The running system's health (database, e-mail, payments, notifications, storage) is served by `GET /api/admin/system-status` (see the 2026-11-09 notes below). The developer-facing `GET /api/platform/readiness` was removed.
 Release gate (PRD §10.3): **releasable, no P0/P1 blockers in Must Have domains.**
 
 | Domain | Status | Evidence |
@@ -18,7 +18,7 @@ Release gate (PRD §10.3): **releasable, no P0/P1 blockers in Must Have domains.
 | Events, gallery, news (members only, article pages) | IMPLEMENTED | event/gallery/news suites, `tests/integration/alumni-approval.int.test.ts` (visitors get 401), news page tests |
 | Revenue (memberships, member and guest donations (alumni donate without an account; the form is the one public page), verified payments, Razorpay webhook, mismatch alerts, receipts, history) | IMPLEMENTED | membership/donation/webhook suites, `tests/integration/payments.int.test.ts` |
 | Community (chapters pages with chapter-admin scope and server-side search, marketplace listing lifecycle with admin moderation, invites) | IMPLEMENTED | chapter scope tests, chapters/marketplace page tests, marketplace/invite suites |
-| Admin & governance (real-data analytics, audit log page with security/payment alerts, user management, CSV exports, readiness) | IMPLEMENTED | adminController/adminService/audit suites, analytics + audit page tests, audit filter contract test, `tests/integration/admin-rbac.int.test.ts` |
+| Admin & governance (real-data analytics, audit log page with security/payment alerts, user management, CSV exports, system status) | IMPLEMENTED | adminController/adminService/audit suites, analytics + audit page tests, audit filter contract test, `tests/integration/admin-rbac.int.test.ts` |
 | Privacy (data export covering reactions, reports, uploads and audit entries; account deletion that also clears request metadata from earlier audit entries) | IMPLEMENTED | privacyService suite, `tests/security/auth/account-deletion.sec.test.ts`, integration test |
 | Security hardening (two white-box audit rounds, 27 further defects fixed in round 2, every finding a regression test) | IMPLEMENTED | [SECURITY_AUDIT.md](SECURITY_AUDIT.md), `server/tests/security/`, `server/tests/contract/` |
 | Production readiness (start-up guard, `preflight`, `secrets`, `verify:deploy`, shared rate limits through Redis, PostgreSQL backups, nginx limits, go-live checklist) | IMPLEMENTED, with launch gates | [PRODUCTION_CHECKLIST.md](PRODUCTION_CHECKLIST.md) |
@@ -62,7 +62,7 @@ Release gate (PRD §10.3): **releasable, no P0/P1 blockers in Must Have domains.
 The college and engagement features built on `main` while this branch was in review: college **videos** (member submissions with
 admin approval), a **magazine** of PDFs, **requirements** (what the college needs, alumni offer help), job **referrals**, a **weekly
 digest** with admin settings, a **landing page builder**, separate **home and work locations** on the map, logo and images on marketplace
-listings, background jobs (BullMQ, needs Redis) and the **AIEM Connection** rebrand. The Reels page and viewer were replaced by Videos;
+listings, background jobs (BullMQ, needs Redis) and the **AIEM Connect** rebrand. The Reels page and viewer were replaced by Videos;
 the leftover Reels flag was removed in this merge. What was found and fixed while reviewing that code is in
 [SECURITY_AUDIT.md](SECURITY_AUDIT.md) ("Review of the code merged from main").
 
@@ -83,6 +83,22 @@ the leftover Reels flag was removed in this merge. What was found and fixed whil
 - **Production tooling:** the API refuses to start on an unsafe production configuration; `npm run preflight`, `npm run secrets`
   and `npm run verify:deploy`; rate limits shared through Redis; 15-minute access tokens; a PostgreSQL `backup-db.sh` (the old
   one was for MySQL); nginx request limits.
+
+## 2026-11-09: admin numbers count members, readable audit targets, system status
+
+- **Admin statistics count members only** (`GET /api/admin/stats`). The platform is private, so `users.total`, `active`,
+  `verified`, `newThisMonth`, `growthPercent`, `byRole`, `byBatch`, `byLocation` and `monthlyGrowth` count `APPROVED` users
+  only. `users.verified` keeps its name and now means "approved members". New: `users.pendingApproval` (registrations
+  waiting for a decision) and `users.rejected`. `recentActivity.users` is the recent registrations feed: it keeps every
+  status and each item now carries `approvalStatus`.
+- **Audit log targets are readable:** every row of `GET /api/admin/audit` has `entityLabel`: `Full Name (email)` for an
+  entry about a `USER`, `null` for a user that no longer exists and for every other entity type. The whole page is
+  resolved with one user lookup (the acting user is resolved by the same query).
+- **System status replaces the readiness page:** `GET /api/admin/system-status` (admin only) returns `overall`
+  (`ok` / `warning` / `error`) and one line per service (`database`, `cache`, `notifications`, `email`, `approvalAlerts`,
+  `payments`, `storage`) with a status (`ok`, `warning`, `error`, `off`) and a plain-English `detail`. Only yes/no, modes
+  and counts are returned: never hosts, keys, bucket names or addresses. A failing check turns only its own line red.
+  `GET /api/platform/readiness` and the module-readiness list behind it were removed.
 
 ## Planned (Phase D, out of scope for this release)
 

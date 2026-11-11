@@ -1,11 +1,10 @@
 'use client';
 
 import * as React from 'react';
-import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { format, formatDistanceToNow } from 'date-fns';
-import { AlertCircle, ArrowLeft, ChevronDown, ChevronRight, ScrollText, Trash2 } from 'lucide-react';
+import { AlertCircle, ChevronDown, ChevronRight, ScrollText, Trash2 } from 'lucide-react';
 import {
   adminApi,
   getApiErrorMessage,
@@ -35,6 +34,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Pagination } from '@/components/shared/Pagination';
+import { AdminPageHeader } from '@/components/admin/AdminPageHeader';
 
 const PAGE_SIZE = 25;
 const ALL = 'ALL';
@@ -61,6 +61,12 @@ const BADGE_CLASS: Record<Severity, string> = {
   danger: 'border-red-600 bg-red-600 text-white hover:bg-red-600',
   warning: 'border-amber-500 bg-amber-100 text-amber-900 hover:bg-amber-100 dark:bg-amber-900 dark:text-amber-50',
 };
+
+/** An audit row as the API sends it; `entityLabel` ("Jane Doe (jane@x.edu)") says who an entry about a person was done to. */
+type AuditEntry = AuditLogEntry & { entityLabel?: string | null };
+
+/** A bare id is unreadable (a UUID is 36 characters): show its start and keep the whole id in a tooltip. */
+const shortId = (id: string) => (id.length > 12 ? `${id.slice(0, 8)}…` : id);
 
 const pickKnown = (value: string | null, known: readonly string[]) =>
   value && known.includes(value) ? value : ALL;
@@ -134,12 +140,33 @@ function ActionBadge({ action }: { action: string }) {
   );
 }
 
+function EntityCell({ entry }: { entry: AuditEntry }) {
+  if (entry.entityLabel) {
+    return (
+      <div className="flex flex-col">
+        <span className="font-medium break-words">{entry.entityLabel}</span>
+        <span className="text-xs text-muted-foreground">{entry.entityType}</span>
+      </div>
+    );
+  }
+  return (
+    <div className="flex flex-col">
+      <span className="font-medium">{entry.entityType}</span>
+      {entry.entityId && (
+        <span className="font-mono text-xs text-muted-foreground break-all" title={entry.entityId}>
+          {shortId(entry.entityId)}
+        </span>
+      )}
+    </div>
+  );
+}
+
 function AuditDetails({
   entry,
   onFilterActor,
   onFilterEntity,
 }: {
-  entry: AuditLogEntry;
+  entry: AuditEntry;
   onFilterActor: (userId: string) => void;
   onFilterEntity: (entityType: string, entityId: string) => void;
 }) {
@@ -163,6 +190,11 @@ function AuditDetails({
         <span>
           Entry id: <span className="font-mono">{entry.id}</span>
         </span>
+        {entry.entityId && (
+          <span className="break-all">
+            Entity id: <span className="font-mono">{entry.entityId}</span>
+          </span>
+        )}
         {entry.userAgent && <span className="break-all">User agent: {entry.userAgent}</span>}
       </div>
       <div className="flex flex-wrap gap-2">
@@ -282,26 +314,19 @@ function AdminAuditContent() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
-        <div>
-          <Button variant="link" asChild className="px-0 h-auto mb-1 text-muted-foreground">
-            <Link href="/admin">
-              <ArrowLeft className="h-4 w-4 mr-1" />
-              Admin dashboard
-            </Link>
-          </Button>
-          <h1 className="text-2xl font-bold">Audit log</h1>
-          <p className="text-muted-foreground">
-            Who did what, and when: admin actions, security alerts and payment reconciliation issues.
-          </p>
-        </div>
-        {canCleanup && (
-          <Button variant="outline" onClick={() => setConfirmCleanup(true)}>
-            <Trash2 className="h-4 w-4 mr-2" />
-            Clean up old logs
-          </Button>
-        )}
-      </div>
+      <AdminPageHeader
+        title="Audit log"
+        icon={ScrollText}
+        description="Who did what, and when: admin actions, security alerts and payment reconciliation issues."
+        actions={
+          canCleanup ? (
+            <Button variant="outline" onClick={() => setConfirmCleanup(true)}>
+              <Trash2 className="h-4 w-4 mr-2" />
+              Clean up old logs
+            </Button>
+          ) : undefined
+        }
+      />
 
       {/* Filters */}
       <Card>
@@ -455,7 +480,7 @@ function AdminAuditContent() {
                   </tr>
                 </thead>
                 <tbody>
-                  {logs.map((entry) => {
+                  {(logs as AuditEntry[]).map((entry) => {
                     const severity = SEVERITY[entry.action];
                     const isOpen = expanded.has(entry.id);
                     return (
@@ -487,12 +512,7 @@ function AdminAuditContent() {
                             <ActionBadge action={entry.action} />
                           </td>
                           <td className="px-3 py-2">
-                            <div className="flex flex-col">
-                              <span className="font-medium">{entry.entityType}</span>
-                              {entry.entityId && (
-                                <span className="font-mono text-xs text-muted-foreground break-all">{entry.entityId}</span>
-                              )}
-                            </div>
+                            <EntityCell entry={entry} />
                           </td>
                           <td className="px-3 py-2 font-mono text-xs whitespace-nowrap">
                             {entry.ipAddress || <span className="text-muted-foreground">—</span>}

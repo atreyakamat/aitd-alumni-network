@@ -126,7 +126,7 @@ describe('social routes (HTTP)', () => {
     let cwdSpy: jest.SpyInstance;
 
     beforeEach(() => {
-      cwd = fs.mkdtempSync(path.join(os.tmpdir(), 'aitd-video-route-'));
+      cwd = fs.mkdtempSync(path.join(os.tmpdir(), 'aiem-video-route-'));
       cwdSpy = jest.spyOn(process, 'cwd').mockReturnValue(cwd);
     });
 

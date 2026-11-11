@@ -25,7 +25,14 @@ export interface HandleOptions {
 }
 
 /** The college administrator accounts that are told about a registration (bounded: a college has a handful). */
-const MAX_ADMINS_NOTIFIED = 200;
+export const MAX_ADMINS_NOTIFIED = 200;
+
+/** Who is told about a waiting registration. The admin system-status page counts the same accounts. */
+export const registrationAlertAdmins = (): Prisma.UserWhereInput => ({
+  isActive: true,
+  approvalStatus: 'APPROVED',
+  userRole: { in: ['ADMIN', 'SUPER_ADMIN'] },
+});
 
 type DeliverData = ReturnType<typeof parseEventData<'notification.deliver'>>;
 
@@ -87,9 +94,9 @@ const broadcast = async (envelope: NotificationEnvelope, options: HandleOptions)
 };
 
 /** Extra recipients (for example the alumni office mailbox) from APPROVAL_NOTIFY_EMAIL, comma separated. */
-const sharedMailboxes = (): string[] => {
+export const sharedMailboxes = (env: NodeJS.ProcessEnv = process.env): string[] => {
   const seen = new Set<string>();
-  for (const raw of (process.env.APPROVAL_NOTIFY_EMAIL ?? '').split(',')) {
+  for (const raw of (env.APPROVAL_NOTIFY_EMAIL ?? '').split(',')) {
     const address = normalizeEmail(raw.trim());
     if (address) seen.add(address);
   }
@@ -107,7 +114,7 @@ const registrationSubmitted = async (envelope: NotificationEnvelope) => {
 
   const summary = { fullName: applicant.fullName, batchYear: applicant.batchYear, department: applicant.department };
   const admins = await prisma.user.findMany({
-    where: { isActive: true, approvalStatus: 'APPROVED', userRole: { in: ['ADMIN', 'SUPER_ADMIN'] } },
+    where: registrationAlertAdmins(),
     select: { id: true, email: true },
     orderBy: { createdAt: 'desc' },
     take: MAX_ADMINS_NOTIFIED,

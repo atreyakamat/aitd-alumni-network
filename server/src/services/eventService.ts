@@ -35,6 +35,8 @@ export interface EventFilters {
   city?: string;
   chapterId?: string;
   upcoming?: boolean;
+  /** Events that already started, newest first. Ignored when `upcoming` is set. */
+  past?: boolean;
   search?: string;
   page?: number;
   limit?: number;
@@ -108,6 +110,7 @@ export class EventService {
     if (filters.city) where.city = ilike(filters.city);
     if (filters.chapterId) where.chapterId = filters.chapterId;
     if (filters.upcoming) where.startDate = { gte: new Date() };
+    else if (filters.past) where.startDate = { lt: new Date() };
 
     const search = filters.search?.trim();
     if (search) {
@@ -137,7 +140,7 @@ export class EventService {
             select: { rsvps: true },
           },
         },
-        orderBy: { startDate: 'asc' },
+        orderBy: { startDate: filters.past && !filters.upcoming ? 'desc' : 'asc' },
         skip,
         take,
       }),

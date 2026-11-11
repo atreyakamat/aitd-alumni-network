@@ -132,6 +132,26 @@ describe('audit routes', () => {
     expect(res.body).toMatchObject({ success: true, logs: [], pagination: { limit: 5 } });
   });
 
+  it('GET /api/admin/audit names the person an entry is about, not just their id', async () => {
+    const admin = authAs('ADMIN');
+    prismaMock.auditLog.findMany.mockResolvedValue([
+      { id: 'l1', userId: admin.user.id, action: 'APPROVE', entityType: 'USER', entityId: 'target-1', createdAt: new Date('2026-11-09T10:00:00Z') },
+      { id: 'l2', userId: admin.user.id, action: 'DELETE', entityType: 'SYSTEM', entityId: 'audit-logs', createdAt: new Date('2026-11-09T09:00:00Z') },
+      { id: 'l3', userId: admin.user.id, action: 'DELETE', entityType: 'USER', entityId: 'long-gone', createdAt: new Date('2026-11-09T08:00:00Z') },
+    ]);
+    prismaMock.auditLog.count.mockResolvedValue(3);
+    prismaMock.user.findMany.mockResolvedValue([
+      { id: admin.user.id, fullName: admin.user.fullName, email: admin.user.email },
+      { id: 'target-1', fullName: 'Grace Hopper', email: 'grace@aiem.test' },
+    ]);
+
+    const res = await api().get('/api/admin/audit').set('Authorization', admin.header).expect(200);
+
+    expect(res.body.logs.map((entry: { entityLabel: string | null }) => entry.entityLabel)).toEqual(['Grace Hopper (grace@aiem.test)', null, null]);
+    expect(res.body.logs[0]).toMatchObject({ entityType: 'USER', entityId: 'target-1' });
+    expect(prismaMock.user.findMany).toHaveBeenCalledTimes(1);
+  });
+
   it('POST /api/admin/audit/cleanup is super-admin only and validates retention', async () => {
     const admin = authAs('ADMIN');
     await api().post('/api/admin/audit/cleanup').set('Authorization', admin.header).send({ daysToKeep: 90 }).expect(403);

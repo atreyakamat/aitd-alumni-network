@@ -30,7 +30,7 @@ const author = { id: 'u1', fullName: 'Asha Rao', profilePhotoUrl: null, currentD
 const v2Post = (overrides: Record<string, unknown> = {}) => ({
   id: 'p1',
   type: 'GENERAL',
-  content: 'Hello #AITD',
+  content: 'Hello #AIEM',
   mediaUrls: ['/uploads/posts/a.jpg'],
   videoUrl: null,
   thumbnailUrl: null,
@@ -45,7 +45,7 @@ const v2Post = (overrides: Record<string, unknown> = {}) => ({
   counts: { reactions: 3, comments: 2, reposts: 1, views: 9 },
   reactionSummary: { LIKE: 2, CELEBRATE: 1 },
   topReactions: ['LIKE', 'CELEBRATE'],
-  hashtags: ['aitd'],
+  hashtags: ['aiem'],
   mentions: [],
   viewer: { reaction: 'LIKE', saved: true, reposted: false, isAuthor: false, followsAuthor: true },
   repostOf: null,
@@ -60,7 +60,7 @@ describe('normalizePost', () => {
     expect(post.viewer).toEqual({ reaction: 'LIKE', saved: true, reposted: false, isAuthor: false, followsAuthor: true });
     expect(post.topReactions).toEqual(['LIKE', 'CELEBRATE']);
     expect(post.user.batchYear).toBe(2015);
-    expect(post.hashtags).toEqual(['aitd']);
+    expect(post.hashtags).toEqual(['aiem']);
   });
 
   it('falls back to v1 fields (likeCount, _count, isLiked) and attributes reactions to LIKE', () => {
@@ -211,14 +211,14 @@ describe('tokenizeContent', () => {
   ];
 
   it('splits hashtags, mentions and urls, keeping the rest as text', () => {
-    const tokens = tokenizeContent('Congrats @Asha Rao on #Placement2026! See https://aitd.edu/news.', mentions);
+    const tokens = tokenizeContent('Congrats @Asha Rao on #Placement2026! See https://aiem.edu/news.', mentions);
     expect(tokens).toEqual([
       { kind: 'text', value: 'Congrats ' },
       { kind: 'mention', value: '@Asha Rao', userId: 'u1', href: '/profile/u1' },
       { kind: 'text', value: ' on ' },
       { kind: 'hashtag', value: '#Placement2026', tag: 'placement2026', href: '/hashtags/placement2026' },
       { kind: 'text', value: '! See ' },
-      { kind: 'url', value: 'https://aitd.edu/news', href: 'https://aitd.edu/news' },
+      { kind: 'url', value: 'https://aiem.edu/news', href: 'https://aiem.edu/news' },
       { kind: 'text', value: '.' },
     ]);
   });
@@ -242,7 +242,7 @@ describe('tokenizeContent', () => {
   });
 
   it('extractHashtags lower-cases and de-duplicates', () => {
-    expect(extractHashtags('#AITD rocks #aitd #Batch_2015')).toEqual(['aitd', 'batch_2015']);
+    expect(extractHashtags('#AIEM rocks #aiem #Batch_2015')).toEqual(['aiem', 'batch_2015']);
   });
 });
 
@@ -295,7 +295,7 @@ describe('formatting', () => {
 
 describe('misc normalisers', () => {
   it('normalizeTrending strips # and drops blanks', () => {
-    expect(normalizeTrending([{ tag: '#AITD', postCount: 4 }, { tag: '' }, { postCount: 1 }])).toEqual([{ tag: 'aitd', postCount: 4 }]);
+    expect(normalizeTrending([{ tag: '#AIEM', postCount: 4 }, { tag: '' }, { postCount: 1 }])).toEqual([{ tag: 'aiem', postCount: 4 }]);
     expect(normalizeTrending({ items: [{ tag: 'x', postCount: '2' }] })).toEqual([{ tag: 'x', postCount: 2 }]);
   });
 

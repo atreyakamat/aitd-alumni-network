@@ -1,4 +1,4 @@
-# Running AITD Connection with Docker Compose
+# Running AIEM Connect with Docker Compose
 
 `docker-compose.yml` runs the whole platform: **PostgreSQL 17**, **Redis 7**, the **API** (Express + Prisma +
 socket.io) and the **web** app (Next.js), plus an optional **nginx** reverse proxy. This is the canonical deployment
@@ -7,6 +7,8 @@ guide. The root `DEPLOYMENT_*.md` files describe the old MySQL shared-host setup
 > **Real deployment?** Follow [PRODUCTION_CHECKLIST.md](PRODUCTION_CHECKLIST.md) instead of the quick start below. The API
 > runs with `NODE_ENV=production` and **refuses to start** on an unsafe configuration (weak or leaked secrets, localhost or
 > plain-http origins, no mail server while e-mail verification is required, ...). `npm run preflight -w server` shows what to fix.
+
+> To **prove** this stack works (including Kafka) on a Docker machine, and to fix what fails, follow [DOCKER_TEST_GUIDE.md](DOCKER_TEST_GUIDE.md).
 
 ## Quick start (a trial on one machine)
 
@@ -54,7 +56,7 @@ Sign in at http://localhost:3000/login as `SEED_ADMIN_EMAIL` with `SEED_ADMIN_PA
 | Variable | Required | Purpose |
 |---|---|---|
 | `POSTGRES_PASSWORD` | yes | Database password. Use URL-safe characters (the generator above): it is embedded in `DATABASE_URL`. |
-| `POSTGRES_DB`, `POSTGRES_USER` | no | Default `alumni_connect` / `aitd`. |
+| `POSTGRES_DB`, `POSTGRES_USER` | no | Default `aiem_connect` / `aiem`. |
 | `JWT_SECRET`, `JWT_REFRESH_SECRET` | yes | 32+ random characters each; the API refuses to start in production otherwise. |
 | `SEED_ADMIN_EMAIL`, `SEED_ADMIN_PASSWORD` | password yes | First super admin. Password 12+ characters. |
 | `SEED_ON_START` | no | `true` (default) runs the idempotent seed on every start. |
@@ -113,7 +115,7 @@ Receipts are never served as static files; they are only available through the a
 docker compose ps                         # status + health
 docker compose logs -f api web            # logs
 docker compose restart api                # restart one service
-docker compose exec postgres psql -U aitd alumni_connect
+docker compose exec postgres psql -U aiem aiem_connect
 curl http://localhost:5000/health         # {"status":"ok","database":"postgresql","databaseStatus":"up",...}
 ```
 
@@ -123,17 +125,17 @@ curl http://localhost:5000/health         # {"status":"ok","database":"postgresq
 checks that the dump can be read back, keeps 30 days and can upload to S3 encrypted. Schedule it and copy the dumps off the server:
 
 ```bash
-./backup-db.sh                                  # writes ./backups/aitd_<timestamp>.dump
-# cron:  0 2 * * * cd /srv/aitd && ./backup-db.sh
+./backup-db.sh                                  # writes ./backups/aiem_<timestamp>.dump
+# cron:  0 2 * * * cd /srv/aiem && ./backup-db.sh
 
 # Restore into an EMPTY database (try this on a scratch server regularly: an untested backup is a hope, not a backup)
-docker compose exec -T postgres pg_restore --no-owner --clean --if-exists -U aitd -d alumni_connect < backups/aitd_20261108_020000.dump
+docker compose exec -T postgres pg_restore --no-owner --clean --if-exists -U aiem -d aiem_connect < backups/aiem_20261108_020000.dump
 ```
 
 Also back up the `uploads_data` volume when not using S3:
 
 ```bash
-docker run --rm -v aitd-alumni-network_uploads_data:/data -v "$PWD":/backup alpine tar czf /backup/uploads.tgz -C /data .
+docker run --rm -v aiem-connection_uploads_data:/data -v "$PWD":/backup alpine tar czf /backup/uploads.tgz -C /data .
 ```
 
 ### Upgrades
@@ -180,7 +182,7 @@ fresh at `20261018000000_postgres_baseline`. The old MySQL migrations are archiv
    ```
    LOAD DATABASE
      FROM mysql://user:pass@old-host:3306/alumni_connect
-     INTO postgresql://aitd:<password>@127.0.0.1:5432/alumni_connect
+     INTO postgresql://aiem:<password>@127.0.0.1:5432/aiem_connect
    WITH data only, truncate, disable triggers, reset sequences
    EXCLUDING TABLE NAMES MATCHING '_prisma_migrations';
    ```

@@ -2,7 +2,7 @@ import { inviteController } from '../../controllers/inviteController';
 import { inviteService, MAX_BULK_INVITES } from '../../services/inviteService';
 import { mockReqRes, prismaMock, api, authAs, USER_IDS, getApp } from '../../../tests/helpers';
 
-const member = { id: 'u1', email: 'u1@aitd.test', fullName: 'U1', userRole: 'MEMBER' as const };
+const member = { id: 'u1', email: 'u1@aiem.test', fullName: 'U1', userRole: 'MEMBER' as const };
 
 afterEach(() => {
   jest.restoreAllMocks();
@@ -192,7 +192,7 @@ describe('invite routes (HTTP)', () => {
     prismaMock.invite.findUnique.mockResolvedValue({
       id: 'i1',
       token: TOKEN,
-      email: 'someone-else@aitd.test',
+      email: 'someone-else@aiem.test',
       inviterId: 'inviter',
       status: 'SENT',
       isShareable: false,

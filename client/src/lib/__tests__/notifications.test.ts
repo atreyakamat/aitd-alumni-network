@@ -6,7 +6,7 @@ import {
   mapLegacyNotificationPath,
 } from '@/lib/notifications';
 
-const origin = 'https://aitd.example.com';
+const origin = 'https://aiem.example.com';
 
 describe('getNotificationHref', () => {
   it('returns internal paths as-is', () => {

@@ -50,8 +50,8 @@ function isSameOriginPath(value: string): boolean {
   if (value.startsWith('//') || value.includes('\\')) return false;
   // "/.//evil.example" and "/a/..//evil.example" collapse to the protocol-relative path "//evil.example"
   try {
-    const resolved = new URL(value, 'http://aitd.invalid');
-    if (resolved.origin !== 'http://aitd.invalid' || resolved.pathname.startsWith('//')) return false;
+    const resolved = new URL(value, 'http://aiem.invalid');
+    if (resolved.origin !== 'http://aiem.invalid' || resolved.pathname.startsWith('//')) return false;
   } catch {
     return false;
   }

@@ -10,7 +10,7 @@ import {
 } from '../../utils/validators';
 
 const validRegistration = {
-  email: 'Alum@AITD.edu',
+  email: 'Alum@AIEM.edu',
   password: 'Strong#Pass1',
   fullName: 'Ada Alum',
   batchYear: 2015,
@@ -24,9 +24,9 @@ const parseRegister = (overrides: Record<string, unknown> = {}) =>
 describe('auth validators', () => {
   describe('registerSchema', () => {
     it('accepts a valid registration and normalises the email', () => {
-      const result = parseRegister({ email: '  Alum@AITD.edu ' });
+      const result = parseRegister({ email: '  Alum@AIEM.edu ' });
       expect(result.success).toBe(true);
-      if (result.success) expect(result.data.body.email).toBe('alum@aitd.edu');
+      if (result.success) expect(result.data.body.email).toBe('alum@aiem.edu');
     });
 
     describe('what the applicant tells the reviewer', () => {

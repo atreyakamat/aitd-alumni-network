@@ -28,7 +28,7 @@ export default async function globalSetup() {
   if (!url) {
     const { default: EmbeddedPostgres } = await importEsm('embedded-postgres');
     const port = await freePort();
-    const databaseDir = fs.mkdtempSync(path.join(os.tmpdir(), 'aitd-int-pg-'));
+    const databaseDir = fs.mkdtempSync(path.join(os.tmpdir(), 'aiem-int-pg-'));
     const pg = new EmbeddedPostgres({
       databaseDir,
       port,
@@ -41,9 +41,9 @@ export default async function globalSetup() {
     });
     await pg.initialise();
     await pg.start();
-    await pg.createDatabase('aitd_integration');
-    (globalThis as any).__AITD_TEST_DB__ = pg;
-    url = `postgresql://postgres:postgres@127.0.0.1:${port}/aitd_integration`;
+    await pg.createDatabase('aiem_integration');
+    (globalThis as any).__AIEM_TEST_DB__ = pg;
+    url = `postgresql://postgres:postgres@127.0.0.1:${port}/aiem_integration`;
   }
 
   const serverRoot = path.resolve(__dirname, '../..');
@@ -51,5 +51,5 @@ export default async function globalSetup() {
   execSync('npx prisma migrate reset --force --skip-seed --skip-generate', { cwd: serverRoot, env, stdio: 'pipe' });
 
   // Workers are forked after globalSetup, so they inherit this (read in tests/integration/env.ts)
-  process.env.AITD_INTEGRATION_DATABASE_URL = url;
+  process.env.AIEM_INTEGRATION_DATABASE_URL = url;
 }
