@@ -1,6 +1,6 @@
-# AIEM Connection — common Docker tasks.
+# AIEM Connect — common Docker tasks.
 # One-command setup:  make up   (or ./start.sh)
-.PHONY: up down logs restart rebuild ps reset seed-sample
+.PHONY: up down logs restart rebuild ps reset seed-sample verify verify-down
 
 up: ## First-run setup + start everything (generates .env with secrets if missing)
 	./start.sh
@@ -25,3 +25,9 @@ reset: ## Stop and DELETE all data (postgres, redis, uploads)
 
 seed-sample: ## Load demo users/events/news into the running DB
 	docker compose exec -e SEED_SAMPLE_DATA=true api npx tsx prisma/seed.ts
+
+verify: ## Prove the Docker/Kafka stack works (own project, mail catcher, drills; see docs/DOCKER_TEST_GUIDE.md)
+	node scripts/docker-verify/run.mjs
+
+verify-down: ## Remove the verification stack and its data
+	node scripts/docker-verify/run.mjs --down

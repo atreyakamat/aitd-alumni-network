@@ -1,0 +1,111 @@
+name: Docker and Kafka verification
+
+# Brings the real docker-compose stack (PostgreSQL, Redis, Kafka, API, web, nginx) up on a GitHub runner together with a mail
+# catcher, then proves registration, approval, rejection and the Kafka notification pipeline end to end, and breaks things
+# on purpose (broker outage, poison messages, duplicate events, API down, restarts). The evidence bundle is attached to the run.
+# Run it yourself with:  node scripts/docker-verify/run.mjs      (guide: docs/DOCKER_TEST_GUIDE.md)
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'docker-compose*.yml'
+      - 'nginx/**'
+      - 'server/**'
+      - 'client/**'
+      - 'scripts/docker-verify/**'
+      - 'package-lock.json'
+      - '.github/workflows/docker-verify.yml'
+  push:
+    branches: [main]
+  schedule:
+    # Mondays 03:17 UTC: catches drift in the Kafka, Postgres, Redis, nginx and Node base images
+    - cron: '17 3 * * 1'
+  workflow_dispatch:
+    inputs:
+      skip_drills:
+        description: 'Skip the break-it-on-purpose drills (faster)'
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: docker-verify-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  scripts:
+    name: Verification scripts (unit tests, no Docker)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.x'
+          cache: 'npm'
+          cache-dependency-path: package-lock.json
+
+      # The guard tests read the workflow and compose files with js-yaml, which comes from node_modules.
+      # --ignore-scripts: nothing here needs Prisma or the embedded PostgreSQL binaries.
+      - name: Install dependencies
+        run: npm ci --ignore-scripts
+
+      - name: Unit tests of the verification and security scripts
+        run: node --test scripts/*/__tests__/*.test.mjs
+
+  stack:
+    name: Docker stack with Kafka (build, start, verify, drills)
+    needs: scripts
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.x'
+
+      - name: Show the Docker versions (they are part of the evidence)
+        run: |
+          docker version
+          docker compose version
+
+      # Non-default ports on purpose: it proves the stack works when it is not on 80/5432, and avoids anything preinstalled
+      # on the runner. --skip-drills only when asked for by hand.
+      - name: Verify the stack
+        run: >
+          node scripts/docker-verify/run.mjs
+          --host localhost
+          --proxy-port 8080
+          --postgres-port 55432
+          --out verify-report
+          ${{ github.event_name == 'workflow_dispatch' && inputs.skip_drills && '--skip-drills' || '' }}
+
+      - name: Put the report on the run page
+        if: always()
+        run: |
+          if [ -f verify-report/REPORT.md ]; then cat verify-report/REPORT.md >> "$GITHUB_STEP_SUMMARY"; fi
+
+      # The test credentials in verify-report/private are never uploaded.
+      - name: Upload the evidence bundle
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: docker-verify-evidence
+          path: |
+            verify-report/
+            !verify-report/private/**
+          retention-days: 30
+          if-no-files-found: warn
+
+      - name: Remove the stack
+        if: always()
+        run: node scripts/docker-verify/run.mjs --down

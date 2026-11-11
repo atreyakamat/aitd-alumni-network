@@ -1,0 +1,176 @@
+{
+  "_comment": "Production-dependency advisories (npm audit --omit=dev) that are known and deliberately not failing the scan YET. Read by scripts/security/static-scan.mjs and the CI 'dependencies' job. Rules: every entry needs a truthful reason, an owner and an expiry at most 90 days away (these were set 30 to 60 days out on 2026-11-11); an expired entry stops protecting anything and the scan fails again. status 'needs-fix' means the finding is real and reachable, the entry only defers the failure. status 'mitigated' / 'not-applicable' / 'accepted-risk' say why it is not exploitable today. Review each entry when it expires; do not just move the date.",
+  "entries": [
+    {
+      "package": "next",
+      "severity": "high",
+      "advisory": "GHSA-h25m-26qc-wcjf",
+      "reason": "REAL. The web app is an App Router app (client/src/app), and nginx forwards / to Next, so React Server Components request handling is reachable by anyone who can reach the web port: unauthenticated denial of service of the web tier (the API is a separate process and is not affected). Not exploitable for data theft. Fix: upgrade next 14.2.x to 15.5.x or 16 (GATE item 1 in docs/SECURITY_AUDIT.md), planned as its own change with a staging soak. Interim: nginx request timeouts, container restart policy.",
+      "expires": "2026-12-11",
+      "owner": "platform-owner",
+      "status": "needs-fix"
+    },
+    {
+      "package": "next",
+      "severity": "high",
+      "advisory": "GHSA-q4gf-8mx6-v5v3",
+      "reason": "REAL. Denial of service with Server Components, reachable by an anonymous visitor on any App Router deployment (see GHSA-h25m-26qc-wcjf). Web tier only. Fixed only by the Next major upgrade (15.5.x / 16).",
+      "expires": "2026-12-11",
+      "owner": "platform-owner",
+      "status": "needs-fix"
+    },
+    {
+      "package": "next",
+      "severity": "high",
+      "advisory": "GHSA-8h8q-6873-q5fj",
+      "reason": "REAL. Second denial of service with Server Components (see GHSA-h25m-26qc-wcjf); reachable anonymously, web tier only. Fixed only by the Next major upgrade (15.5.x / 16).",
+      "expires": "2026-12-11",
+      "owner": "platform-owner",
+      "status": "needs-fix"
+    },
+    {
+      "package": "next",
+      "severity": "high",
+      "advisory": "GHSA-c4j6-fc7j-m34r",
+      "reason": "LIKELY REAL. SSRF through WebSocket upgrade requests handled by Next. The nginx proxy profile forwards Upgrade headers for the / location to the web container, so the upgrade path is reachable from outside. Not exploited here; phase G of docs/SECURITY_AUDIT_PLAN.md tests it against the test stack. Fix: Next major upgrade; interim: stop forwarding Upgrade on / (only /socket.io needs it) once dev hot reload is not needed in the container.",
+      "expires": "2026-12-11",
+      "owner": "platform-owner",
+      "status": "needs-fix"
+    },
+    {
+      "package": "next",
+      "severity": "critical",
+      "advisory": "GHSA-2464-fhr4-w9xw",
+      "reason": "Remote code execution through the Image Optimization API (SVG). The optimizer is disabled: client/next.config.js sets images.unoptimized: true and has no remotePatterns, client/src/__tests__/next-config-headers.test.ts pins both, and /_next/image answers 404 (checked on the local web server 2026-11-11; verify:deploy and the dynamic CI job re-check it against a built stack). It becomes reachable again only if someone removes that setting.",
+      "expires": "2027-01-10",
+      "owner": "platform-owner",
+      "status": "mitigated"
+    },
+    {
+      "package": "next",
+      "severity": "critical",
+      "advisory": "GHSA-2xp9-vwfh-vxw4",
+      "reason": "Remote code execution through the Image Optimization API (AVIF). Same mitigation as GHSA-2464-fhr4-w9xw: images.unoptimized is true, no remotePatterns, /_next/image answers 404, a unit test pins the configuration.",
+      "expires": "2027-01-10",
+      "owner": "platform-owner",
+      "status": "mitigated"
+    },
+    {
+      "package": "next",
+      "severity": "critical",
+      "advisory": "GHSA-p293-qw3h-jr36",
+      "reason": "Remote code execution that only affects Next servers running on Windows. Production runs the web app in node:20-alpine (client/Dockerfile); the Windows development machine runs next dev on localhost only. Never host the web app on Windows until Next is upgraded.",
+      "expires": "2027-01-10",
+      "owner": "platform-owner",
+      "status": "not-applicable"
+    },
+    {
+      "package": "next",
+      "severity": "high",
+      "advisory": "GHSA-36qx-fr4f-26g5",
+      "reason": "Middleware bypass in Pages Router applications that use i18n. This app uses only the App Router and has no i18n configuration in client/next.config.js, so the vulnerable path does not exist. (The login gate also is not the authority: the API checks every request.)",
+      "expires": "2027-01-10",
+      "owner": "platform-owner",
+      "status": "not-applicable"
+    },
+    {
+      "package": "next",
+      "severity": "high",
+      "advisory": "GHSA-m99w-x7hq-7vfj",
+      "reason": "Denial of service in App Router using Server Actions. The code base defines no Server Action (no 'use server' anywhere in client/src). Whether Next still processes the Next-Action header for an unknown action in a way this advisory covers is UNCONFIRMED, so treat it as reachable until the Next upgrade; it shares the fix with the Server Components denial of service entries.",
+      "expires": "2026-12-26",
+      "owner": "platform-owner",
+      "status": "accepted-risk"
+    },
+    {
+      "package": "next",
+      "severity": "high",
+      "advisory": "GHSA-p3m5-59mp-jv5r",
+      "reason": "Second denial of service in App Router using Server Actions. No Server Action is defined in client/src; applicability to an app without actions is UNCONFIRMED, so it is treated as reachable until the Next upgrade (same fix as GHSA-h25m-26qc-wcjf).",
+      "expires": "2026-12-26",
+      "owner": "platform-owner",
+      "status": "accepted-risk"
+    },
+    {
+      "package": "next",
+      "severity": "high",
+      "advisory": "GHSA-89xv-2m56-2m9x",
+      "reason": "SSRF in Server Actions on custom servers. Needs Server Actions (none are defined in client/src) and the web container runs Next's own standalone server.js, not a custom server.",
+      "expires": "2027-01-10",
+      "owner": "platform-owner",
+      "status": "not-applicable"
+    },
+    {
+      "package": "next",
+      "severity": "high",
+      "advisory": "GHSA-p9j2-gv94-2wf4",
+      "reason": "SSRF in rewrites when the destination hostname is attacker-controlled. The only rewrite (client/next.config.js) has a fixed destination origin taken from NEXT_PUBLIC_API_URL at build time, with no request parameter in the hostname; with the nginx proxy profile the rewrite is not used at all (nginx routes /api straight to the API).",
+      "expires": "2027-01-10",
+      "owner": "platform-owner",
+      "status": "not-applicable"
+    },
+    {
+      "package": "glob",
+      "severity": "high",
+      "advisory": "GHSA-5j98-mcp5-4vw2",
+      "reason": "Command injection in the glob command-line tool (-c/--cmd). Nothing runs the glob CLI. The package comes in through eslint-config-next, which client/package.json lists under dependencies instead of devDependencies, so it shows in a production audit although it never ships (the web image copies only Next's standalone output). The real fix is to move eslint, eslint-config-next, typescript and the @types/* packages to devDependencies (npm ci in client/Dockerfile still installs them for the build); that removes this and the minimatch, @typescript-eslint/* and @next/eslint-plugin-next findings from the production tree.",
+      "expires": "2027-01-10",
+      "owner": "platform-owner",
+      "status": "mitigated"
+    },
+    {
+      "package": "minimatch",
+      "severity": "high",
+      "advisory": "GHSA-3ppc-4f35-3m26",
+      "reason": "ReDoS in minimatch needs an attacker-chosen glob pattern; here it is only reached by lint tooling (eslint-config-next, @typescript-eslint) with patterns from the repository's own config, at build time. Not in the runtime images. Real fix: move the eslint packages to devDependencies (see the glob entry).",
+      "expires": "2027-01-10",
+      "owner": "platform-owner",
+      "status": "mitigated"
+    },
+    {
+      "package": "minimatch",
+      "severity": "high",
+      "advisory": "GHSA-7r86-cg39-jmmj",
+      "reason": "ReDoS in minimatch matchOne with repeated globstar segments: needs an attacker-chosen pattern; only lint tooling at build time uses it, with the repository's own patterns. Not in the runtime images. Real fix: move the eslint packages to devDependencies (see the glob entry).",
+      "expires": "2027-01-10",
+      "owner": "platform-owner",
+      "status": "mitigated"
+    },
+    {
+      "package": "minimatch",
+      "severity": "high",
+      "advisory": "GHSA-23c5-xmqv-rm74",
+      "reason": "ReDoS in minimatch with nested extglobs: needs an attacker-chosen pattern; only lint tooling at build time uses it, with the repository's own patterns. Not in the runtime images. Real fix: move the eslint packages to devDependencies (see the glob entry).",
+      "expires": "2027-01-10",
+      "owner": "platform-owner",
+      "status": "mitigated"
+    },
+    {
+      "package": "postcss",
+      "severity": "high",
+      "advisory": "GHSA-6g55-p6wh-862q",
+      "reason": "Arbitrary file read through an attacker-controlled sourceMappingURL comment in CSS. The vulnerable copy is the postcss nested inside next, used at build time on this repository's own CSS and Tailwind output; no user-supplied CSS is ever processed at runtime. Goes away with the Next upgrade.",
+      "expires": "2027-01-10",
+      "owner": "platform-owner",
+      "status": "mitigated"
+    },
+    {
+      "package": "postcss",
+      "severity": "high",
+      "advisory": "GHSA-r28c-9q8g-f849",
+      "reason": "Path traversal when postcss auto-loads a previous source map named in a CSS comment. Same situation as GHSA-6g55-p6wh-862q: build time, own CSS only, nothing user-supplied reaches it. Goes away with the Next upgrade.",
+      "expires": "2027-01-10",
+      "owner": "platform-owner",
+      "status": "mitigated"
+    },
+    {
+      "package": "zod",
+      "severity": "high",
+      "advisory": "GHSA-mrhx-c7xc-m3w5",
+      "reason": "REAL (the same class on zod 3). The advisory names zod 4's $ZodArray; this repo imports the zod 3 API (3.25.76 from 'zod'), so that exact code is not executed, but zod 3 also records an issue for every failing element and the validate middleware returns them all. Measured on 2026-11-11: one 1 MB body of 500,000 numbers sent to z.array(z.string()) allocates about 280 MB of heap, about 0.6 s of CPU and builds a 38 MB error response. Reachable by any approved member through POST /jobs (createJobSchema.skills has no .max()) and by chapter admins through POST /events (createEventSchema.tags); the 1 MB body limit bounds one request, not a dozen parallel ones. Fix: .max() on both arrays in server/src/utils/validators.ts and a cap on the issues returned by server/src/middleware/validate.ts; the zod 4 upgrade is optional. Regression test belongs in server/tests/security/round3/.",
+      "expires": "2026-12-11",
+      "owner": "platform-owner",
+      "status": "needs-fix"
+    }
+  ]
+}

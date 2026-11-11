@@ -44,3 +44,9 @@ coverage/
 
 # Local embedded PostgreSQL data (scripts/local-postgres.mjs)
 .local-pg/
+
+# Evidence bundles of the verification and security runs (scripts/docker-verify, scripts/security)
+verify-report/
+security-report/
+zap-report/
+rbac-report.json

@@ -1,0 +1,46 @@
+# Test overlay for the verification suite (scripts/docker-verify, docs/DOCKER_TEST_GUIDE.md). NEVER use it for a real deployment.
+#
+#   docker compose -p aiem-verify -f docker-compose.yml -f docker-compose.test.yml --profile proxy up -d --build --wait
+#
+# What it changes, and why:
+#   * adds a mail catcher (Mailpit): the API sends its e-mails (verification, "registration received", "new registration to
+#     review", approved, rejected) to it instead of a real mail server, so the suite can READ them and prove the Kafka pipeline
+#     delivers. The catcher accepts any login; its web page and API are published on this machine only (127.0.0.1).
+#   * points the API at it and turns on e-mail verification, as in production.
+#   * ALLOW_INSECURE_PRODUCTION_CONFIG=true: the API runs in production mode but this stack has no domain and no https.
+#   * APPROVAL_NOTIFY_EMAIL: a shared mailbox, so the "alumni office" copy of the new-registration mail is proven too.
+# Kafka stays unpublished (reachable only inside the compose network), exactly as in the real stack.
+
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
+services:
+  mailpit:
+    # Version pinned on purpose (never "latest"); if the tag is ever withdrawn, bump it here.
+    image: axllent/mailpit:v1.21.0
+    restart: unless-stopped
+    logging: *default-logging
+    environment:
+      MP_SMTP_AUTH_ACCEPT_ANY: "1"
+      MP_SMTP_AUTH_ALLOW_INSECURE: "1"
+      MP_MAX_MESSAGES: "2000"
+    ports:
+      - "127.0.0.1:${MAILPIT_UI_PORT:-8025}:8025"
+    networks: [backend]
+
+  api:
+    depends_on:
+      mailpit:
+        condition: service_started
+    environment:
+      ALLOW_INSECURE_PRODUCTION_CONFIG: "true"
+      REQUIRE_EMAIL_VERIFICATION: "true"
+      SMTP_HOST: mailpit
+      SMTP_PORT: "1025"
+      SMTP_USER: verify
+      SMTP_PASS: verify
+      EMAIL_FROM: noreply@aiem.test
+      APPROVAL_NOTIFY_EMAIL: alumni-office@aiem.test

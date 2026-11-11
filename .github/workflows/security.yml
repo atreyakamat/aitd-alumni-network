@@ -1,0 +1,246 @@
+name: Security
+
+# Round-3 security gates (docs/SECURITY_AUDIT_PLAN.md). Independent of ci.yml.
+#   dependencies  npm audit gate with scripts/security/audit-allowlist.json + self-tests of the security tooling
+#   secrets       gitleaks over the full git history
+#   dockerfiles   hadolint on both Dockerfiles
+#   codeql        CodeQL javascript-typescript, security-extended (public repositories only)
+#   images        build both images, Trivy image scan (CRITICAL,HIGH, fixed vulnerabilities only)
+#   dynamic       weekly / manual: bring the compose stack up (docker-verify), live RBAC probe, ZAP baseline
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  schedule:
+    - cron: '23 3 * * 1' # Mondays 03:23 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: security-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  NODE_VERSION: '20.x'
+  # ---- Tool versions. They could not be checked offline: if a pull fails, bump the ONE line below. ------------------------
+  # (scripts/security/lib/scanners.mjs holds the same pins for the local runner: gitleaks, hadolint, trivy images.)
+  GITLEAKS_VERSION: '8.21.2' # read by gitleaks/gitleaks-action@v2
+  TRIVY_VERSION: 'v0.57.1' # passed to aquasecurity/trivy-action@0.28.0 as `version`
+  # hadolint v2.12.0 is the version bundled with hadolint/hadolint-action@v3.1.0 (change the action tag to change it)
+  ZAP_IMAGE: 'ghcr.io/zaproxy/zaproxy:2.15.0' # read by scripts/security/zap-baseline.sh
+
+jobs:
+  # ------------------------------------------------------------------------------------------------------------------------
+  dependencies:
+    name: Dependencies (npm audit gate)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check out
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      # --ignore-scripts: nothing here needs Prisma or the embedded PostgreSQL binaries
+      - name: Install dependencies
+        run: npm ci --ignore-scripts
+
+      - name: Self-test the security tooling
+        run: node --test scripts/security/__tests__/
+
+      - name: npm audit, critical and high gated by the allowlist
+        run: node scripts/security/static-scan.mjs --only audit --out security-report
+
+      - name: Upload the audit report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: security-report
+          path: security-report/
+          if-no-files-found: warn
+
+  # ------------------------------------------------------------------------------------------------------------------------
+  secrets:
+    name: Secrets (gitleaks, full history)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check out with the whole history
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: gitleaks
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITLEAKS_VERSION: ${{ env.GITLEAKS_VERSION }}
+          GITLEAKS_ENABLE_COMMENTS: 'false' # contents: read only, no pull-request write access
+          GITLEAKS_ENABLE_SUMMARY: 'true'
+
+  # ------------------------------------------------------------------------------------------------------------------------
+  dockerfiles:
+    name: Dockerfiles (hadolint)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out
+        uses: actions/checkout@v4
+
+      - name: hadolint server/Dockerfile
+        uses: hadolint/hadolint-action@v3.1.0
+        with:
+          dockerfile: server/Dockerfile
+          failure-threshold: error
+
+      - name: hadolint client/Dockerfile
+        uses: hadolint/hadolint-action@v3.1.0
+        with:
+          dockerfile: client/Dockerfile
+          failure-threshold: error
+
+  # ------------------------------------------------------------------------------------------------------------------------
+  codeql:
+    name: CodeQL (javascript-typescript)
+    # CodeQL is free for public repositories; on a private one it needs GitHub Advanced Security
+    if: github.event.repository.private == false
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - name: Check out
+        uses: actions/checkout@v4
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: javascript-typescript
+          queries: security-extended
+
+      - name: Analyze
+        uses: github/codeql-action/analyze@v3
+        with:
+          category: /language:javascript-typescript
+
+  # ------------------------------------------------------------------------------------------------------------------------
+  images:
+    name: Images (build + Trivy)
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Check out
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      # Both Dockerfiles are built from the repository root (npm workspaces); --load keeps the image in the local daemon for Trivy
+      - name: Build the API image
+        run: docker buildx build --load -f server/Dockerfile -t aiem-api:security .
+
+      - name: Build the web image
+        run: docker buildx build --load -f client/Dockerfile --build-arg NEXT_PUBLIC_API_URL=/api -t aiem-web:security .
+
+      - name: Trivy scan of the API image
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          image-ref: aiem-api:security
+          version: ${{ env.TRIVY_VERSION }}
+          severity: CRITICAL,HIGH
+          ignore-unfixed: true
+          vuln-type: os,library
+          exit-code: '1'
+          format: table
+
+      - name: Trivy scan of the web image
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          image-ref: aiem-web:security
+          version: ${{ env.TRIVY_VERSION }}
+          severity: CRITICAL,HIGH
+          ignore-unfixed: true
+          vuln-type: os,library
+          exit-code: '1'
+          format: table
+
+  # ------------------------------------------------------------------------------------------------------------------------
+  dynamic:
+    name: Dynamic (compose stack, RBAC probe, ZAP baseline)
+    # Weekly and on demand only: it builds the whole stack and waits out the API rate limits (about 20 minutes)
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - name: Check out
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      # Brings the compose stack up with a mail catcher, runs the functional and Kafka gates and LEAVES THE STACK RUNNING.
+      # The test credentials go to verify-report/private/credentials.json (never uploaded).
+      - name: Bring the stack up and verify it
+        id: verify
+        run: node scripts/docker-verify/run.mjs --host localhost --keep --skip-drills --out verify-report
+
+      # Still run the probes when a functional gate failed, as long as the stack and its credentials exist
+      - name: Live authorization probe (RBAC)
+        id: rbac
+        if: ${{ !cancelled() && hashFiles('verify-report/private/credentials.json') != '' }}
+        run: node scripts/security/rbac-live.mjs --api http://localhost/api --credentials-file verify-report/private/credentials.json --out rbac-report.json --max-minutes 45
+
+      - name: ZAP baseline (passive)
+        id: zap
+        if: ${{ !cancelled() && hashFiles('verify-report/private/credentials.json') != '' }}
+        run: bash scripts/security/zap-baseline.sh --target http://localhost --out zap-report
+
+      - name: Containers at the end of the run
+        if: always()
+        run: docker ps -a
+
+      # The test credentials must not leave the runner: verify-report is uploaded WITHOUT its private folder.
+      - name: Upload verify-report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: verify-report
+          path: |
+            verify-report/
+            !verify-report/private/**
+          if-no-files-found: warn
+
+      - name: Upload zap-report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: zap-report
+          path: zap-report/
+          if-no-files-found: warn
+
+      - name: Upload rbac-report.json
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: rbac-report
+          path: rbac-report.json
+          if-no-files-found: warn
+
+      - name: Remove the test credentials
+        if: always()
+        run: rm -rf verify-report/private

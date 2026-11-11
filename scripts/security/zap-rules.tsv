@@ -1,0 +1,47 @@
+# OWASP ZAP baseline (passive scan) rule configuration for scripts/security/zap-baseline.sh.
+#
+# Format: <rule id> TAB <IGNORE|INFO|WARN|FAIL> TAB <name>. Lines starting with # are comments. Every rule listed here has a
+# comment above it saying WHY. A rule that is not listed keeps ZAP's default (WARN or INFO) and shows up in the report.
+# FAIL makes the scan fail with --fail-on fail (the default); WARN fails only with --fail-on warn.
+# Add a line only with a reason that you would defend in review, and look at it again when the reason changes.
+
+# --- must never regress: the app and the proxy set these everywhere, so a missing header is a real change ---------------
+
+# Clickjacking: the API sends X-Frame-Options/frame-ancestors through helmet, the web app through next.config.js.
+10020	FAIL	Anti-clickjacking Header
+
+# MIME sniffing: nosniff is sent by helmet (API) and next.config.js (web).
+10021	FAIL	X-Content-Type-Options Header Missing
+
+# Technology leaks: Express (helmet) and Next (poweredByHeader: false) do not send X-Powered-By.
+10037	FAIL	Server Leaks Information via X-Powered-By
+
+# nginx runs with server_tokens off, so the Server header must not carry a version number.
+10036	FAIL	Server Leaks Version Information via Server Header
+
+# Both the API and the web app send a Content-Security-Policy; a response without one means a route escaped the middleware.
+10038	FAIL	Content Security Policy (CSP) Header Not Set
+
+# --- accepted, with the reason --------------------------------------------------------------------------------------------
+
+# Known and documented (docs/SECURITY_AUDIT.md, open items): script-src 'unsafe-inline' stays until the Next.js upgrade brings
+# nonce support. Keep it visible as INFO instead of hiding it; it is not a new finding.
+10055	INFO	CSP: script-src unsafe-inline / style-src unsafe-inline
+
+# HSTS is only meaningful over TLS. The audit stack serves plain HTTP on port 80; the header is verified on the real HTTPS URL
+# by `npm run verify:deploy -w server` and phase G of docs/SECURITY_AUDIT_PLAN.md.
+10035	IGNORE	Strict-Transport-Security Header Not Set (plain HTTP test stack)
+
+# False positive: the X-RateLimit-Reset header carries a Unix timestamp on purpose (when the rate-limit window resets).
+10096	IGNORE	Timestamp Disclosure - Unix
+
+# The Next.js and React bundles are minified framework code; the "suspicious comment" matches (TODO, admin, debug...) are words
+# inside library code, not project comments.
+10027	IGNORE	Information Disclosure - Suspicious Comments
+
+# By design (docs/SECURITY_AUDIT.md CL-01): the session cookie the edge middleware reads is a non-secret hint, readable by script
+# on purpose; the API authorises every request with the bearer token. Kept as INFO so a new cookie without HttpOnly still shows.
+10010	INFO	Cookie No HttpOnly Flag (session hint cookie)
+
+# The audit stack is plain HTTP, so cookies cannot carry Secure here; checked over HTTPS in phase C of the audit plan.
+10011	INFO	Cookie Without Secure Flag (plain HTTP test stack)
