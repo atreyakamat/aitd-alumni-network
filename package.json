@@ -22,9 +22,13 @@
     "db:seed": "npm run db:seed --workspace=server",
     "docker:verify": "node scripts/docker-verify/run.mjs",
     "docker:verify:down": "node scripts/docker-verify/run.mjs --down",
+    "load:test": "node scripts/load/run.mjs",
+    "e2e": "playwright test",
     "test:scripts": "node --test scripts/*/__tests__/*.test.mjs"
   },
   "devDependencies": {
+    "@axe-core/playwright": "4.10.1",
+    "@playwright/test": "1.56.1",
     "autoprefixer": "^10.4.16",
     "concurrently": "^8.2.2",
     "postcss": "^8.4.33",

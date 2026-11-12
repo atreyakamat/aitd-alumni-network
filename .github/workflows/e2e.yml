@@ -1,0 +1,121 @@
+name: End-to-end (browser)
+
+# Runs the Playwright specs in e2e/ against the real built API and web app on a GitHub runner: public pages, the private-platform
+# redirects, the register -> approve -> sign-in journey and an axe accessibility scan (WCAG 2 A/AA, serious and critical only).
+# Run it yourself with:  npx playwright test      (guide: docs/TESTING.md, "End-to-end tests")
+# The Docker/Kafka stack has its own workflow (docker-verify.yml); this one needs only PostgreSQL.
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'client/**'
+      - 'server/**'
+      - 'e2e/**'
+      - 'playwright.config.ts'
+      - 'package-lock.json'
+      - '.github/workflows/e2e.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: e2e-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  e2e:
+    name: Playwright
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: e2e-only-password
+          POSTGRES_DB: aiem_e2e
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready -U postgres"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=10
+
+    env:
+      DATABASE_URL: postgresql://postgres:e2e-only-password@127.0.0.1:5432/aiem_e2e
+      PORT: '5050'
+      FRONTEND_URL: http://localhost:3005
+      NEXT_PUBLIC_API_URL: http://localhost:5050/api
+      E2E_BASE_URL: http://localhost:3005
+      E2E_API_URL: http://localhost:5050/api
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.x'
+          cache: 'npm'
+          cache-dependency-path: package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      # Throw-away secrets for this run only; they never leave the runner and are masked in the log.
+      - name: Generate run-only secrets
+        run: |
+          for name in JWT_SECRET JWT_REFRESH_SECRET; do
+            value="$(openssl rand -hex 32)"
+            echo "::add-mask::$value"
+            echo "$name=$value" >> "$GITHUB_ENV"
+          done
+          admin="Aa1!$(openssl rand -hex 10)Zz"
+          echo "::add-mask::$admin"
+          echo "SEED_ADMIN_PASSWORD=$admin" >> "$GITHUB_ENV"
+          echo "E2E_ADMIN_PASSWORD=$admin" >> "$GITHUB_ENV"
+          echo "SEED_ADMIN_EMAIL=e2e-admin@example.com" >> "$GITHUB_ENV"
+          echo "E2E_ADMIN_EMAIL=e2e-admin@example.com" >> "$GITHUB_ENV"
+
+      - name: Prepare the database
+        run: |
+          npm run db:generate
+          npm run db:deploy
+          npm run db:seed
+
+      - name: Build the API and the web app
+        run: npm run build
+
+      - name: Start the API and the web app
+        run: |
+          (cd server && nohup node dist/index.js > ../api.log 2>&1 &)
+          (cd client && nohup npx next start -p 3005 > ../web.log 2>&1 &)
+          for i in $(seq 1 60); do
+            curl -fs http://localhost:5050/health > /dev/null && curl -fs -o /dev/null http://localhost:3005/login && exit 0
+            sleep 2
+          done
+          echo "The stack did not come up"; tail -n 40 api.log web.log; exit 1
+
+      - name: Install the browser
+        run: npx playwright install --with-deps chromium
+
+      - name: Run the end-to-end specs
+        run: npx playwright test
+
+      - name: Attach the report and the server logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-report
+          path: |
+            playwright-report/
+            e2e/.results/
+            api.log
+            web.log
+          retention-days: 14
+          if-no-files-found: ignore
