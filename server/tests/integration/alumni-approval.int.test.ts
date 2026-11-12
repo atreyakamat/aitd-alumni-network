@@ -203,7 +203,7 @@ describe('alumni approval', () => {
     const admin = await createUser('ADMIN');
     const summary = await http().get('/api/admin/approvals/summary').set('Authorization', admin.auth);
     expect(summary.status).toBe(200);
-    expect(summary.body.data).toEqual({ pending: expect.any(Number), approved: expect.any(Number), rejected: expect.any(Number) });
+    expect(summary.body.data).toEqual({ pending: expect.any(Number), approved: expect.any(Number), rejected: expect.any(Number), overdue: expect.any(Number), alumniRecords: expect.any(Number) });
     expect(summary.body.data.approved).toBeGreaterThan(0);
 
     const first = await createUser('MEMBER', { approvalStatus: 'PENDING', isVerified: false, fullName: 'Queue Older', createdAt: new Date('2020-01-01') });

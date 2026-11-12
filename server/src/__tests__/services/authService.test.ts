@@ -1,4 +1,5 @@
 import { log } from '../../utils/logger';
+import { config } from '../../config';
 import { authService, REFRESH_REUSE_GRACE_MS, TOKEN_TYPES } from '../../services/authService';
 import * as socketUtil from '../../utils/socket';
 import { prismaMock } from '../../../tests/helpers';
@@ -235,6 +236,42 @@ describe('authService', () => {
     });
   });
 
+  describe('login: administrators must use a second factor when REQUIRE_ADMIN_2FA is on', () => {
+    const original = config.auth.requireAdmin2FA;
+    afterEach(() => {
+      config.auth.requireAdmin2FA = original;
+    });
+
+    it.each(['CHAPTER_ADMIN', 'ADMIN', 'SUPER_ADMIN'])('challenges a %s who has not enabled 2FA, and issues no session', async (role) => {
+      config.auth.requireAdmin2FA = true;
+      prismaMock.user.findUnique.mockResolvedValue(dbUser({ userRole: role, twoFactorEnabled: false }));
+
+      const result: any = await authService.login({ email: 'alum@aiem.edu', password: PASSWORD });
+
+      expect(result.requires2FA).toBe(true);
+      expect(result.accessToken).toBeUndefined();
+      expect(verifyTwoFactorToken(result.twoFactorToken)).toEqual({ userId: 'u1' });
+      expect(prismaMock.refreshToken.create).not.toHaveBeenCalled();
+    });
+
+    it('does not challenge an ordinary member, and does not challenge an administrator when the setting is off', async () => {
+      config.auth.requireAdmin2FA = true;
+      prismaMock.user.findUnique.mockResolvedValue(dbUser({ userRole: 'MEMBER', twoFactorEnabled: false }));
+      expect(await authService.login({ email: 'alum@aiem.edu', password: PASSWORD })).toHaveProperty('accessToken');
+
+      config.auth.requireAdmin2FA = false;
+      prismaMock.user.findUnique.mockResolvedValue(dbUser({ userRole: 'ADMIN', twoFactorEnabled: false }));
+      expect(await authService.login({ email: 'alum@aiem.edu', password: PASSWORD })).toHaveProperty('accessToken');
+    });
+
+    it('still challenges a member who turned 2FA on themselves', async () => {
+      config.auth.requireAdmin2FA = false;
+      prismaMock.user.findUnique.mockResolvedValue(dbUser({ userRole: 'MEMBER', twoFactorEnabled: true }));
+      const result: any = await authService.login({ email: 'alum@aiem.edu', password: PASSWORD });
+      expect(result.requires2FA).toBe(true);
+    });
+  });
+
   describe('resolveTwoFactorChallenge', () => {
     it('returns the user id from a valid challenge', () => {
       expect(authService.resolveTwoFactorChallenge(generateTwoFactorToken('u1'))).toBe('u1');
@@ -255,7 +292,7 @@ describe('authService', () => {
     it('looks up the hashed token by type, claims it once, proves the mailbox and tells a pending applicant that an administrator reviews next', async () => {
       arrangeOneTimeToken(dbUser({ approvalStatus: 'PENDING' }));
 
-      await expect(authService.verifyEmail('raw-token')).resolves.toEqual({ message: expect.stringMatching(/administrator/i) });
+      await expect(authService.verifyEmail('raw-token', PASSWORD)).resolves.toEqual({ message: expect.stringMatching(/administrator/i) });
 
       const where = prismaMock.verificationToken.findFirst.mock.calls[0][0].where;
       expect(where).toMatchObject({ token: hashToken('raw-token'), type: TOKEN_TYPES.EMAIL_VERIFY, isUsed: false });
@@ -279,7 +316,7 @@ describe('authService', () => {
 
     it('rejects a token that was redeemed concurrently', async () => {
       arrangeOneTimeToken(dbUser(), 0);
-      await expect(authService.verifyEmail('raw')).rejects.toMatchObject({ code: 'INVALID_TOKEN' });
+      await expect(authService.verifyEmail('raw', PASSWORD)).rejects.toMatchObject({ code: 'INVALID_TOKEN' });
       expect(prismaMock.user.update).not.toHaveBeenCalled();
     });
 
@@ -296,7 +333,7 @@ describe('authService', () => {
     it('tolerates a failing notification email', async () => {
       arrangeOneTimeToken(dbUser({ approvalStatus: 'PENDING' }));
       (publishNotificationEvent as jest.Mock).mockRejectedValueOnce(new Error('kafka and the fallback are down'));
-      await expect(authService.verifyEmail('raw')).resolves.toBeDefined();
+      await expect(authService.verifyEmail('raw', PASSWORD)).resolves.toBeDefined();
     });
   });
 

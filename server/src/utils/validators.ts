@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { NotificationCategory } from '@prisma/client';
 import { isSafeHttpUrl, isSafeMediaRef } from './safeUrl';
 
 const MIN_BATCH_YEAR = 1950;
@@ -583,6 +584,29 @@ export const paginationSchema = z.object({
     page: z.string().transform(Number).optional(),
     limit: z.string().transform(Number).optional(),
   }),
+});
+
+// Notification settings: a short list of {category, inApp?, email?}. Unknown categories and extra fields are refused (not
+// silently dropped), each category at most once. The account / security notices are not categories, so they cannot be named.
+const notificationPreferenceItem = z
+  .object({
+    category: z.nativeEnum(NotificationCategory),
+    inApp: z.boolean().optional(),
+    email: z.boolean().optional(),
+  })
+  .strict()
+  .refine((item) => item.inApp !== undefined || item.email !== undefined, { message: 'Say what to change: inApp, email or both' });
+
+export const updateNotificationPreferencesSchema = z.object({
+  body: z
+    .object({
+      preferences: z
+        .array(notificationPreferenceItem)
+        .min(1, 'Send at least one category')
+        .max(Object.keys(NotificationCategory).length, 'Too many categories')
+        .refine((items) => new Set(items.map((item) => item.category)).size === items.length, { message: 'Each category may appear once' }),
+    })
+    .strict(),
 });
 
 // Directory filter schema

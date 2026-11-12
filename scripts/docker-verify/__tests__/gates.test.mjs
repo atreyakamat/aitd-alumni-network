@@ -30,7 +30,7 @@ describe('a healthy stack', () => {
     const { ctx, failed } = await play({ ctxOptions: { skipDrills: true } });
     assert.deepEqual(failed, []);
     const skipped = ctx.report.gates.filter((g) => g.status === 'skip').map((g) => g.id);
-    assert.deepEqual(skipped, ['D01', 'D02', 'D03', 'D04', 'D05', 'D06', 'D07', 'D08']);
+    assert.deepEqual(skipped, ['D01', 'D02', 'D03', 'D04', 'D05', 'D06', 'D07', 'D08', 'D09']);
   });
 
   test('without Docker (attach mode) the stack, Kafka and drill gates are skipped and the HTTP gates still pass', async () => {
@@ -60,6 +60,8 @@ describe('every gate can actually fail: a planted defect is caught by the gate t
     ['statusStuckUp', 'D01', '/health claiming Kafka is up while the broker is stopped'],
     ['staleNotices', 'F03', 'review notices left unread after the decision'],
     ['noLimiter', 'X02', 'no rate limiting'],
+    ['badRestore', 'D08', 'a restore that is missing data'],
+    ['restoreFails', 'D08', 'a dump that cannot be restored'],
     ['wrongPartitions', 'K01', 'the wrong partition count'],
   ];
   for (const [bug, gateId, why] of cases) {

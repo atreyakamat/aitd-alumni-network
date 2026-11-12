@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import { networkService } from '../services/networkService';
 import { messageService } from '../services/messageService';
 import { notificationService } from '../services/notificationService';
+import { notificationPreferenceService } from '../services/notificationPreferenceService';
 import { queryText } from '../utils/inputGuards';
 
 // Network Controller
@@ -174,6 +175,25 @@ export class NotificationController {
   async markAllAsRead(req: Request, res: Response, next: NextFunction) {
     try {
       const result = await notificationService.markAllAsRead(req.user!.id);
+      res.json({ success: true, data: result });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  // The caller's own notification settings (no id in the path: the member is the one in the token)
+  async getPreferences(req: Request, res: Response, next: NextFunction) {
+    try {
+      const result = await notificationPreferenceService.getPreferences(req.user!.id);
+      res.json({ success: true, data: result });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async updatePreferences(req: Request, res: Response, next: NextFunction) {
+    try {
+      const result = await notificationPreferenceService.updatePreferences(req.user!.id, req.body.preferences);
       res.json({ success: true, data: result });
     } catch (error) {
       next(error);

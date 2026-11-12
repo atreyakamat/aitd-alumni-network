@@ -37,6 +37,8 @@ export default function NetworkPage() {
 
   useEffect(() => {
     fetchNetworkData();
+  // Loads the network once on mount.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const fetchNetworkData = async () => {

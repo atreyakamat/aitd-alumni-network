@@ -234,6 +234,7 @@ export class PaymentWebhookService {
             .createNotification({
               userId: admin.id,
               type: 'ADMIN_ANNOUNCEMENT',
+              essential: true, // a payment that was not completed: administrators get it whatever their announcement settings say
               title: 'Payment needs reconciliation',
               message: `Razorpay order ${mismatch.orderId} was paid ${received}, but ${mismatch.expectedPaise} paise ${mismatch.expectedCurrency} was expected. The ${mismatch.transactionType.toLowerCase()} was not completed.`,
               link: clientLinks.adminAudit('PAYMENT_MISMATCH'),

@@ -29,7 +29,8 @@
     "verify:deploy": "node scripts/verify-deployment.mjs",
     "test:all": "npm run test:unit && npm run test:integration && npm run test:security && npm run test:contract",
     "typecheck": "tsc -p tsconfig.test.json",
-    "db:local": "node scripts/local-postgres.mjs"
+    "db:local": "node scripts/local-postgres.mjs",
+    "dlq": "tsx src/scripts/dlq.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.490.0",

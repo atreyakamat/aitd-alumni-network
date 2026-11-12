@@ -1,6 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
 import { ZodSchema, ZodError } from 'zod';
-import { AppError } from './errorHandler';
 
 /** At most this many field errors are returned to the client. */
 const MAX_DETAILS = 20;

@@ -45,17 +45,31 @@ export const comparePassword = async (
 };
 
 /**
+ * What the deny-list and the e-mail rule compare: the password the way a person would read it. Compatibility forms
+ * (full-width letters, ligatures, long s) are folded by NFKC, accents and combining marks are dropped, invisible format
+ * characters (zero-width space and joiners, soft hyphen, bidi marks) are removed, and case is folded. Used for the POLICY
+ * check only: what is hashed and compared at login is the exact string the member typed, so existing hashes keep working.
+ */
+export const policyForm = (value: string): string =>
+  value
+    .normalize('NFKC')
+    .normalize('NFKD')
+    .replace(/[\p{M}\p{Cf}]+/gu, '')
+    .toLowerCase();
+
+/**
  * Policy checks beyond the schema's length/character-class rule: reject breach-list staples
  * and passwords that are just the account's own e-mail (or its local part).
  */
 export const assertPasswordAllowed = (password: string, email?: string): void => {
   if (Buffer.byteLength(password, 'utf8') > MAX_PASSWORD_BYTES) throw tooLong();
-  const normalised = password.toLowerCase().replace(/[^a-z0-9]+$/, '');
-  const local = email ? email.trim().toLowerCase().split('@')[0] : '';
-  const isOwnEmail =
-    !!email && (password.toLowerCase() === email.trim().toLowerCase() || (local.length >= 6 && normalised === local));
+  const folded = policyForm(password);
+  const normalised = folded.replace(/[^a-z0-9]+$/, '');
+  const foldedEmail = email ? policyForm(email.trim()) : '';
+  const local = foldedEmail.split('@')[0];
+  const isOwnEmail = !!email && (folded === foldedEmail || (local.length >= 6 && normalised === local));
 
-  if (COMMON_PASSWORDS.has(normalised) || COMMON_PASSWORDS.has(password.toLowerCase()) || isOwnEmail) {
+  if (COMMON_PASSWORDS.has(normalised) || COMMON_PASSWORDS.has(folded) || isOwnEmail) {
     throw new AppError('This password is too common or easy to guess. Please choose another.', 400, 'WEAK_PASSWORD');
   }
 };

@@ -88,6 +88,8 @@ export default function EventsPage() {
     <Card className="overflow-hidden hover:shadow-md transition-shadow">
       <div className="aspect-video bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center relative">
         {event.bannerUrl ? (
+          // Event banners are user-supplied URLs; the image optimizer is switched off on purpose (images.unoptimized, a security decision), so next/image adds nothing.
+          // eslint-disable-next-line @next/next/no-img-element
           <img src={safeMediaSrc(event.bannerUrl)} alt={event.title} className="w-full h-full object-cover" />
         ) : (
           <Calendar className="h-12 w-12 text-primary/50" />

@@ -182,6 +182,20 @@ describe('twoFactorService', () => {
       expect(prismaMock.verificationToken.findFirst.mock.calls[0][0].where.createdAt.gt).toBeInstanceOf(Date);
     });
 
+    it('also sends a code to an administrator who has not enabled 2FA while REQUIRE_ADMIN_2FA is on (the login challenge is forced)', async () => {
+      const original = config.auth.requireAdmin2FA;
+      config.auth.requireAdmin2FA = true;
+      try {
+        prismaMock.user.findUnique.mockResolvedValue({ email: 'a@x.io', isActive: true, twoFactorEnabled: false, userRole: 'ADMIN' });
+        prismaMock.verificationToken.findFirst.mockResolvedValue(null);
+        await expect(twoFactorService.resendOTP('a1')).resolves.toEqual({ message: 'Verification code sent to your email' });
+        prismaMock.user.findUnique.mockResolvedValue({ email: 'm@x.io', isActive: true, twoFactorEnabled: false, userRole: 'MEMBER' });
+        await expect(twoFactorService.resendOTP('m1')).rejects.toMatchObject({ code: 'INVALID_2FA_SESSION' });
+      } finally {
+        config.auth.requireAdmin2FA = original;
+      }
+    });
+
     it.each([
       ['missing', null],
       ['deactivated', { email: 'u1@x.io', isActive: false, twoFactorEnabled: true }],

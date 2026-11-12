@@ -34,7 +34,7 @@ export default function HomePage() {
                 </Button>
               </Link>
               <Link href="/login">
-                <Button size="lg" variant="outline" className="border-white text-white hover:bg-white/10 font-label">
+                <Button size="lg" variant="outline" className="border-white bg-transparent text-white hover:bg-white/10 hover:text-white font-label">
                   Sign In
                 </Button>
               </Link>

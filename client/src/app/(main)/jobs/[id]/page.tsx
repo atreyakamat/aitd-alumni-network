@@ -40,6 +40,8 @@ export default function JobDetailsPage() {
     if (id) {
       fetchJobDetails();
     }
+  // Runs when the job id changes; fetchJobDetails reads the current id and is redefined on every render.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
   const fetchJobDetails = async () => {

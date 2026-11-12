@@ -251,7 +251,7 @@ describe('mentorshipService', () => {
       });
       expect(result.id).toBe('r9');
       expect(notify).toHaveBeenCalledWith(
-        expect.objectContaining({ userId: 'mentor', type: 'MENTORSHIP_REQUEST', metadata: { requestId: 'r9' } })
+        expect.objectContaining({ userId: 'mentor', type: 'MENTORSHIP_REQUEST', metadata: { requestId: 'r9', menteeId: 'mentee' } })
       );
     });
 

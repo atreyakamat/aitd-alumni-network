@@ -162,10 +162,16 @@ describe('verifyEmail with the registration password (policy on)', () => {
     await expect(authService.verifyEmail('nope', PASSWORD)).rejects.toMatchObject({ statusCode: 400, code: 'INVALID_TOKEN' });
   });
 
-  it('is not required while the policy is off', async () => {
+  // R3-06: the link is a claim about the MAILBOX; the password is what ties it to the person who registered. The client page has always
+  // asked for it, so the server no longer makes the check depend on the policy (the local trial was open to the same pre-hijack).
+  it('is required whichever way the policy is set: a bare link verifies nothing', async () => {
     config.auth.requireEmailVerification = false;
     arrangeOneTimeToken();
-    await expect(authService.verifyEmail('raw-token')).resolves.toEqual({ message: 'Email verified successfully' });
+    await expect(authService.verifyEmail('raw-token')).rejects.toMatchObject({ statusCode: 400, code: 'PASSWORD_REQUIRED' });
+    expect(prismaMock.verificationToken.updateMany).not.toHaveBeenCalled();
+    expect(prismaMock.user.update).not.toHaveBeenCalled();
+
+    await expect(authService.verifyEmail('raw-token', PASSWORD)).resolves.toEqual({ message: 'Email verified successfully' });
   });
 });
 

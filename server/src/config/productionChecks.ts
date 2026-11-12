@@ -52,6 +52,12 @@ const verificationRequired = (env: NodeJS.ProcessEnv): boolean => {
   return present(raw) ? isTrue(raw) : true;
 };
 
+/** Administrators must pass an e-mailed second factor unless that was switched off on purpose (the production default is on). */
+const adminSecondFactorRequired = (env: NodeJS.ProcessEnv): boolean => {
+  const raw = env.REQUIRE_ADMIN_2FA;
+  return present(raw) ? isTrue(raw) : true;
+};
+
 const mailConfigured = (env: NodeJS.ProcessEnv): boolean =>
   present(env.SENDGRID_API_KEY) || (present(env.SMTP_HOST) && present(env.SMTP_USER) && present(env.SMTP_PASS));
 
@@ -132,8 +138,13 @@ export const findProductionProblems = (env: NodeJS.ProcessEnv): ConfigFinding[] 
   if (!verificationRequired(env)) {
     warning('EMAIL_VERIFICATION_OFF', 'REQUIRE_EMAIL_VERIFICATION is off: anyone can use an account registered with an address they do not own.',
       'Remove REQUIRE_EMAIL_VERIFICATION (it defaults to on in production).');
-  } else if (!mailConfigured(env)) {
-    error('EMAIL_NOT_CONFIGURED', true, 'E-mail verification is required but no mail server is configured, so nobody could finish registering.',
+  }
+  if (!adminSecondFactorRequired(env)) {
+    warning('ADMIN_2FA_OFF', 'REQUIRE_ADMIN_2FA is off: an administrator password alone opens the whole admin area.',
+      'Remove REQUIRE_ADMIN_2FA (it defaults to on in production).');
+  }
+  if ((verificationRequired(env) || adminSecondFactorRequired(env)) && !mailConfigured(env)) {
+    error('EMAIL_NOT_CONFIGURED', true, 'E-mail verification or the administrator second factor is required but no mail server is configured, so nobody could finish registering or sign in as an administrator.',
       'Set SENDGRID_API_KEY, or SMTP_HOST + SMTP_USER + SMTP_PASS (and EMAIL_FROM).');
   }
 

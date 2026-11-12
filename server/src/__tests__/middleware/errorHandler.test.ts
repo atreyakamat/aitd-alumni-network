@@ -117,6 +117,20 @@ describe('errorHandler', () => {
     });
   });
 
+  // R3-14: the multipart parser (busboy) throws plain Errors for a damaged body, for example a NUL byte in a file name
+  it.each(['Malformed part header', 'Unexpected end of form', 'Multipart: Boundary not found', 'Malformed urlencoded form', 'Unexpected end of multipart data'])(
+    'maps the multipart parser error "%s" to 400, not 500, and does not log it as an incident',
+    (message) => {
+      (log.error as jest.Mock).mockClear();
+      expect(handle(new Error(message))).toMatchObject({ status: 400, body: { error: { code: 'INVALID_MULTIPART' } } });
+      expect(log.error).not.toHaveBeenCalled();
+    }
+  );
+
+  it('still answers 500 for an unrelated plain Error that merely mentions a header', () => {
+    expect(handle(new Error('the Malformed part header theory'))).toMatchObject({ status: 500 });
+  });
+
   it('maps ZodErrors to 400 VALIDATION_ERROR with field details', () => {
     const parsed = z.object({ email: z.string().email() }).safeParse({ email: 'x' });
     const { status, body } = handle((parsed as any).error);

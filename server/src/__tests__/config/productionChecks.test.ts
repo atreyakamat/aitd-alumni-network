@@ -115,11 +115,22 @@ describe('findProductionProblems', () => {
     });
 
     it('does not insist on mail when verification has been switched off on purpose', () => {
-      expect(codes(good({ SMTP_HOST: undefined, SMTP_USER: undefined, SMTP_PASS: undefined, REQUIRE_EMAIL_VERIFICATION: 'false' }))).not.toContain('EMAIL_NOT_CONFIGURED');
+      expect(codes(good({ SMTP_HOST: undefined, SMTP_USER: undefined, SMTP_PASS: undefined, REQUIRE_EMAIL_VERIFICATION: 'false', REQUIRE_ADMIN_2FA: 'false' }))).not.toContain('EMAIL_NOT_CONFIGURED');
     });
 
     it('warns that switching verification off weakens account security', () => {
       expect(codes(good({ REQUIRE_EMAIL_VERIFICATION: 'false' }))).toContain('EMAIL_VERIFICATION_OFF');
+    });
+
+    it('still insists on mail when only the administrator second factor needs it (the code is sent by e-mail)', () => {
+      const noMail = { SMTP_HOST: undefined, SMTP_USER: undefined, SMTP_PASS: undefined, REQUIRE_EMAIL_VERIFICATION: 'false' };
+      expect(codes(good(noMail))).toContain('EMAIL_NOT_CONFIGURED');
+      expect(codes(good({ ...noMail, REQUIRE_ADMIN_2FA: 'false' }))).not.toContain('EMAIL_NOT_CONFIGURED');
+    });
+
+    it('warns when the administrator second factor is switched off, and says nothing by default', () => {
+      expect(codes(good({ REQUIRE_ADMIN_2FA: 'false' }))).toContain('ADMIN_2FA_OFF');
+      expect(codes(good())).not.toContain('ADMIN_2FA_OFF');
     });
   });
 

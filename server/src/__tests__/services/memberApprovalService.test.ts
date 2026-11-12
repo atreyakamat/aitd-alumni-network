@@ -42,6 +42,7 @@ describe('review queue', () => {
   beforeEach(() => {
     prismaMock.user.findMany.mockResolvedValue([applicant()]);
     prismaMock.user.count.mockResolvedValue(1);
+    prismaMock.alumniRecord.findMany.mockResolvedValue([]);
   });
 
   it('shows the registrations waiting for approval by default, oldest first', async () => {
@@ -95,7 +96,9 @@ describe('review queue', () => {
       { approvalStatus: 'PENDING', _count: { _all: 4 } },
       { approvalStatus: 'APPROVED', _count: { _all: 120 } },
     ]);
-    await expect(memberApprovalService.summary()).resolves.toEqual({ pending: 4, approved: 120, rejected: 0 });
+    prismaMock.user.count.mockResolvedValue(1);
+    prismaMock.alumniRecord.count.mockResolvedValue(0);
+    await expect(memberApprovalService.summary()).resolves.toEqual({ pending: 4, approved: 120, rejected: 0, overdue: 1, alumniRecords: 0 });
   });
 });
 

@@ -1,5 +1,10 @@
 const sent: unknown[] = [];
 const createdTopics: unknown[] = [];
+const alteredConfigs: any[] = [];
+/** What the broker reports as retention.ms per topic ("-1" = keep forever, the Kafka default for some setups). Missing = describe shows the 7-day default. */
+const brokerRetention: Record<string, string> = {};
+let describeFails = false;
+let alterFails = false;
 const state = { producerConnects: 0, producerFails: 0, adminDisconnects: 0, producerDisconnects: 0 };
 let lastKafkaConfig: any;
 let producerListeners: Record<string, () => void> = {};
@@ -31,6 +36,20 @@ jest.mock('kafkajs', () => {
       createdTopics.push(args);
       return true;
     }
+    async describeConfigs(args: { resources: Array<{ name: string }> }) {
+      if (describeFails) throw new Error('not authorized to describe');
+      return {
+        resources: args.resources.map((r) => ({
+          resourceName: r.name,
+          configEntries: [{ configName: 'retention.ms', configValue: brokerRetention[r.name] ?? '604800000' }],
+        })),
+      };
+    }
+    async alterConfigs(args: unknown) {
+      if (alterFails) throw new Error('not authorized to alter');
+      alteredConfigs.push(args);
+      return {};
+    }
     async disconnect() {
       state.adminDisconnects++;
     }
@@ -49,7 +68,7 @@ jest.mock('kafkajs', () => {
       throw new Error('not used here');
     }
   }
-  return { Kafka, logLevel: { NOTHING: 0, ERROR: 1, WARN: 2, INFO: 4, DEBUG: 5 } };
+  return { Kafka, logLevel: { NOTHING: 0, ERROR: 1, WARN: 2, INFO: 4, DEBUG: 5 }, ConfigResourceTypes: { UNKNOWN: 0, TOPIC: 2, BROKER: 4, BROKER_LOGGER: 8 } };
 });
 
 import {
@@ -215,6 +234,66 @@ describe('kafka client', () => {
     expect(call.waitForLeaders).toBe(true);
     expect(state.adminDisconnects).toBe(1);
     delete process.env.KAFKA_PARTITIONS;
+  });
+
+  // R3-11: the topics hold personal data (e-mail addresses, applicant names, a rejection reason in the clear); Kafka keeps messages
+  // for as long as the topic's retention says, and the broker default may be forever. 7 days is the ceiling, set on BOTH topics.
+  describe('retention of the notification and dead-letter topics (R3-11)', () => {
+    const SEVEN_DAYS = String(7 * 24 * 60 * 60 * 1000);
+    beforeEach(() => {
+      alteredConfigs.length = 0;
+      for (const key of Object.keys(brokerRetention)) delete brokerRetention[key];
+      describeFails = false;
+      alterFails = false;
+    });
+    afterEach(() => {
+      delete process.env.KAFKA_RETENTION_MS;
+    });
+
+    it('creates both topics with a 7-day retention.ms', async () => {
+      enable();
+      await ensureNotificationTopics();
+      const call = createdTopics[createdTopics.length - 1] as { topics: Array<{ topic: string; configEntries?: Array<{ name: string; value: string }> }> };
+      for (const topic of call.topics) {
+        expect({ topic: topic.topic, entries: topic.configEntries }).toEqual({ topic: topic.topic, entries: [{ name: 'retention.ms', value: SEVEN_DAYS }] });
+      }
+    });
+
+    it('brings an EXISTING topic with no limit (or a longer one) down to the retention, and leaves a correct one alone', async () => {
+      enable();
+      brokerRetention['aiem.notifications'] = '-1';
+      brokerRetention['aiem.notifications.dlq'] = SEVEN_DAYS;
+      await ensureNotificationTopics();
+      expect(alteredConfigs).toHaveLength(1);
+      expect(alteredConfigs[0].resources).toEqual([
+        { type: 2, name: 'aiem.notifications', configEntries: [{ name: 'retention.ms', value: SEVEN_DAYS }] },
+      ]);
+
+      alteredConfigs.length = 0;
+      brokerRetention['aiem.notifications'] = SEVEN_DAYS;
+      brokerRetention['aiem.notifications.dlq'] = String(90 * 24 * 60 * 60 * 1000);
+      await ensureNotificationTopics();
+      expect(alteredConfigs.map((c) => c.resources[0].name)).toEqual(['aiem.notifications.dlq']);
+    });
+
+    it('KAFKA_RETENTION_MS shortens it, is bounded (an hour to 30 days), and an unusable value falls back to 7 days', () => {
+      expect(readKafkaSettings({ KAFKA_BROKERS: 'k:9092' } as any).retentionMs).toBe(7 * 24 * 60 * 60 * 1000);
+      expect(readKafkaSettings({ KAFKA_BROKERS: 'k:9092', KAFKA_RETENTION_MS: '86400000' } as any).retentionMs).toBe(86_400_000);
+      for (const bad of ['-1', '0', '1000', 'forever', String(365 * 24 * 60 * 60 * 1000), '']) {
+        expect(readKafkaSettings({ KAFKA_BROKERS: 'k:9092', KAFKA_RETENTION_MS: bad } as any).retentionMs).toBe(7 * 24 * 60 * 60 * 1000);
+      }
+    });
+
+    it('a broker that refuses to describe or alter the config does not stop the API from starting (it logs), the topics are still created', async () => {
+      enable();
+      describeFails = true;
+      await expect(ensureNotificationTopics()).resolves.toBeUndefined();
+      describeFails = false;
+      alterFails = true;
+      brokerRetention['aiem.notifications'] = '-1';
+      await expect(ensureNotificationTopics()).resolves.toBeUndefined();
+      expect(state.adminDisconnects).toBeGreaterThanOrEqual(2);
+    });
   });
 
   it('disconnects the producer on shutdown and goes back to "down"', async () => {

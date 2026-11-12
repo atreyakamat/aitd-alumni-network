@@ -77,7 +77,7 @@ describe('GET /api/admin/system-status', () => {
     expect(data.version).toMatch(/^\d+\.\d+\.\d+/);
     expect(Number.isInteger(data.uptimeSeconds)).toBe(true);
     expect(['ok', 'warning', 'error']).toContain(data.overall);
-    expect(data.services.map((s: { key: string }) => s.key)).toEqual(['database', 'cache', 'notifications', 'email', 'approvalAlerts', 'payments', 'storage']);
+    expect(data.services.map((s: { key: string }) => s.key)).toEqual(['database', 'cache', 'notifications', 'queue', 'email', 'approvalAlerts', 'payments', 'storage']);
     for (const s of data.services) {
       expect(Object.keys(s).sort()).toEqual(['detail', 'key', 'label', 'status']);
     }

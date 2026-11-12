@@ -3,9 +3,10 @@ import path from 'path';
 import config from '../config';
 import prisma from '../config/database';
 import redis from '../config/redis';
-import { getProducer, kafkaStatus, type KafkaState } from '../config/kafka';
+import { getKafka, getProducer, kafkaStatus, readKafkaSettings, type KafkaState } from '../config/kafka';
 import { log } from '../utils/logger';
 import { MAX_ADMINS_NOTIFIED, registrationAlertAdmins, sharedMailboxes } from './notificationEventHandlers';
+import { readQueueBacklog } from './deadLetterService';
 
 /**
  * System status for the college administrator (GET /api/admin/system-status).
@@ -49,6 +50,8 @@ export interface SystemStatusDeps {
   pingDatabase: () => Promise<unknown>;
   cacheState: () => 'disabled' | 'up' | 'down';
   kafkaState: () => KafkaState;
+  /** Dead letters and consumer lag; null when there is no queue. Rejects when the broker cannot be asked. */
+  queueBacklog?: () => Promise<{ deadLetters: number; lag: number } | null>;
   /**
    * The Kafka producer connects on first use, so it reads "down" until the first notification has been sent. When it
    * does, this tries to connect before the status is called an error.
@@ -75,6 +78,9 @@ interface Probe {
   failure: string;
   check: (deps: SystemStatusDeps) => Outcome | Promise<Outcome>;
 }
+
+/** From this many waiting events the consumer counts as not keeping up. */
+const QUEUE_LAG_WARNING = 50;
 
 const CHECK_FAILED = 'This check could not be completed just now. Try again in a minute; if it keeps failing, ask the technical team.';
 
@@ -165,6 +171,25 @@ const PROBES: Probe[] = [
         status: 'error',
         detail: 'The notification queue cannot be reached. The website sends notifications directly instead, so nothing is lost for now. Ask the technical team to check the queue.',
       };
+    },
+  },
+  {
+    key: 'queue',
+    label: 'Notification backlog',
+    failure: 'The notification backlog could not be read. Ask the technical team to check the queue.',
+    check: async (deps) => {
+      const backlog = deps.queueBacklog ? await deps.queueBacklog() : null;
+      if (!backlog) return { status: 'off', detail: 'Not in use: there is no notification queue.' };
+      if (backlog.deadLetters > 0) {
+        return {
+          status: 'warning',
+          detail: `${plural(backlog.deadLetters, 'notification', 'notifications')} could not be delivered and ${backlog.deadLetters === 1 ? 'is' : 'are'} waiting in the dead-letter queue. Ask the technical team to look at them (docs/KAFKA.md, "dlq").`,
+        };
+      }
+      if (backlog.lag >= QUEUE_LAG_WARNING) {
+        return { status: 'warning', detail: `${backlog.lag} notifications are waiting to be processed and the queue is not catching up. Ask the technical team to check the consumer.` };
+      }
+      return { status: 'ok', detail: 'No notification is stuck or waiting.' };
     },
   },
   {
@@ -298,6 +323,10 @@ export const defaultSystemStatusDeps = (): SystemStatusDeps => ({
   cacheState: () => (redis ? (redis.status === 'ready' ? 'up' : 'down') : 'disabled'),
   kafkaState: () => kafkaStatus(),
   connectKafka: () => getProducer(),
+  queueBacklog: async () => {
+    const settings = readKafkaSettings();
+    return settings.enabled ? readQueueBacklog(getKafka(settings), settings) : null;
+  },
   emailConfigured: () => isEmailConfigured(config.email),
   countAlertAdministrators: () => prisma.user.count({ where: registrationAlertAdmins() }),
   alertMailboxes: () => sharedMailboxes().length,

@@ -224,7 +224,7 @@ const cases: Record<string, Case> = {
       await fx.prisma.verificationToken.create({
         data: { userId: user.id, token: hashToken(raw), type: 'EMAIL_VERIFY', expiresAt: fx.futureDate(1) },
       });
-      return { as: null, path: '/auth/verify-email', body: { token: raw } };
+      return { as: null, path: '/auth/verify-email', body: { token: raw, password: PASSWORD } };
     },
     bad: () => ({ as: null, path: '/auth/verify-email', body: { token: 'not-a-real-token' } }),
   },
@@ -695,6 +695,24 @@ const cases: Record<string, Case> = {
     badStatus: 401,
   },
   'get /notifications/unread': { ok: () => ({ path: '/notifications/unread' }), shape: 'obj', check: (b) => expect(b.data.unreadCount).toEqual(expect.any(Number)), bad: null },
+  'get /notifications/preferences': {
+    ok: () => ({ path: '/notifications/preferences' }),
+    shape: 'obj',
+    check: (b) => {
+      expect(b.data.preferences.map((p: { category: string }) => p.category)).toEqual(
+        expect.arrayContaining(['CONNECTIONS', 'MESSAGES', 'POSTS_AND_COMMENTS', 'EVENTS', 'JOBS_AND_MENTORSHIP', 'ANNOUNCEMENTS'])
+      );
+      expect(b.data.alwaysOn).toEqual(['ACCOUNT_AND_SECURITY']);
+    },
+    bad: () => ({ as: null, path: '/notifications/preferences' }),
+    badStatus: 401,
+  },
+  'put /notifications/preferences': {
+    ok: () => ({ as: 'third', path: '/notifications/preferences', body: { preferences: [{ category: 'EVENTS', inApp: true, email: false }] } }),
+    shape: 'obj',
+    check: (b) => expect(b.data.preferences.find((p: { category: string }) => p.category === 'EVENTS')).toEqual({ category: 'EVENTS', inApp: true, email: false }),
+    bad: () => ({ path: '/notifications/preferences', body: { preferences: [{ category: 'REGISTRATION_PENDING', inApp: false }] } }),
+  },
   'post /notifications/read-all': { ok: () => ({ as: 'other', path: '/notifications/read-all', body: {} }), shape: 'any', bad: null },
   'post /notifications/:id/read': {
     ok: (x) => ({ path: `/notifications/${x.notification.id}/read`, body: {} }),
@@ -1349,7 +1367,7 @@ const cases: Record<string, Case> = {
     shape: 'obj',
     check: (b) => {
       expect(['ok', 'warning', 'error']).toContain(b.data.overall);
-      expect(b.data.services.map((s: { key: string }) => s.key)).toEqual(['database', 'cache', 'notifications', 'email', 'approvalAlerts', 'payments', 'storage']);
+      expect(b.data.services.map((s: { key: string }) => s.key)).toEqual(['database', 'cache', 'notifications', 'queue', 'email', 'approvalAlerts', 'payments', 'storage']);
     },
     bad: () => ({ as: 'member', path: '/admin/system-status' }),
     badStatus: 403,
@@ -1358,23 +1376,43 @@ const cases: Record<string, Case> = {
   'get /admin/approvals': {
     ok: async () => {
       await fx.newPendingUser();
-      return { as: 'admin', path: '/admin/approvals', query: { status: 'PENDING', search: '12CE045', page: 1, limit: 20 } };
+      return { as: 'admin', path: '/admin/approvals', query: { status: 'PENDING', search: '12CE045', page: 1, limit: 20, batchYear: 2018, department: 'Computer Engineering', waitingDays: 0 } };
     },
     shape: 'list',
     check: (b) => {
       expect(b.data.length).toBeGreaterThan(0);
       expect(b.data[0]).toMatchObject({ approvalStatus: 'PENDING', enrollmentNumber: '12CE045' });
       expect(b.data[0]).not.toHaveProperty('passwordHash');
+      expect(b.data[0].match).toMatchObject({ level: expect.stringMatching(/^(exact|probable|none)$/), reason: expect.any(String) });
+      expect(b.data[0].waitingDays).toEqual(expect.any(Number));
     },
-    bad: () => ({ as: 'member', path: '/admin/approvals' }),
-    badStatus: 403,
+    bad: () => ({ as: 'admin', path: '/admin/approvals', query: { match: 'maybe' } }),
+    badStatus: 400,
   },
   'get /admin/approvals/summary': {
     ok: () => ({ as: 'admin', path: '/admin/approvals/summary' }),
     shape: 'obj',
-    check: (b) => expect(b.data).toEqual({ pending: expect.any(Number), approved: expect.any(Number), rejected: expect.any(Number) }),
+    check: (b) =>
+      expect(b.data).toEqual({ pending: expect.any(Number), approved: expect.any(Number), rejected: expect.any(Number), overdue: expect.any(Number), alumniRecords: expect.any(Number) }),
     bad: () => ({ as: 'member', path: '/admin/approvals/summary' }),
     badStatus: 403,
+  },
+  'post /admin/approvals/bulk-approve': {
+    ok: async () => ({ as: 'admin', path: '/admin/approvals/bulk-approve', body: { ids: [(await fx.newPendingUser()).user.id, MISSING_ID], note: 'Matched the college list' } }),
+    shape: 'obj',
+    check: (b) => {
+      expect(b.data).toMatchObject({ succeeded: 1, failed: 1 });
+      expect(b.data.results[1]).toMatchObject({ id: MISSING_ID, ok: false, code: 'NOT_FOUND' });
+    },
+    bad: () => ({ as: 'admin', path: '/admin/approvals/bulk-approve', body: { ids: [] } }),
+    badStatus: 400,
+  },
+  'post /admin/approvals/bulk-reject': {
+    ok: async () => ({ as: 'admin', path: '/admin/approvals/bulk-reject', body: { ids: [(await fx.newPendingUser()).user.id], reason: 'We could not find you in the 2018 batch.' } }),
+    shape: 'obj',
+    check: (b) => expect(b.data).toMatchObject({ succeeded: 1, failed: 0 }),
+    bad: async () => ({ as: 'admin', path: '/admin/approvals/bulk-reject', body: { ids: [(await fx.newPendingUser()).user.id] } }),
+    badStatus: 400,
   },
   'post /admin/approvals/:id/approve': {
     ok: async () => ({ as: 'admin', path: `/admin/approvals/${(await fx.newPendingUser()).user.id}/approve`, body: { note: 'Found in the 2018 batch list' } }),
@@ -1389,6 +1427,41 @@ const cases: Record<string, Case> = {
     check: (b) => expect(b.data).toMatchObject({ approvalStatus: 'REJECTED', approvalNote: 'We could not find you in the 2018 batch.' }),
     bad: async () => ({ as: 'admin', path: `/admin/approvals/${(await fx.newPendingUser()).user.id}/reject`, body: {} }),
     badStatus: 400,
+  },
+  // ---- The college alumni list ----
+  'post /admin/alumni-records/import': {
+    ok: () => ({
+      as: 'admin',
+      path: '/admin/alumni-records/import',
+      body: { rows: [{ fullName: 'Contract Alumnus', batchYear: 2018, department: 'Computer Engineering', enrollmentNumber: `CT${Date.now()}` }, { fullName: '', batchYear: 2018 }] },
+    }),
+    shape: 'obj',
+    check: (b) => expect(b.data).toEqual({ created: 1, updated: 0, skipped: 1, errors: [{ row: 2, message: expect.any(String) }] }),
+    bad: () => ({ as: 'admin', path: '/admin/alumni-records/import', body: { rows: [] } }),
+    badStatus: 400,
+  },
+  'get /admin/alumni-records': {
+    ok: async () => {
+      await fx.prisma.alumniRecord.create({ data: { fullName: 'Listed Contract Alumnus', nameKey: 'listed contract alumnus', batchYear: 2018 } });
+      return { as: 'admin', path: '/admin/alumni-records', query: { search: 'Listed Contract', page: 1, limit: 20 } };
+    },
+    shape: 'list',
+    check: (b) => {
+      expect(b.data.length).toBeGreaterThan(0);
+      expect(b.data[0]).toEqual({ id: expect.any(String), fullName: expect.any(String), batchYear: expect.any(Number), department: null, enrollmentNumber: null, createdAt: expect.any(String) });
+    },
+    bad: () => ({ as: 'member', path: '/admin/alumni-records' }),
+    badStatus: 403,
+  },
+  'delete /admin/alumni-records/:id': {
+    ok: async () => ({
+      as: 'admin',
+      path: `/admin/alumni-records/${(await fx.prisma.alumniRecord.create({ data: { fullName: 'Removable Contract Alumnus', nameKey: 'removable contract alumnus', batchYear: 2018 } })).id}`,
+    }),
+    shape: 'obj',
+    check: (b) => expect(b.data).toEqual({ id: expect.any(String) }),
+    bad: () => ({ as: 'admin', path: `/admin/alumni-records/${MISSING_ID}` }),
+    badStatus: 404,
   },
   'get /admin/users': { ok: () => ({ as: 'admin', path: '/admin/users', query: { page: 1, limit: 20, search: 'Integration', role: 'MEMBER', isActive: 'true', batchYear: 2018 } }), shape: 'list', bad: () => ({ as: 'member', path: '/admin/users' }), badStatus: 403 },
   'patch /admin/users/:id/role': {

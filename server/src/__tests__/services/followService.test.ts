@@ -5,6 +5,7 @@ jest.mock('../../services/notificationService', () => ({
 import { followService, MENTION_SEARCH_MAX } from '../../services/followService';
 import { notificationService } from '../../services/notificationService';
 import { prismaMock } from '../../../tests/helpers';
+import { resetCooldowns } from '../../utils/cooldownStore';
 
 const createNotification = notificationService.createNotification as jest.Mock;
 const ME = { id: 'me' };
@@ -34,6 +35,8 @@ describe('followService.follow / unfollow', () => {
 
     await followService.follow(ME, 'them');
     await followService.unfollow(ME, 'them');
+    // A restart empties the in-process cooldown; from here the database lookup is what stops the repeat
+    resetCooldowns();
     await followService.follow(ME, 'them');
     await followService.unfollow(ME, 'them');
     await expect(followService.follow(ME, 'them')).resolves.toMatchObject({ following: true });

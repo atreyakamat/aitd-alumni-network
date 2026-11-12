@@ -32,6 +32,41 @@ const service = (report: SystemStatusReport, key: string) => {
   return found;
 };
 
+describe('queue backlog (dead letters and consumer lag)', () => {
+  const report = (backlog: SystemStatusDeps['queueBacklog']) => buildSystemStatus(makeDeps({ queueBacklog: backlog })).then((r) => service(r, 'queue'));
+
+  it('is off when there is no notification queue', async () => {
+    expect((await report(undefined)).status).toBe('off');
+    expect((await report(async () => null)).status).toBe('off');
+  });
+
+  it('is ok when nothing is stuck and nothing waits', async () => {
+    const queue = await report(async () => ({ deadLetters: 0, lag: 3 }));
+    expect(queue.status).toBe('ok');
+  });
+
+  it('warns about dead letters, in words an administrator can act on', async () => {
+    const queue = await report(async () => ({ deadLetters: 2, lag: 0 }));
+    expect(queue.status).toBe('warning');
+    expect(queue.detail).toMatch(/2 notifications could not be delivered/);
+    expect((await report(async () => ({ deadLetters: 1, lag: 0 }))).detail).toMatch(/1 notification could not be delivered/);
+  });
+
+  it('warns when the consumer is not catching up', async () => {
+    const queue = await report(async () => ({ deadLetters: 0, lag: 120 }));
+    expect(queue.status).toBe('warning');
+    expect(queue.detail).toMatch(/120/);
+  });
+
+  it('turns an unreachable broker into a fixed sentence, never the cause', async () => {
+    const queue = await report(async () => {
+      throw new Error('connect ECONNREFUSED 10.0.0.5:9092');
+    });
+    expect(queue.status).toBe('error');
+    expect(queue.detail).not.toMatch(/ECONNREFUSED|10\.0\.0\.5/);
+  });
+});
+
 describe('buildSystemStatus', () => {
   describe('report shape', () => {
     it('describes a healthy system with the documented fields, in a stable order', async () => {
@@ -45,7 +80,7 @@ describe('buildSystemStatus', () => {
         overall: 'ok',
         services: expect.any(Array),
       });
-      expect(report.services.map((s) => s.key)).toEqual(['database', 'cache', 'notifications', 'email', 'approvalAlerts', 'payments', 'storage']);
+      expect(report.services.map((s) => s.key)).toEqual(['database', 'cache', 'notifications', 'queue', 'email', 'approvalAlerts', 'payments', 'storage']);
       for (const s of report.services) {
         expect(Object.keys(s).sort()).toEqual(['detail', 'key', 'label', 'status']);
         expect(s.label.trim()).not.toBe('');
@@ -98,7 +133,7 @@ describe('buildSystemStatus', () => {
       const database = service(report, 'database');
       expect(database.status).toBe('error');
       expect(JSON.stringify(report)).not.toMatch(/password|aiem_app|10\.0\.0\.12|5432|Error:/);
-      expect(report.services).toHaveLength(7);
+      expect(report.services).toHaveLength(8);
       expect(service(report, 'storage').status).toBe('ok');
       expect(report.overall).toBe('error');
     });

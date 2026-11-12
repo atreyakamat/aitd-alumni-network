@@ -87,6 +87,7 @@ describe('docker-compose.test.yml is a safe overlay', () => {
     const env = overlay.services.api.environment;
     assert.equal(env.SMTP_HOST, 'mailpit');
     assert.equal(env.REQUIRE_EMAIL_VERIFICATION, 'true');
+    assert.equal(env.REQUIRE_ADMIN_2FA, 'false', 'the scripted administrator login has no inbox for the code');
     assert.equal(env.ALLOW_INSECURE_PRODUCTION_CONFIG, 'true');
     assert.equal(overlay.services.api.depends_on.mailpit.condition, 'service_started');
   });

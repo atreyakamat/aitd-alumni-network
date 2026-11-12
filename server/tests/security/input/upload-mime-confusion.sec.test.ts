@@ -20,7 +20,6 @@
  * reduces — but does not eliminate — impact (e.g. SVG-in-a-.gif served as
  * image/gif cannot execute as a document in a normal navigation/img context).
  */
-import path from 'path';
 import { http, createUser, prisma } from '../../integration/helpers';
 
 describe('upload content validation: image MIME/extension vs real content', () => {

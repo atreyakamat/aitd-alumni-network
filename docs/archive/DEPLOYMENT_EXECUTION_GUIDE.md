@@ -1,3 +1,6 @@
+> **OBSOLETE (archived 2026-11-12).** This describes the old MySQL shared-host deployment. Do not follow it. The current deployment is
+> [../DOCKER.md](../DOCKER.md) after [../PRODUCTION_CHECKLIST.md](../PRODUCTION_CHECKLIST.md); to prove a stack works see [../DOCKER_TEST_GUIDE.md](../DOCKER_TEST_GUIDE.md).
+
 > **Superseded (2026-10-18):** this guide describes the old MySQL shared-host deployment. The platform now runs on PostgreSQL. For go-live follow [docs/PRODUCTION_CHECKLIST.md](docs/PRODUCTION_CHECKLIST.md) and the Docker runbook [docs/DOCKER.md](docs/DOCKER.md).
 
 # AIEM Alumni Network - Deployment Execution Guide

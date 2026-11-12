@@ -58,13 +58,13 @@ describe('auth lifecycle', () => {
 
     const rawToken = verifyMail.mock.calls[0]?.[2];
     if (rawToken) {
-      const verified = await http().post('/api/auth/verify-email').send({ token: rawToken });
+      const verified = await http().post('/api/auth/verify-email').send({ token: rawToken, password: PASSWORD });
       expect(verified.status).toBe(200);
       // The mailbox is proven, but the person is not a member until an administrator approves the registration
       expect(await prisma.user.findUnique({ where: { email: address }, select: { isVerified: true, approvalStatus: true } })).toEqual({ isVerified: false, approvalStatus: 'PENDING' });
       expect((await prisma.user.findUnique({ where: { email: address } }))!.emailVerifiedAt).not.toBeNull();
       // Single use
-      expect((await http().post('/api/auth/verify-email').send({ token: rawToken })).status).toBeGreaterThanOrEqual(400);
+      expect((await http().post('/api/auth/verify-email').send({ token: rawToken, password: PASSWORD })).status).toBeGreaterThanOrEqual(400);
     }
     expect((await http().post('/api/auth/login').send({ email: address, password: PASSWORD })).status).toBe(403);
     await approve(address);

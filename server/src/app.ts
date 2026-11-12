@@ -1,3 +1,5 @@
+import { countRequest, createMetricsHandler } from './utils/metrics';
+import { buildMetricsSnapshot } from './services/metricsService';
 import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
@@ -208,6 +210,13 @@ export const createApp = (options: AppOptions = {}) => {
     next();
   });
   app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')));
+
+  // Monitoring: off until METRICS_TOKEN is set, then bearer-token only (utils/metrics.ts)
+  app.use((_req, res, next) => {
+    res.on('finish', () => countRequest(res.statusCode));
+    next();
+  });
+  app.get('/metrics', createMetricsHandler({ token: () => process.env.METRICS_TOKEN || undefined, snapshot: buildMetricsSnapshot }));
 
   // Health check
   app.get('/health', async (_req, res) => {

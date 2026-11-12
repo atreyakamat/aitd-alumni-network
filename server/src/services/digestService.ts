@@ -145,7 +145,8 @@ export class DigestService {
     let sent = 0;
     for (;;) {
       const users = await prisma.user.findMany({
-        where: { isActive: true, isVerified: true, digestOptOut: false },
+        // The digest is the announcements e-mail: a member who switched that e-mail off (settings) or opted out of the digest is skipped
+        where: { isActive: true, isVerified: true, digestOptOut: false, notificationPreferences: { none: { category: 'ANNOUNCEMENTS', email: false } } },
         select: { id: true, email: true },
         orderBy: { id: 'asc' },
         take: SEND_BATCH,

@@ -24,6 +24,7 @@ import { MembershipTier, Prisma, RoleType, User } from '@prisma/client';
 import { disconnectUser } from '../utils/socket';
 import { assertApproved, isApproved } from '../utils/approval';
 import { publishNotificationEvent } from './notificationBus';
+import { secondFactorRequired } from '../utils/secondFactor';
 
 interface RegisterInput {
   email: string;
@@ -372,7 +373,7 @@ export class AuthService {
     assertApproved(user);
 
     // 2FA: no session yet - hand back a short-lived challenge bound to this user
-    if (user.twoFactorEnabled) {
+    if (secondFactorRequired(user)) {
       return {
         requires2FA: true as const,
         twoFactorToken: generateTwoFactorToken(user.id),
@@ -423,9 +424,9 @@ export class AuthService {
   }
 
   async verifyEmail(token: string, password?: string) {
-    if (config.auth.requireEmailVerification) {
-      await this.assertRegistrationPassword(token, password);
-    }
+    // Always, not only while verification is required (R3-06): with the policy off the link alone used to verify an attacker's
+    // registration of somebody else's address, leaving the attacker's password and details on an account the owner "confirmed".
+    await this.assertRegistrationPassword(token, password);
     const record = await this.consumeOneTimeToken(token, TOKEN_TYPES.EMAIL_VERIFY);
     if (!record) {
       throw new AppError('Invalid or expired verification token', 400, 'INVALID_TOKEN');

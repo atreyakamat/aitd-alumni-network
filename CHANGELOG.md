@@ -22,6 +22,36 @@ All notable changes to AIEM Connect. The newest release is first. Dates are when
 | **Google and LinkedIn sign-in are removed.** The registration form is the only way to get an account; an administrator verifies and approves it | Remove `GOOGLE_*` / `LINKEDIN_*` from your `.env`. A member who signed up through Google or LinkedIn sets a password with "Forgot password" |
 | **The product is called "AIEM Connect"** everywhere (screens, e-mails, PDF receipts, seed data, documentation); the old college name is gone. Identifiers that carried it were renamed | **Receipt numbers** start `AIEM-` (they were `AITD-`; receipt numbers are derived, so an old receipt downloaded again shows the new number). The **session-hint cookie** is `aiem_session` (was `aitd_session`; at worst a member signs in once more). **Kafka defaults** are topic prefix `aiem`, group `aiem-notifications`, client `aiem-api`: set `KAFKA_TOPIC_PREFIX`, `KAFKA_GROUP_ID`, `KAFKA_CLIENT_ID` to keep earlier names. npm package names are `aiem-connect` / `aiem-connect-client` (run `npm ci` again). Migration `20261109010000_rebrand_content` renames the old product name in demo news and the seeded administrator's bio. The seed creates `admin@aiemconnect.edu` (existing databases keep the address they have) |
 | **Reels are removed** (the Reels page, the `/reels` feed, the "reel" flag on posts and its database column) | Nothing: migration `20261108000000_remove_reels` drops the flag. Posts that were reels stay as ordinary video posts; the old `isReel` and `?reels=` inputs are ignored |
+| **Every administrator now signs in with an e-mailed one-time code in production** (`REQUIRE_ADMIN_2FA`, on by default in production; chapter admin and above, even if they never turned 2FA on) | Working outbound e-mail is required (the start-up guard refuses to start without it). A one-machine trial sets `REQUIRE_ADMIN_2FA=false` next to the other two trial lines ([PRODUCTION_CHECKLIST.md](docs/PRODUCTION_CHECKLIST.md)) |
+| `GET /metrics` (Prometheus text) exists only when `METRICS_TOKEN` is set and then needs `Authorization: Bearer <token>` | Optional: set a token and point your scraper at it ([PRODUCTION_CHECKLIST.md](docs/PRODUCTION_CHECKLIST.md), Monitoring) |
+
+### Notification settings (2026-11-12)
+
+* **Members choose what they hear about.** *Settings > Notifications* has a table of categories (connections and followers, messages, posts and comments, events,
+  jobs and mentorship, college announcements) with an *In-app* (bell) and an *E-mail* switch each. Everything is on until a member changes it. New
+  `GET` / `PUT /api/notifications/preferences` (own data only), table `NotificationPreference` (migration `20261113000000_notification_preferences`, applied by
+  `prisma migrate deploy`; the Docker entrypoint already runs it). The settings are in the data export and erased with the account.
+* **Some notices can never be switched off:** registration approval and rejection, password and sign-in security, verification and receipts e-mails, a member's
+  membership notice and the administrator work items (`REGISTRATION_PENDING`, `CONTENT_REPORTED`). They have no category, and a payment that needs
+  reconciliation is sent to administrators as `essential` whatever their settings say. `ADMIN_ANNOUNCEMENT` is switchable (it also carries some administrator
+  reminders, such as a video submitted for review; an administrator who switches announcements off stops those too).
+* A suppressed notification is a successful no-op (not an error): nothing is retried or dead-lettered. The weekly digest is the announcements e-mail: a member who
+  switched it off is skipped (as is one who opted out of the digest). E-mail choices for the other categories are stored and apply when those e-mails exist.
+
+### Operations, testing and monitoring added after the round-3 audit (2026-11-11)
+
+* **Browser tests:** `e2e/` (Playwright) covers the public pages, the private-platform redirects, guest donations, the register -> approve -> sign-in journey
+  and an axe accessibility scan; `.github/workflows/e2e.yml` runs it in CI; `npm run e2e` locally ([TESTING.md](docs/TESTING.md)). The first scan found real contrast
+  failures on the landing page (footer text, "Members" labels, and an invisible white-on-white "Sign In" button): fixed.
+* **Monitoring:** `GET /metrics` (token-protected, counts only), and a notification-backlog probe in the admin system status.
+* **Dead letters:** `npm run dlq -w server -- list|replay|purge` (dry run by default; replay re-queues only valid events) ([KAFKA.md](docs/KAFKA.md)).
+* **Backups:** the verification suite restores a dump into a scratch database and compares the data (gate D08); 32 gates.
+* **Load test:** `npm run load:test` (read-only, rate-capped, refuses non-local targets unless told otherwise) ([TESTING.md](docs/TESTING.md)).
+* **GitHub:** Dependabot (patch and minor updates, majors ignored on purpose), a pull-request template, CODEOWNERS, and a setup guide for required checks, secret scanning
+  and the leaked database password clean-up ([GITHUB_SETUP.md](docs/GITHUB_SETUP.md)). A staging and release-rehearsal guide ([STAGING.md](docs/STAGING.md)).
+* **Tidy:** the eight old MySQL-era deployment documents moved to `docs/archive/`; the root `.env.example` now shows PostgreSQL; client lint is at zero warnings.
+* **Not done on purpose:** Next 16 / React 19 and zod 4 stay out of this round (Next 15.5.29 is the patched line; a major upgrade needs its own branch and a full
+  browser pass). Dependabot ignores majors until then.
 
 ### Fixed in the walk-through of every admin and member screen (2026-11-09)
 
@@ -60,13 +90,23 @@ All notable changes to AIEM Connect. The newest release is first. Dates are when
 * **Demo data:** the seed's events are dated relative to the day it runs (they were fixed to April-June 2026, so a fresh database had no upcoming events).
 * **Operations:** `preflight` and the Docker/production documents named a different default database than `docker-compose.yml` (`aiem_connect`); the uploads backup command named a volume that does not exist.
 
+### College alumni list and a faster review queue (2026-11-12)
+
+* **College alumni list** (`AlumniRecord`, migration `20261112000000_alumni_records`): an administrator imports the list the college keeps on
+  `/admin/alumni-list` (the browser parses the CSV and sends JSON, at most 1000 rows per request; no file upload). Administrators only; imports and removals
+  are audit-logged (counts only); decision 15 in [PRODUCTION_CHECKLIST.md](docs/PRODUCTION_CHECKLIST.md).
+* **Match per registration:** each item of `GET /admin/approvals` has `match` (exact / probable / none, with the reason) and `waitingDays`; the queue filters by
+  batch, department, match and waiting time; the summary counts applications waiting 7 days or more.
+* **Bulk decisions:** `POST /admin/approvals/bulk-approve` and `bulk-reject` (up to 50 ids) go through the same rules as the single decision and answer per id.
+  The page offers "Approve all exact matches on this page" only for exact matches with a verified e-mail, after a confirmation that lists the names.
+
 ### Docker and Kafka verification, and round-3 security tooling (2026-11-11)
 
 * **One command proves the Docker stack works:** `npm run docker:verify` (`scripts/docker-verify`, guide: [docs/DOCKER_TEST_GUIDE.md](docs/DOCKER_TEST_GUIDE.md)).
-  It brings the compose stack up in its own project with a mail catcher (`docker-compose.test.yml`), then checks 31 gates: images build and are
+  It brings the compose stack up in its own project with a mail catcher (`docker-compose.test.yml`), then checks 32 gates: images build and are
   healthy, no root, only the intended ports, a real registration with the e-mails read from the catcher (applicant, administrator, the shared office
   mailbox), approval and rejection, the consumer lag, and drills that break things on purpose (broker outage and recovery, poison messages to the
-  dead-letter topic, duplicate events, the API down, Kafka/PostgreSQL/Redis restarts, `down` and `up`). It writes an evidence bundle (`REPORT.md`,
+  dead-letter topic, duplicate events, the API down, Kafka/PostgreSQL/Redis restarts, a backup that restores, `down` and `up`). It writes an evidence bundle (`REPORT.md`,
   `report.json`, logs, a SHA-256 manifest) with secrets redacted.
 * **GitHub CI runs it** on pull requests and weekly (`.github/workflows/docker-verify.yml`), after the suite's own tests, which run every gate against an
   in-memory stand-in of the stack and plant defects to prove each gate can fail (`npm run test:scripts`, no Docker needed).

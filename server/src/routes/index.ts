@@ -16,6 +16,8 @@ import { adminController } from '../controllers/adminController';
 import { systemStatusController } from '../controllers/systemStatusController';
 import { adminUserController, accountController } from '../controllers/adminUserController';
 import { memberApprovalController } from '../controllers/memberApprovalController';
+import { alumniRecordController } from '../controllers/alumniRecordController';
+import { importAlumniRecordsSchema, bulkApproveSchema, bulkRejectSchema } from '../utils/alumniRecordSchemas';
 import { geoController } from '../controllers/geoController';
 import { socialFeedController as social } from '../controllers/socialFeedController';
 import { collegeVideoController, collegeMagazineController } from '../controllers/collegeContentController';
@@ -50,6 +52,7 @@ import {
   updateCommentSchema,
   createMarketplaceListingSchema,
   updateMarketplaceListingSchema,
+  updateNotificationPreferencesSchema,
 } from '../utils/validators';
 
 const router = Router();
@@ -190,6 +193,9 @@ router.post('/messages/:partnerId/read', authenticate, messageController.markAsR
 // ============== NOTIFICATION ROUTES ==============
 router.get('/notifications', authenticate, notificationController.getNotifications);
 router.get('/notifications/unread', authenticate, notificationController.getUnreadCount);
+// Before any /notifications/:id route, so "preferences" is never read as an id
+router.get('/notifications/preferences', authenticate, notificationController.getPreferences);
+router.put('/notifications/preferences', authenticate, validate(updateNotificationPreferencesSchema), notificationController.updatePreferences);
 router.post('/notifications/read-all', authenticate, notificationController.markAllAsRead);
 router.post('/notifications/:id/read', authenticate, notificationController.markAsRead);
 router.delete('/notifications/:id', authenticate, notificationController.deleteNotification);
@@ -365,8 +371,17 @@ router.get('/admin/system-status', authenticate, isAdmin, systemStatusController
 // Alumni approval: the administrator's review queue (a registration is a claim until it is checked)
 router.get('/admin/approvals', authenticate, isAdmin, memberApprovalController.list);
 router.get('/admin/approvals/summary', authenticate, isAdmin, memberApprovalController.summary);
+// Bulk decisions: every id goes through the same rules as the single decision; the answer lists the result per id
+router.post('/admin/approvals/bulk-approve', authenticate, isAdmin, validate(bulkApproveSchema), memberApprovalController.bulkApprove);
+router.post('/admin/approvals/bulk-reject', authenticate, isAdmin, validate(bulkRejectSchema), memberApprovalController.bulkReject);
 router.post('/admin/approvals/:id/approve', authenticate, isAdmin, memberApprovalController.approve);
 router.post('/admin/approvals/:id/reject', authenticate, isAdmin, memberApprovalController.reject);
+
+// The college alumni list a registration is checked against (personal data of people who have not registered: admins only).
+// The browser parses the CSV and sends JSON: there is no file upload route.
+router.post('/admin/alumni-records/import', authenticate, isAdmin, validate(importAlumniRecordsSchema), alumniRecordController.importRows);
+router.get('/admin/alumni-records', authenticate, isAdmin, alumniRecordController.list);
+router.delete('/admin/alumni-records/:id', authenticate, isAdmin, validate(idParamSchema), alumniRecordController.remove);
 
 router.get('/admin/users', authenticate, isAdmin, adminUserController.listUsers);
 router.patch('/admin/users/:id/role', authenticate, isAdmin, adminUserController.updateUserRole);

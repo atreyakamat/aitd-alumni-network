@@ -3,7 +3,7 @@ import { AppError } from '../middleware/errorHandler';
 import { paginationHelper, buildPaginationResponse, ilike } from '../utils/helpers';
 import { EventType, EventStatus, Prisma, UserRole } from '@prisma/client';
 import { isAdminRole, isOwnerOrAdmin, Actor } from '../config/permissions';
-import { notificationService } from './notificationService';
+import { notifyOnce } from './socialNotifications';
 import { clientLinks } from '../utils/clientLinks';
 import { normalizeUrlFields } from '../utils/safeUrl';
 import { optionalText } from '../utils/inputGuards';
@@ -446,14 +446,18 @@ export class EventService {
           select: { fullName: true },
         });
 
-        await notificationService.createNotification({
-          userId: event.createdById,
-          type: 'EVENT_RSVP',
-          title: 'New RSVP',
-          message: `${rsvpUser?.fullName ?? 'Someone'} is attending "${event.title}"`,
-          link: clientLinks.event(eventId),
-          metadata: { eventId, rsvpUserId: userId },
-        });
+        // RSVP, cancel, RSVP again must not tell the organiser every time (one notice per attendee and event per day)
+        await notifyOnce(userId, [
+          {
+            userId: event.createdById,
+            type: 'EVENT_RSVP',
+            title: 'New RSVP',
+            message: `${rsvpUser?.fullName ?? 'Someone'} is attending "${event.title}"`,
+            link: clientLinks.event(eventId),
+            metadata: { eventId, rsvpUserId: userId },
+            dedupeBy: ['eventId', 'rsvpUserId'],
+          },
+        ]);
       } catch (err) {
         // The RSVP is committed; a notification failure must not undo it
         log.error('RSVP notification failed', { eventId, err });

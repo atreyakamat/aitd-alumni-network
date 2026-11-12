@@ -224,6 +224,14 @@ export class GalleryService {
     throw forbidden();
   }
 
+  /**
+   * Validates a caption without touching storage or the database. Upload handlers call it BEFORE they write a file, so a bad
+   * caption cannot leave an orphan file behind (R3-09); `addPhoto` applies the same rule.
+   */
+  parseCaption(caption: unknown): string | undefined {
+    return optionalText(caption, 'caption') ?? undefined;
+  }
+
   async addPhoto(albumId: string, actor: Actor, url: string, thumbnailUrl?: string, caption?: string) {
     if (!albumId) {
       throw new AppError('Album is required', 400, 'VALIDATION_ERROR');

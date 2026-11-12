@@ -55,6 +55,13 @@ interface UpdatePostInput {
 
 const commenterSelect = { id: true, fullName: true, profilePhotoUrl: true } as const;
 
+/**
+ * One person commenting on one post tells the post's author (and a replied-to or mentioned person) once per half hour, however many
+ * comments they write or delete and re-write: a conversation is not silenced, a comment/delete loop is not a notification pump.
+ */
+const COMMENT_DEDUPE = ['postId', 'commenterId'];
+const COMMENT_NOTICE_WINDOW_MS = 30 * 60 * 1000;
+
 const validateContent = (content: unknown, max: number, label = 'Content'): string => {
   if (typeof content !== 'string' || content.trim().length === 0) {
     throw new AppError(`${label} is required`, 400, 'VALIDATION_ERROR');
@@ -406,11 +413,11 @@ export class PostService {
     const metadata = { postId, commentId: comment.id, commenterId: userId };
     const notices: SocialNotice[] = [];
     if (parent) {
-      notices.push({ userId: parent.userId, type: 'COMMENT_REPLIED', title: 'New reply', message: `${name} replied to your comment`, link, metadata });
+      notices.push({ userId: parent.userId, type: 'COMMENT_REPLIED', title: 'New reply', message: `${name} replied to your comment`, link, metadata, dedupeBy: COMMENT_DEDUPE, windowMs: COMMENT_NOTICE_WINDOW_MS });
     }
-    notices.push({ userId: post.userId, type: 'POST_COMMENTED', title: 'New Comment', message: `${name} commented on your post`, link, metadata });
+    notices.push({ userId: post.userId, type: 'POST_COMMENTED', title: 'New Comment', message: `${name} commented on your post`, link, metadata, dedupeBy: COMMENT_DEDUPE, windowMs: COMMENT_NOTICE_WINDOW_MS });
     for (const id of mentionIds) {
-      notices.push({ userId: id, type: 'MENTION', title: 'You were mentioned', message: `${name} mentioned you in a comment`, link, metadata });
+      notices.push({ userId: id, type: 'MENTION', title: 'You were mentioned', message: `${name} mentioned you in a comment`, link, metadata, dedupeBy: COMMENT_DEDUPE, windowMs: COMMENT_NOTICE_WINDOW_MS });
     }
     await notifyOnce(userId, notices);
 
@@ -467,6 +474,8 @@ export class PostService {
           message: `${name} mentioned you in a comment`,
           link: clientLinks.post(comment.postId, commentId),
           metadata: { postId: comment.postId, commentId, commenterId: userId },
+          // The same comment edited back and forth must not mention the same person again and again
+          dedupeBy: ['commentId', 'commenterId'],
         }))
       );
     }
@@ -521,6 +530,7 @@ export class PostService {
         message: `${name} mentioned you in a post`,
         link: clientLinks.post(postId),
         metadata: { postId, authorId },
+        dedupeBy: ['postId', 'authorId'],
       }))
     );
   }

@@ -183,6 +183,7 @@ export const runVerification = async (argv, deps = {}) => {
     ctx.web = ctx.http;
     ctx.mail = createMailpit(`http://127.0.0.1:${ports.mailpit}`);
     ctx.admin = { email: envInfo.adminEmail, password: envInfo.adminPassword };
+    ctx.envValues = envInfo.values;
     ctx.verificationRequired = true;
   }
   ctx.helpers = createHelpers(ctx);

@@ -20,6 +20,20 @@ const loadConfig = (env: Record<string, string | undefined>) => {
   }
 };
 
+describe('auth.requireAdmin2FA', () => {
+  it('is on in production and off in development and tests unless asked for', () => {
+    expect(loadConfig({ NODE_ENV: 'production' }).auth.requireAdmin2FA).toBe(true);
+    expect(loadConfig({ NODE_ENV: 'development' }).auth.requireAdmin2FA).toBe(false);
+    expect(loadConfig({ NODE_ENV: 'test' }).auth.requireAdmin2FA).toBe(false);
+  });
+
+  it('can be switched either way, and an empty value counts as unset', () => {
+    expect(loadConfig({ NODE_ENV: 'development', REQUIRE_ADMIN_2FA: 'true' }).auth.requireAdmin2FA).toBe(true);
+    expect(loadConfig({ NODE_ENV: 'production', REQUIRE_ADMIN_2FA: 'false' }).auth.requireAdmin2FA).toBe(false);
+    expect(loadConfig({ NODE_ENV: 'production', REQUIRE_ADMIN_2FA: '' }).auth.requireAdmin2FA).toBe(true);
+  });
+});
+
 describe('auth.requireEmailVerification', () => {
   it('is on in production and off in development and tests unless asked for', () => {
     expect(loadConfig({ NODE_ENV: 'production' }).auth.requireEmailVerification).toBe(true);

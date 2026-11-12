@@ -210,7 +210,19 @@ export const createWorld = ({ bugs = {}, secrets = [], verification = true } = {
     stop: async (name) => (setService(name, false), ok),
     start: async (name) => (setService(name, true), ok),
     restart: async (name) => (setService(name, true), ok),
-    execIn: async (service, args) => (args[0] === 'id' ? { code: 0, stdout: bugs.rootUser ? '0\n' : '1001\n', stderr: '' } : ok),
+    execIn: async (service, args) => {
+      if (args[0] === 'id') return { code: 0, stdout: bugs.rootUser ? '0\n' : '1001\n', stderr: '' };
+      if (service === 'postgres' && args[0] === 'sh') {
+        const script = args[2];
+        if (script.includes('psql')) {
+          const restored = script.includes('aiem_restore');
+          const n = script.includes('information_schema') ? 12 : s.users.size + 1;
+          return { code: 0, stdout: `${restored && bugs.badRestore ? n - 1 : n}\n`, stderr: '' };
+        }
+        if (script.startsWith('pg_restore') && bugs.restoreFails) return { code: 1, stdout: '', stderr: 'pg_restore: error: could not read input file' };
+      }
+      return ok;
+    },
     raw: async () => ok,
     containerId: async (name) => name,
   };

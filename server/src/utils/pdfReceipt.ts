@@ -1,6 +1,4 @@
 import PDFDocument from 'pdfkit';
-import path from 'path';
-import fs from 'fs';
 import { BRAND } from '../config/brand';
 
 interface DonationReceiptData {

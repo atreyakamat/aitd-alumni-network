@@ -19,22 +19,43 @@ export type NotificationEventType = (typeof NOTIFICATION_EVENT_TYPES)[number];
 
 const notificationType = z.nativeEnum(NotificationType);
 
+/**
+ * A notification link is a path on this site (the server builds them with `clientLinks`), never a URL: the client opens it on click,
+ * so an external address, a `javascript:` URI or a protocol-relative `//host` in an event would be a phishing or script link inside
+ * the member's own notification list. Checked where an event is built and again where it is consumed (a forged message on the topic).
+ */
+export const MAX_LINK_LENGTH = 500;
+// eslint-disable-next-line no-control-regex
+const SITE_PATH = /^\/(?![/\\])[^\\\s\u0000-\u001f\u007f]*$/;
+export const isSitePath = (value: string): boolean => value.length <= MAX_LINK_LENGTH && SITE_PATH.test(value);
+const sitePath = z.string().refine(isSitePath, 'link must be a path on this site, such as /posts/123');
+
+/** Bounds on what an event may carry, so one message cannot be a megabyte-sized row in every member's list. */
+export const MAX_TITLE_LENGTH = 300;
+export const MAX_MESSAGE_LENGTH = 2000;
+export const MAX_METADATA_BYTES = 8 * 1024;
+const metadata = z
+  .record(z.unknown())
+  .refine((value) => JSON.stringify(value).length <= MAX_METADATA_BYTES, `metadata must be at most ${MAX_METADATA_BYTES} bytes`);
+
 const deliverData = z.object({
-  userId: z.string().min(1),
+  userId: z.string().min(1).max(100),
   type: notificationType,
-  title: z.string(),
-  message: z.string(),
-  link: z.string().nullish(),
-  metadata: z.record(z.unknown()).nullish(),
+  title: z.string().max(MAX_TITLE_LENGTH),
+  message: z.string().max(MAX_MESSAGE_LENGTH),
+  link: sitePath.nullish(),
+  metadata: metadata.nullish(),
+  // Delivered even if the member switched that category off (a payment problem reported to an administrator, for example)
+  essential: z.boolean().optional(),
 });
 
 const broadcastData = z.object({
   type: notificationType,
-  title: z.string(),
-  message: z.string(),
-  link: z.string().nullish(),
-  metadata: z.record(z.unknown()).nullish(),
-  excludeUserId: z.string().optional(),
+  title: z.string().max(MAX_TITLE_LENGTH),
+  message: z.string().max(MAX_MESSAGE_LENGTH),
+  link: sitePath.nullish(),
+  metadata: metadata.nullish(),
+  excludeUserId: z.string().max(100).optional(),
 });
 
 const applicantData = z.object({ applicantId: z.string().min(1) });

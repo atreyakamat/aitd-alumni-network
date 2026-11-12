@@ -31,6 +31,7 @@ describe('<AdminNav>', () => {
     expect(links.map((a) => [a.textContent?.replace(/\d+\s*registrations.*$/, '').trim(), a.getAttribute('href')])).toEqual([
       ['Overview', '/admin'],
       ['Approvals', '/admin/approvals'],
+      ['Alumni list', '/admin/alumni-list'],
       ['Members', '/admin/users'],
       ['Moderation', '/admin/moderation'],
       ['Reports', '/admin/reports'],
@@ -43,7 +44,7 @@ describe('<AdminNav>', () => {
       ['Audit log', '/admin/audit'],
       ['System status', '/admin/status'],
     ]);
-    expect(ADMIN_NAV_ITEMS).toHaveLength(13);
+    expect(ADMIN_NAV_ITEMS).toHaveLength(14);
   });
 
   it('marks exactly the current page with aria-current="page"', () => {

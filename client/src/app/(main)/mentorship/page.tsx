@@ -102,6 +102,8 @@ export default function MentorshipPage() {
     if (isAuthenticated) {
       fetchData();
     }
+  // Loads once the member is known; fetchData is redefined on every render and must not retrigger the load.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isAuthenticated]);
 
   const fetchData = async () => {

@@ -18,12 +18,16 @@ export class AppError extends Error {
 
 const CLIENT_ERROR_NAMES = new Set(['MulterError', 'ZodError', 'JsonWebTokenError', 'TokenExpiredError', 'NotBeforeError']);
 const CLIENT_PRISMA_CODES = new Set(['P2002', 'P2003', 'P2000', 'P2025']);
+/** What the multipart parser (busboy, under multer) throws, as plain Errors, for a damaged upload body (a NUL byte in a file name, a cut-off body). */
+const MULTIPART_PARSE_ERROR = /^(Malformed part header|Unexpected end of form|Multipart: Boundary not found|Unexpected end of multipart data|Malformed urlencoded form|Missing Content-Type)/;
+const isMultipartParseError = (err: Error) => !(err instanceof AppError) && MULTIPART_PARSE_ERROR.test(err.message);
 
 /** Errors that end in a 4xx for the caller: expected traffic, not an incident. */
 const isClientError = (err: Error | AppError): boolean => {
   if (err instanceof AppError) return err.statusCode < 500;
   const e = err as { type?: unknown; code?: unknown; status?: unknown; statusCode?: unknown };
   if (e.type === 'entity.parse.failed' || e.type === 'entity.too.large') return true;
+  if (isMultipartParseError(err)) return true;
   if (CLIENT_ERROR_NAMES.has(err.name) || err instanceof ZodError) return true;
   if (err.name === 'PrismaClientKnownRequestError' && CLIENT_PRISMA_CODES.has(String(e.code))) return true;
   const status = e.status ?? e.statusCode;
@@ -34,7 +38,7 @@ export const errorHandler = (
   err: Error | AppError,
   req: Request,
   res: Response,
-  next: NextFunction
+  _next: NextFunction
 ) => {
   // Only real failures are logged as errors (with the request id, so a report can be matched to its log line). A wrong
   // password or a missing page used to print a stack trace each, which buried the failures that matter.
@@ -66,6 +70,14 @@ export const errorHandler = (
     return res.status(413).json({
       success: false,
       error: { message: 'Request body too large', code: 'PAYLOAD_TOO_LARGE' },
+    });
+  }
+
+  // A damaged multipart body (the parser throws a plain Error): the client's fault, not an incident
+  if (isMultipartParseError(err)) {
+    return res.status(400).json({
+      success: false,
+      error: { message: 'The upload could not be read', code: 'INVALID_MULTIPART' },
     });
   }
 

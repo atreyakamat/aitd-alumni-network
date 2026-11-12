@@ -129,6 +129,8 @@ services:
       ALLOW_INSECURE_PRODUCTION_CONFIG: ${ALLOW_INSECURE_PRODUCTION_CONFIG:-false}
       # Empty = the production default (on): no session before the e-mail address is verified
       REQUIRE_EMAIL_VERIFICATION: ${REQUIRE_EMAIL_VERIFICATION:-}
+      # Administrators sign in with the password and an e-mailed code (default: on in production). false = password only.
+      REQUIRE_ADMIN_2FA: ${REQUIRE_ADMIN_2FA:-}
       # First boot: creates the super admin from SEED_ADMIN_EMAIL / SEED_ADMIN_PASSWORD (idempotent)
       SEED_ON_START: ${SEED_ON_START:-true}
       SEED_ADMIN_EMAIL: ${SEED_ADMIN_EMAIL:-admin@aiemgoa.ac.in}

@@ -38,6 +38,8 @@ services:
     environment:
       ALLOW_INSECURE_PRODUCTION_CONFIG: "true"
       REQUIRE_EMAIL_VERIFICATION: "true"
+      # The scripted administrator login has no inbox to read the code from (the e-mailed code is covered by the unit and integration suites)
+      REQUIRE_ADMIN_2FA: "false"
       SMTP_HOST: mailpit
       SMTP_PORT: "1025"
       SMTP_USER: verify

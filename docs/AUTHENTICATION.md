@@ -79,6 +79,20 @@ register -> PENDING -> (verify e-mail) -> administrator reviews -+-> APPROVED ->
   on; a second administrator acting at the same moment gets `409`; a member who is already approved is deactivated, not
   "rejected". A rejection needs a reason (3 to 500 characters) because the person is told. A rejected registration can still be
   approved later. Every decision is written to the audit log (`APPROVE` / `REJECT`).
+* **College alumni list and matching.** An administrator can import the list the college keeps (`POST /admin/alumni-records/import` with
+  `{ rows: [{ fullName, batchYear, department?, enrollmentNumber? }] }`, at most 1000 rows per request; the browser parses the CSV on
+  `/admin/alumni-list`; `GET /admin/alumni-records?search=`, `DELETE /admin/alumni-records/:id`). Every item of the review queue then
+  carries `match: { level, reason, recordId?, record?: { batchYear, department } }` and `waitingDays`: **exact** = the enrolment number
+  (trimmed, upper-cased, spaces removed) is on the list, the batch year is the same **and the name agrees** (somebody who types another
+  alumnus' number is only "probable"); **probable** = same name (case, spacing and accents ignored) and batch year; otherwise **none**.
+  The queue never shows another person's record, only the level, the reason and the matched record's batch and department. The queue also
+  filters by `batchYear`, `department`, `match` and `waitingDays` (more than N days), and `/admin/approvals/summary` adds `overdue`
+  (waiting 7 days or more) and `alumniRecords`. `POST /admin/approvals/bulk-approve { ids (1..50), note? }` and
+  `POST /admin/approvals/bulk-reject { ids, reason }` run every id through the same rules as the single decision (unverified e-mail, race
+  safety, one audit entry and one e-mail event per person) and answer `{ results: [{ id, ok } | { id, ok: false, code, message }], succeeded,
+  failed }`: one failing id never stops the others and never reveals anybody's data. The page offers "Approve all exact matches on this page"
+  only for exact matches with a verified e-mail, after a confirmation that lists the names; a bulk rejection always needs a reason. The list is
+  personal data of people who have not registered: see decision 15 in [PRODUCTION_CHECKLIST.md](PRODUCTION_CHECKLIST.md).
 * **E-mails:** after the address is verified, "we received your registration"; on approval, "you can sign in"; on rejection, the
   reason (escaped). A failing mail server never blocks a decision.
 * **Existing members are not locked out.** The migration (`20261108020000_alumni_approval`) marks every account that exists as
@@ -180,6 +194,7 @@ Full request/response shapes: [API_REFERENCE.md](API_REFERENCE.md).
 | Variable | Effect |
 |---|---|
 | `REQUIRE_EMAIL_VERIFICATION` | `true` / `false`; unset means **on in production, off elsewhere** |
+| `REQUIRE_ADMIN_2FA` | `true` / `false`; unset means **on in production, off elsewhere**. Every administrator (chapter admin, admin, super admin) must pass the e-mailed one-time code at sign-in, whether or not they enabled 2FA themselves |
 | `JWT_SECRET`, `JWT_REFRESH_SECRET` | signing secrets; production refuses weak, short or identical ones |
 | `JWT_EXPIRES_IN`, `JWT_REFRESH_EXPIRES_IN` | token lifetimes |
 | `SENDGRID_API_KEY` or `SMTP_*`, `EMAIL_FROM` | outbound mail (required in production while verification is on) |

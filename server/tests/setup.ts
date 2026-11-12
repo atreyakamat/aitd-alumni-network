@@ -35,6 +35,11 @@ const wireTransactions = () => {
   );
 };
 
+// In-process notification cooldowns must not leak from one test into the next (every test starts as a fresh process)
+beforeEach(() => {
+  jest.requireActual('../src/utils/cooldownStore').resetCooldowns();
+});
+
 beforeAll(() => {
   jest.spyOn(console, 'log').mockImplementation(() => undefined);
   jest.spyOn(console, 'error').mockImplementation(() => undefined);

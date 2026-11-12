@@ -14,6 +14,8 @@ by tests); **historical** ones are kept for context only.
 | Call or change the API | [API_REFERENCE.md](API_REFERENCE.md) (generated from the router: `npm run docs:api`) and [SOCIAL_API.md](SOCIAL_API.md) for the social layer |
 | Write or run tests | [TESTING.md](TESTING.md): the test layers, TDD loop, how to add an endpoint |
 | Put it on a server | **[PRODUCTION_CHECKLIST.md](PRODUCTION_CHECKLIST.md) first**, then [DOCKER.md](DOCKER.md) |
+| Rehearse a release before production (staging stack, rollback) | [STAGING.md](STAGING.md): what differs from production, the release rehearsal, rolling back |
+| Set up GitHub (required checks, Dependabot, secret scanning, branch protection) | [GITHUB_SETUP.md](GITHUB_SETUP.md): the settings only you can switch on, and the leaked-password clean-up |
 | Prove the Docker stack and Kafka work on a Docker machine (and fix what fails) | [DOCKER_TEST_GUIDE.md](DOCKER_TEST_GUIDE.md): one command, evidence bundle, the same suite runs in GitHub CI |
 | Audit the security of the running stack | [SECURITY_AUDIT_PLAN.md](SECURITY_AUDIT_PLAN.md): round 3, rules of engagement, the tools and the evidence expected |
 | See how it behaves when things go wrong, and what is still open | [ROBUSTNESS.md](ROBUSTNESS.md): timeouts, retries, logging and request ids, error boundaries, the backlog |
@@ -31,6 +33,8 @@ by tests); **historical** ones are kept for context only.
 | [ARCHITECTURE.md](ARCHITECTURE.md) | current | |
 | [SECURITY_AUDIT.md](SECURITY_AUDIT.md) | current | Round 1, round 2, decisions implemented, test results |
 | [DOCKER.md](DOCKER.md) | current | Compose services, configuration, backups, upgrades, migrating old MySQL data |
+| [STAGING.md](STAGING.md) | current | Staging stack and the release rehearsal |
+| [GITHUB_SETUP.md](GITHUB_SETUP.md) | current | Branch protection, required checks, Dependabot, secret scanning |
 | [DOCKER_TEST_GUIDE.md](DOCKER_TEST_GUIDE.md) | current | Hand-over guide: prove the Docker/Kafka stack works, the gates, the fix loop, the proof bundle |
 | [SECURITY_AUDIT_PLAN.md](SECURITY_AUDIT_PLAN.md) | current | Round-3 audit plan and runbook |
 | [TESTING.md](TESTING.md) | current | |
@@ -46,7 +50,7 @@ by tests); **historical** ones are kept for context only.
 |---|---|
 | [API_TEST_REPORT.md](API_TEST_REPORT.md), [SYSTEM_AUDIT_REPORT.md](SYSTEM_AUDIT_REPORT.md), [FALLBACK_DNS_FIX_REPORT.md](FALLBACK_DNS_FIX_REPORT.md) | Point-in-time reports from April 2026, before the PostgreSQL migration and the security audits |
 | [DEPLOYMENT_GUIDE.md](DEPLOYMENT_GUIDE.md) | April 2026 troubleshooting note about an `ERR_NAME_NOT_RESOLVED` error in production |
-| `../DEPLOYMENT*.md`, `../EXTENSIVE_DEPLOYMENT_GUIDE.md`, `../PRODUCTION_READY.md`, `../FINAL_DEPLOYMENT_READINESS.md` | The old MySQL shared-host deployment. Each carries a "superseded" banner pointing here |
+| [archive/](archive/README.md) (`DEPLOYMENT*.md`, `EXTENSIVE_DEPLOYMENT_GUIDE.md`, `PRODUCTION_READY.md`, `FINAL_DEPLOYMENT_READINESS.md`) | The old MySQL shared-host deployment, archived 2026-11-12 with an OBSOLETE banner on each. Do not follow them. |
 | `../AlumniConnect_PRD_v1.0.md`, `../Design.md`, `../Alumni Connect Tech Stack.md` | Product requirements and the original design and stack documents (April 2026): the intent, not the current configuration |
 | `../API_TESTING_AND_IMPROVEMENTS.md`, `../FEATURE_DEVELOPMENT_TEMPLATE.md`, `../ACCESS_GUIDE.md` | May and earlier working notes |
 

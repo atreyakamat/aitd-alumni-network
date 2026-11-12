@@ -111,7 +111,8 @@ The exit code is 0 only when no gate failed. Each line shows `PASS`, `FAIL` or `
 | **D05** | **API down:** an event produced while the API is stopped is delivered once when it comes back (committed offsets) | |
 | **D06** | Restarting Kafka and PostgreSQL loses nothing (topics, accounts) and the API reconnects by itself | |
 | **D07** | **Redis down:** the API keeps serving; Redis comes back | |
-| **D08** | `docker compose down` then `up` (without `-v`) keeps accounts, sessions, topics and the consumer group | |
+| **D08** | **Backup and restore:** `pg_dump` of the database restores into a scratch database with the same users and tables | |
+| **D09** | `docker compose down` then `up` (without `-v`) keeps accounts, sessions, topics and the consumer group | |
 | **X01** | No generated secret appears in any container log | `evidence/all-container-logs.txt` (redacted) |
 | **X02** | The password-reset limiter engages after repeated requests from one address | |
 | **X03** | The Kafka log has no unexplained errors | `evidence/kafka-errors.txt` |

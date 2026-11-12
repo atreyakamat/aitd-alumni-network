@@ -316,6 +316,7 @@ model User {
   connectionsSent   Connection[] @relation("Requester")
   connectionsReceived Connection[] @relation("Addressee")
   notifications     Notification[]
+  notificationPreferences NotificationPreference[]
   transactions      Transaction[]
   invitesSent       Invite[]
   refreshTokens     RefreshToken[]
@@ -336,6 +337,7 @@ model User {
   requirementResponses   RequirementResponse[]
   referralsSent          ReferralRequest[] @relation("ReferralRequester")
   referralsReceived      ReferralRequest[] @relation("ReferralTarget")
+  alumniRecordsImported  AlumniRecord[]    @relation("AlumniRecordImporter")
 
   @@index([email])
   @@index([batchYear])
@@ -1029,6 +1031,32 @@ model Notification {
   @@index([createdAt])
 }
 
+// What a member wants to hear about. One row per member and category, written only when the member changes a setting:
+// no row means everything on. Account, approval, security and payment notices are not in any category a member can
+// switch off (see services/notificationPreferenceService.ts).
+enum NotificationCategory {
+  CONNECTIONS
+  MESSAGES
+  POSTS_AND_COMMENTS
+  EVENTS
+  JOBS_AND_MENTORSHIP
+  ANNOUNCEMENTS
+}
+
+model NotificationPreference {
+  id        String               @id @default(uuid())
+  userId    String
+  user      User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  category  NotificationCategory
+  inApp     Boolean              @default(true)
+  email     Boolean              @default(true)
+  createdAt DateTime             @default(now())
+  updatedAt DateTime             @updatedAt
+
+  @@unique([userId, category])
+  @@index([category])
+}
+
 // ============== TRANSACTIONS ==============
 
 model Transaction {
@@ -1214,6 +1242,27 @@ model LandingBlock {
   updatedAt   DateTime         @updatedAt
 
   @@index([isPublished, order])
+}
+
+// ============== COLLEGE ALUMNI LIST ==============
+
+// The list of alumni the college keeps, imported by an administrator (CSV parsed in the browser). It is what a
+// registration is checked against in the review queue. These are people who have NOT registered: administrators only,
+// never exposed to members. enrollmentNumber is stored normalised (trimmed, upper-cased, spaces removed); nameKey is the
+// normalised name (case-folded, diacritics stripped, spaces collapsed) the matching looks up together with batchYear.
+model AlumniRecord {
+  id               String   @id @default(uuid())
+  fullName         String
+  nameKey          String
+  batchYear        Int
+  department       String?
+  enrollmentNumber String?  @unique
+  createdAt        DateTime @default(now())
+  importedById     String?
+  importedBy       User?    @relation("AlumniRecordImporter", fields: [importedById], references: [id], onDelete: SetNull)
+
+  @@index([batchYear, nameKey])
+  @@index([importedById])
 }
 
 // ============== AUDIT LOG ==============

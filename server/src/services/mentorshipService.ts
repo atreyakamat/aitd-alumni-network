@@ -2,6 +2,7 @@ import prisma from '../config/database';
 import { AppError } from '../middleware/errorHandler';
 import { paginationHelper, buildPaginationResponse } from '../utils/helpers';
 import { notificationService } from './notificationService';
+import { notifyOnce } from './socialNotifications';
 import { clientLinks } from '../utils/clientLinks';
 import { log } from '../utils/logger';
 
@@ -362,14 +363,22 @@ export class MentorshipService {
       },
     });
 
-    await notifySafely({
-      userId: mentorUserId,
-      type: 'MENTORSHIP_REQUEST',
-      title: 'New Mentorship Request',
-      message: `${request.mentee.fullName} has requested mentorship from you`,
-      link: clientLinks.mentorship(),
-      metadata: { requestId: request.id },
-    });
+    // Asking again after every decline must not tell the mentor every time (one notice per mentee per day)
+    try {
+      await notifyOnce(menteeId, [
+        {
+          userId: mentorUserId,
+          type: 'MENTORSHIP_REQUEST',
+          title: 'New Mentorship Request',
+          message: `${request.mentee.fullName} has requested mentorship from you`,
+          link: clientLinks.mentorship(),
+          metadata: { requestId: request.id, menteeId },
+          dedupeBy: ['menteeId'],
+        },
+      ]);
+    } catch (err) {
+      log.error('Mentorship notification failed', { userId: mentorUserId, type: 'MENTORSHIP_REQUEST', err });
+    }
 
     return request;
   }

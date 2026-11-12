@@ -25,6 +25,8 @@ export const AUDIT_ACTIONS = [
   'ROLE_CHANGE',
   'BULK_INVITE',
   'EXPORT_DATA',
+  // The college alumni list was imported (counts only: the rows are never audited)
+  'IMPORT',
   // Gateway reported a paid amount/currency that differs from the transaction (left for reconciliation)
   'PAYMENT_MISMATCH',
   // Moderation of reported posts/comments (reportService)
@@ -49,6 +51,7 @@ export const AUDIT_ENTITY_TYPES = [
   'INVITATION',
   'MENTORSHIP',
   'TRANSACTION',
+  'ALUMNI_RECORD',
   'SYSTEM',
 ] as const;
 

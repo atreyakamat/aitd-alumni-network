@@ -714,7 +714,7 @@ export const geoApi = {
 
 // User API
 export const userApi = {
-  getProfile: (id: string) => api.get(`/users/${id}`),
+  getProfile: (id: string) => api.get(`/users/${seg(id)}`),
   updateProfile: (data: ProfileUpdatePayload) => api.patch('/users/profile', data),
   // The instance defaults to JSON, which would make axios serialise FormData as JSON.
   uploadProfilePhoto: (file: File) =>
@@ -724,7 +724,7 @@ export const userApi = {
   getDirectory: (params?: { page?: number; limit?: number; search?: string; batchYear?: number; department?: string }) => 
     api.get('/users/directory', { params }),
   getYearbook: (year: number, department?: string) =>
-    api.get(`/users/yearbook/${year}`, { params: { department } }),
+    api.get(`/users/yearbook/${seg(String(year))}`, { params: { department } }),
   getStats: () => api.get('/users/stats'),
   getNotable: (limit?: number) => api.get('/users/notable', { params: { limit } }),
   /** `west > east` means the viewport crosses the antimeridian; the server handles it. */
@@ -760,15 +760,15 @@ export const userApi = {
   // Work experience
   addWorkExperience: (data: WorkExperienceInput) => api.post('/users/work-experience', data),
   updateWorkExperience: (id: string, data: Partial<WorkExperienceInput>) =>
-    api.patch(`/users/work-experience/${id}`, data),
+    api.patch(`/users/work-experience/${seg(id)}`, data),
   deleteWorkExperience: (id: string) =>
-    api.delete(`/users/work-experience/${id}`),
+    api.delete(`/users/work-experience/${seg(id)}`),
 
   // Education
   addEducation: (data: EducationInput) => api.post('/users/education', data),
   updateEducation: (id: string, data: Partial<EducationInput>) =>
-    api.patch(`/users/education/${id}`, data),
-  deleteEducation: (id: string) => api.delete(`/users/education/${id}`),
+    api.patch(`/users/education/${seg(id)}`, data),
+  deleteEducation: (id: string) => api.delete(`/users/education/${seg(id)}`),
 
   // Skills
   updateSkills: (skills: string[]) => api.put('/users/skills', { skills }),
@@ -778,16 +778,16 @@ export const userApi = {
 export const postApi = {
   getFeed: (page?: number, limit?: number) =>
     api.get('/posts', { params: { page, limit } }),
-  getPost: (id: string) => api.get(`/posts/${id}`),
+  getPost: (id: string) => api.get(`/posts/${seg(id)}`),
   createPost: (data: Post) => api.post('/posts', data),
-  updatePost: (id: string, data: Partial<Post>) => api.patch(`/posts/${id}`, data),
-  deletePost: (id: string) => api.delete(`/posts/${id}`),
-  likePost: (id: string) => api.post(`/posts/${id}/like`),
+  updatePost: (id: string, data: Partial<Post>) => api.patch(`/posts/${seg(id)}`, data),
+  deletePost: (id: string) => api.delete(`/posts/${seg(id)}`),
+  likePost: (id: string) => api.post(`/posts/${seg(id)}/like`),
   addComment: (postId: string, content: string, parentId?: string) =>
-    api.post(`/posts/${postId}/comments`, { content, parentId }),
+    api.post(`/posts/${seg(postId)}/comments`, { content, parentId }),
   /** Author-only on the server (admins may delete but not edit). */
-  updateComment: (id: string, content: string) => api.patch(`/comments/${id}`, { content }),
-  deleteComment: (id: string) => api.delete(`/comments/${id}`),
+  updateComment: (id: string, content: string) => api.patch(`/comments/${seg(id)}`, { content }),
+  deleteComment: (id: string) => api.delete(`/comments/${seg(id)}`),
 };
 
 // Job API
@@ -802,12 +802,12 @@ export const jobApi = {
     search?: string;
   }) =>
     api.get('/jobs', { params }),
-  getJob: (id: string) => api.get(`/jobs/${id}`),
+  getJob: (id: string) => api.get(`/jobs/${seg(id)}`),
   /** Members' jobs go to PENDING_REVIEW; admins' are published directly (see `status` in the response). */
   createJob: (data: CreateJobInput) => api.post('/jobs', data),
   /** Editing a published job sends it back to review. */
-  updateJob: (id: string, data: Partial<CreateJobInput>) => api.patch(`/jobs/${id}`, data),
-  deleteJob: (id: string) => api.delete(`/jobs/${id}`),
+  updateJob: (id: string, data: Partial<CreateJobInput>) => api.patch(`/jobs/${seg(id)}`, data),
+  deleteJob: (id: string) => api.delete(`/jobs/${seg(id)}`),
   getMyJobs: (page?: number, limit?: number) =>
     api.get('/jobs/my', { params: { page, limit } }),
   /** ADMIN+ moderation. */
@@ -819,15 +819,15 @@ export const jobApi = {
 export const eventApi = {
   getEvents: (params?: { page?: number; limit?: number; type?: string; upcoming?: boolean; past?: boolean; search?: string }) => 
     api.get('/events', { params }),
-  getEvent: (id: string) => api.get(`/events/${id}`),
+  getEvent: (id: string) => api.get(`/events/${seg(id)}`),
   getUpcoming: (limit?: number) =>
     api.get('/events/upcoming', { params: { limit } }),
   /** ADMIN+, or CHAPTER_ADMIN when `chapterId` is the chapter they run. */
   createEvent: (data: CreateEventInput) => api.post('/events', data),
-  updateEvent: (id: string, data: Partial<CreateEventInput>) => api.patch(`/events/${id}`, data),
-  deleteEvent: (id: string) => api.delete(`/events/${id}`),
-  rsvpEvent: (id: string) => api.post(`/events/${id}/rsvp`),
-  getAttendees: (id: string) => api.get(`/events/${id}/attendees`),
+  updateEvent: (id: string, data: Partial<CreateEventInput>) => api.patch(`/events/${seg(id)}`, data),
+  deleteEvent: (id: string) => api.delete(`/events/${seg(id)}`),
+  rsvpEvent: (id: string) => api.post(`/events/${seg(id)}/rsvp`),
+  getAttendees: (id: string) => api.get(`/events/${seg(id)}/attendees`),
 };
 
 // Network API
@@ -842,10 +842,10 @@ export const networkApi = {
     api.get('/network/requests', { params }),
   getSuggestions: (limit?: number) =>
     api.get('/network/suggestions', { params: { limit } }),
-  sendRequest: (userId: string) => api.post(`/network/request/${userId}`),
+  sendRequest: (userId: string) => api.post(`/network/request/${seg(userId)}`),
   respondToRequest: (id: string, accept: boolean) =>
-    api.post(`/network/respond/${id}`, { accept }),
-  removeConnection: (id: string) => api.delete(`/network/connection/${id}`),
+    api.post(`/network/respond/${seg(id)}`, { accept }),
+  removeConnection: (id: string) => api.delete(`/network/connection/${seg(id)}`),
 };
 
 // Message API
@@ -853,11 +853,11 @@ export const messageApi = {
   getConversations: (page?: number, limit?: number) =>
     api.get('/messages', { params: { page, limit } }),
   getMessages: (partnerId: string, page?: number, limit?: number) =>
-    api.get(`/messages/${partnerId}`, { params: { page, limit } }),
+    api.get(`/messages/${seg(partnerId)}`, { params: { page, limit } }),
   sendMessage: (receiverId: string, content: string, mediaUrl?: string) =>
-    api.post(`/messages/${receiverId}`, { content, mediaUrl }),
+    api.post(`/messages/${seg(receiverId)}`, { content, mediaUrl }),
   getUnreadCount: () => api.get('/messages/unread'),
-  markAsRead: (partnerId: string) => api.post(`/messages/${partnerId}/read`),
+  markAsRead: (partnerId: string) => api.post(`/messages/${seg(partnerId)}/read`),
 };
 
 // Notification API
@@ -871,7 +871,32 @@ export const notificationApi = {
   markAsRead: (id: string) => api.post(`/notifications/${seg(id)}/read`),
   markAllAsRead: () => api.post('/notifications/read-all'),
   deleteNotification: (id: string) => api.delete(`/notifications/${seg(id)}`),
+  /** The member's own notification settings (nothing in the path: the server uses the signed-in member). */
+  getPreferences: () => api.get<ApiSuccess<NotificationPreferences>>('/notifications/preferences'),
+  /** Changes only the categories and channels named; answers with the full list. */
+  updatePreferences: (preferences: NotificationPreferenceChange[]) =>
+    api.put<ApiSuccess<NotificationPreferences>>('/notifications/preferences', { preferences }),
 };
+
+export type NotificationCategory = 'CONNECTIONS' | 'MESSAGES' | 'POSTS_AND_COMMENTS' | 'EVENTS' | 'JOBS_AND_MENTORSHIP' | 'ANNOUNCEMENTS';
+
+export interface NotificationPreference {
+  category: NotificationCategory;
+  inApp: boolean;
+  email: boolean;
+}
+
+export interface NotificationPreferenceChange {
+  category: NotificationCategory;
+  inApp?: boolean;
+  email?: boolean;
+}
+
+export interface NotificationPreferences {
+  preferences: NotificationPreference[];
+  /** Notices that cannot be switched off (account, approval, security, payments): `ACCOUNT_AND_SECURITY`. */
+  alwaysOn: string[];
+}
 
 export type GalleryAlbumType = 'INSTITUTIONAL' | 'BATCH' | 'EVENT';
 
@@ -977,7 +1002,7 @@ export const marketplaceApi = {
 // Membership API
 export const membershipApi = {
   getTiers: () => api.get('/memberships/tiers'),
-  getTier: (id: string) => api.get(`/memberships/tiers/${id}`),
+  getTier: (id: string) => api.get(`/memberships/tiers/${seg(id)}`),
   getMyMembership: () => api.get('/memberships/my'),
   /** Paginated: `{ success, data: [], pagination }`. */
   getHistory: (params?: { page?: number; limit?: number }) =>
@@ -1026,8 +1051,8 @@ export const inviteApi = {
   getSentInvites: (page?: number, limit?: number) =>
     api.get('/invites/sent', { params: { page, limit } }),
   getStats: () => api.get('/invites/stats'),
-  verifyInvite: (token: string) => api.get(`/invites/verify/${token}`),
-  acceptInvite: (token: string) => api.post(`/invites/${token}/accept`),
+  verifyInvite: (token: string) => api.get(`/invites/verify/${seg(token)}`),
+  acceptInvite: (token: string) => api.post(`/invites/${seg(token)}/accept`),
 };
 
 // 2FA API
@@ -1058,7 +1083,7 @@ export const mentorshipApi = {
   // Mentor profiles
   getMentors: (params?: { page?: number; limit?: number; focusArea?: string; search?: string; available?: boolean }) =>
     api.get('/mentorship/mentors', { params }),
-  getMentorProfile: (userId: string) => api.get(`/mentorship/profile/${userId}`),
+  getMentorProfile: (userId: string) => api.get(`/mentorship/profile/${seg(userId)}`),
   getMyMentorProfile: () => api.get('/mentorship/profile'),
   createMentorProfile: (data: { focusAreas: string[]; availability?: string; bio?: string; maxMentees?: number }) =>
     api.post('/mentorship/profile', data),
@@ -1068,22 +1093,22 @@ export const mentorshipApi = {
   
   // Mentorship requests
   requestMentorship: (mentorId: string, message?: string) =>
-    api.post(`/mentorship/request/${mentorId}`, { message }),
+    api.post(`/mentorship/request/${seg(mentorId)}`, { message }),
   respondToRequest: (requestId: string, accept: boolean) =>
-    api.post(`/mentorship/request/${requestId}/respond`, { accept }),
+    api.post(`/mentorship/request/${seg(requestId)}/respond`, { accept }),
   getMyMentorRequests: (status?: string) =>
     api.get('/mentorship/requests/mentor', { params: { status } }),
   getMyMenteeRequests: (status?: string) =>
     api.get('/mentorship/requests/mentee', { params: { status } }),
   endMentorship: (requestId: string) =>
-    api.post(`/mentorship/request/${requestId}/end`),
+    api.post(`/mentorship/request/${seg(requestId)}/end`),
   
   // Sessions
-  getSessions: (requestId: string) => api.get(`/mentorship/request/${requestId}/sessions`),
+  getSessions: (requestId: string) => api.get(`/mentorship/request/${seg(requestId)}/sessions`),
   scheduleSession: (requestId: string, data: { scheduledAt: Date; notes?: string }) =>
-    api.post(`/mentorship/request/${requestId}/sessions`, data),
+    api.post(`/mentorship/request/${seg(requestId)}/sessions`, data),
   completeSession: (sessionId: string, outcomes?: string) =>
-    api.post(`/mentorship/sessions/${sessionId}/complete`, { outcomes }),
+    api.post(`/mentorship/sessions/${seg(sessionId)}/complete`, { outcomes }),
 };
 
 // Search API
@@ -1154,6 +1179,21 @@ export interface RegistrationApplication {
   /** The administrator's note on approval, or the reason given on rejection. */
   approvalNote: string | null;
   approvalReviewedBy: { id: string; fullName: string } | null;
+  /** How well the registration fits the college alumni list. Absent from an older server. */
+  match?: ApprovalMatch;
+  /** Whole days a PENDING application has waited; null once it was decided. */
+  waitingDays?: number | null;
+}
+
+/** Exact: enrolment number, batch year and name agree. Probable: same name and batch year (or the number with another name). */
+export type ApprovalMatchLevel = 'exact' | 'probable' | 'none';
+
+export interface ApprovalMatch {
+  level: ApprovalMatchLevel;
+  reason: string;
+  recordId?: string;
+  /** Only the batch and department of the matched record: nothing else of that person is ever sent. */
+  record?: { batchYear: number; department: string | null };
 }
 
 export interface ApprovalFilters {
@@ -1161,12 +1201,59 @@ export interface ApprovalFilters {
   search?: string;
   page?: number;
   limit?: number;
+  batchYear?: number | string;
+  department?: string;
+  match?: ApprovalMatchLevel;
+  /** Applications that have waited more than this many days. */
+  waitingDays?: number;
 }
 
 export interface ApprovalSummary {
   pending: number;
   approved: number;
   rejected: number;
+  /** Pending applications that have waited 7 days or more. */
+  overdue?: number;
+  /** How many records the college alumni list holds (0: nothing to match against yet). */
+  alumniRecords?: number;
+}
+
+/** The answer of a bulk decision: one entry per id, in the order sent. A failure of one never stops the others. */
+export interface BulkDecisionResult {
+  results: Array<{ id: string; ok: true } | { id: string; ok: false; code: string; message: string }>;
+  succeeded: number;
+  failed: number;
+}
+
+/** One person of the college alumni list (personal data of somebody who may not have registered: administrators only). */
+export interface AlumniRecord {
+  id: string;
+  fullName: string;
+  batchYear: number;
+  department: string | null;
+  enrollmentNumber: string | null;
+  createdAt: string;
+}
+
+export interface AlumniImportRow {
+  fullName: string;
+  batchYear: number;
+  department?: string;
+  enrollmentNumber?: string;
+}
+
+/** `created + updated + skipped` is the number of rows sent; at most 20 errors are listed, by row number in the request. */
+export interface AlumniImportResult {
+  created: number;
+  updated: number;
+  skipped: number;
+  errors: Array<{ row: number; message: string }>;
+}
+
+export interface AlumniRecordFilters {
+  search?: string;
+  page?: number;
+  limit?: number;
 }
 
 export interface PendingJob {
@@ -1214,6 +1301,7 @@ export const AUDIT_ACTIONS = [
   'ROLE_CHANGE',
   'BULK_INVITE',
   'EXPORT_DATA',
+  'IMPORT',
   'PAYMENT_MISMATCH',
   'CONTENT_REMOVED',
   'REPORT_DISMISSED',
@@ -1235,6 +1323,7 @@ export const AUDIT_ENTITY_TYPES = [
   'INVITATION',
   'MENTORSHIP',
   'TRANSACTION',
+  'ALUMNI_RECORD',
   'SYSTEM',
 ] as const;
 export type AuditEntityType = (typeof AUDIT_ENTITY_TYPES)[number];
@@ -1317,12 +1406,24 @@ export const adminApi = {
   /** The applicant is told the reason by e-mail (3 to 500 characters). 409 NOT_PENDING. */
   rejectRegistration: (id: string, reason: string) =>
     api.post<ApiSuccess<RegistrationApplication>>(`/admin/approvals/${seg(id)}/reject`, { reason: reason.trim() }),
+  /** 1 to 50 ids, each through the same rules as the single approval; the answer lists the result per id. */
+  bulkApproveRegistrations: (ids: string[], note?: string) =>
+    api.post<ApiSuccess<BulkDecisionResult>>('/admin/approvals/bulk-approve', note && note.trim() ? { ids, note: note.trim() } : { ids }),
+  /** The reason is required (3 to 500 characters): every person is told why by e-mail. */
+  bulkRejectRegistrations: (ids: string[], reason: string) =>
+    api.post<ApiSuccess<BulkDecisionResult>>('/admin/approvals/bulk-reject', { ids, reason: reason.trim() }),
+  /** At most 1000 rows per request. The browser parses the CSV; there is no file upload. */
+  importAlumniRecords: (rows: AlumniImportRow[]) =>
+    api.post<ApiSuccess<AlumniImportResult>>('/admin/alumni-records/import', { rows }),
+  listAlumniRecords: (params?: AlumniRecordFilters) =>
+    api.get<ApiPaginated<AlumniRecord>>('/admin/alumni-records', { params: cleanParams(params) }),
+  deleteAlumniRecord: (id: string) => api.delete<ApiSuccess<{ id: string }>>(`/admin/alumni-records/${seg(id)}`),
   getPendingJobs: (params?: { page?: number; limit?: number }) =>
     api.get<ApiPaginated<PendingJob>>('/admin/jobs/pending', { params: cleanParams(params) }),
   getMentorshipOverview: () => api.get<ApiSuccess<MentorshipOverview>>('/admin/mentorship/overview'),
   /** CSV download; `response.data` is a Blob. */
   exportEntity: (entity: ExportEntity) =>
-    api.get<Blob>(`/admin/export/${entity}`, { responseType: 'blob' }),
+    api.get<Blob>(`/admin/export/${seg(entity)}`, { responseType: 'blob' }),
   getAuditLogs: (filters?: AuditLogFilters) =>
     api.get<AuditLogPage>('/admin/audit', { params: cleanParams(filters) }),
   getRecentAuditActivity: (params?: { limit?: number }) =>

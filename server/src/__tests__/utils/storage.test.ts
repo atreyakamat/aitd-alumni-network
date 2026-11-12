@@ -113,6 +113,33 @@ describe('storage (local mode)', () => {
     expect(sharpCalls).toEqual(['resize', 'gif']);
   });
 
+  // R3-14: a zero-byte upload used to be "buffer unavailable" and answered 500
+  // R3-15: the PDF uploader trusted the file name and the declared type; the bytes must start like a PDF
+  it('assertPdfFile accepts a PDF header (also after a short preamble) and refuses everything else', async () => {
+    const { mod } = load();
+    const pdf = (buffer: Buffer) => ({ originalname: 'issue.pdf', mimetype: 'application/pdf', buffer }) as Express.Multer.File;
+    expect(() => mod.assertPdfFile(pdf(Buffer.from('%PDF-1.7\n...')))).not.toThrow();
+    expect(() => mod.assertPdfFile(pdf(Buffer.concat([Buffer.alloc(200, 0x0a), Buffer.from('%PDF-1.4')])))).not.toThrow();
+    for (const bad of [
+      Buffer.from('<!doctype html><script>alert(1)</script>'),
+      Buffer.from('<svg xmlns="http://www.w3.org/2000/svg"></svg>'),
+      Buffer.from('PKzip'),
+      Buffer.from('%PD'),
+      Buffer.concat([Buffer.alloc(2000, 0x20), Buffer.from('%PDF-1.4')]), // header beyond the first 1024 bytes
+      Buffer.alloc(0),
+    ]) {
+      expect(() => mod.assertPdfFile(pdf(bad))).toThrow(expect.objectContaining({ statusCode: 400, code: 'INVALID_FILE_TYPE' }));
+    }
+  });
+
+  it('rejects an empty upload as a 400, not a server error, and stores nothing', async () => {
+    const { mod } = load();
+    await expect(mod.uploadToStorage(file({ buffer: Buffer.alloc(0) }), 'profiles')).rejects.toMatchObject({
+      statusCode: 400,
+      code: 'INVALID_FILE_TYPE',
+    });
+  });
+
   it('rejects bytes that do not decode as one of the allowed image formats', async () => {
     const { mod } = load();
     detectedFormat = undefined;
@@ -151,11 +178,9 @@ describe('storage (local mode)', () => {
     expect(readUpload(url)).toBe('from-disk');
   });
 
-  it('fails when the upload has no data', async () => {
+  it('fails when the upload has no data at all (no buffer and no temp file)', async () => {
     const { mod } = load();
-    await expect(mod.uploadToStorage(file({ buffer: Buffer.alloc(0) }))).rejects.toThrow(
-      'Uploaded file buffer is unavailable'
-    );
+    await expect(mod.uploadToStorage(file({ buffer: undefined }))).rejects.toThrow('Uploaded file buffer is unavailable');
   });
 
   it('uploadBufferToStorage keeps the base filename', async () => {

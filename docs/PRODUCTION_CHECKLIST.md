@@ -46,6 +46,7 @@ npm run verify:deploy -w server -- --web https://alumni.example.edu
 | `TRUST_PROXY` | `1` | number of proxies in front of the API (`1` for the bundled nginx, `2` behind Cloudflare + nginx) | Rate limits key on the client address. Too high: clients can spoof it. Too low: everyone shares one bucket |
 | `API_BIND` | `127.0.0.1` | leave it | The API port stays on loopback; only the proxy is public |
 | `REQUIRE_EMAIL_VERIFICATION` | off | leave unset (**on** in production) | No session before the address is verified; see decision 2 below |
+| `REQUIRE_ADMIN_2FA` | off | leave unset (**on** in production) | Every administrator (chapter admin and above) signs in with the password **and** an e-mailed one-time code, even if they never turned 2FA on. Needs working outbound e-mail (the preflight refuses to start without it). `false` only for a one-machine trial |
 | `SENDGRID_API_KEY` or `SMTP_HOST`/`SMTP_USER`/`SMTP_PASS`, `EMAIL_FROM` | unset (mails are logged) | a working mail server (SendGrid is used through its SMTP relay; transient failures are retried) | Required once verification is on, or nobody can finish registering. Send a real test registration |
 | `SEED_ADMIN_EMAIL`, `SEED_ADMIN_PASSWORD` | `Admin@123` default | your address; 12+ random characters | The first super admin. Change the password after the first sign-in |
 | `SEED_SAMPLE_DATA` | `true` for demos | unset / `false` | Demo users (`user1..6@example.com`) have passwords that are in the repository |
@@ -64,9 +65,10 @@ npm run verify:deploy -w server -- --web https://alumni.example.edu
 # in .env, only for that trial
 ALLOW_INSECURE_PRODUCTION_CONFIG=true
 REQUIRE_EMAIL_VERIFICATION=false
+REQUIRE_ADMIN_2FA=false
 ```
 
-Secrets and database-password checks still apply. Remove both lines for any real deployment.
+Secrets and database-password checks still apply. Remove all three lines for any real deployment.
 
 ## 3. Development-only things that must not ship
 
@@ -78,7 +80,7 @@ Secrets and database-password checks still apply. Remove both lines for any real
 
 ## 4. Secrets and rotation
 
-1. **Rotate the database password that was committed.** It was in `DEPLOYMENT_CHECKLIST.md` and
+1. **Rotate the database password that was committed.** It was in `DEPLOYMENT_CHECKLIST.md` (now in `docs/archive/`) and
    `DEPLOYMENT_VERIFICATION.md` and is still in git history: treat it as public even though the files are cleaned.
    `POSTGRES_PASSWORD` only applies when the data volume is first created, so changing `.env` later does **not** change
    the database. Change it in the database, then in `.env`, then restart the API:
@@ -107,6 +109,7 @@ Secrets and database-password checks still apply. Remove both lines for any real
 * **Monitoring:** alert on `GET /health` (database state; `redisStatus` is informational), on 5xx rate and on a spike of 401/429 on `/api/auth/*`.
   Every API response has an `X-Request-Id` and every request one access-log line (route pattern, status, duration, never the query string); set
   `LOG_LEVEL=warn` to keep only slow requests and errors. See [ROBUSTNESS.md](ROBUSTNESS.md).
+  For a metrics scraper set `METRICS_TOKEN` (`openssl rand -hex 32`): `GET /metrics` then answers Prometheus text to `Authorization: Bearer <token>` (404 without a token configured, 401 on a wrong one). It exposes counts only (response classes, database/Redis/Kafka up, dead letters, consumer lag, pending and overdue registrations). Suggested alerts: `aiem_database_up == 0`, `aiem_notification_dead_letters > 0`, `aiem_notification_consumer_lag > 50` for 10 minutes, `aiem_registrations_overdue > 0`.
   The audit log (`/api/admin/audit`) records security events (refresh-token reuse, role changes, deletions).
 * **Orphaned uploads (monthly):** `npm run uploads:cleanup -w server` is a dry run (the default) that lists local upload files nothing refers to
   and that are older than 24 hours. Read the list, then run it again with `--delete`. Details and limits in
@@ -148,6 +151,8 @@ that still behaves like a normal website. Revisit one only with the trigger give
 | 12 | Donating without an account | **Open, as before.** Alumni donate as guests: `POST /donations/order` and `/donations/verify` work without a session (a missing, invalid, expired or not-approved token is simply treated as a guest), and `/donations` is the one page a visitor may open (the donation form only). The donor wall, leaderboard, chapter totals and stats stay members only | Anybody can start an order, so the per-endpoint rate limit (20 per 15 minutes) and the strict donor-address validation are what protect it; a donor's name and address are kept in the transaction record | Add CAPTCHA/WAF in front of `/api/donations/*` before a public launch (section 7) |
 | 13 | How notifications are delivered | **Through Kafka** ([KAFKA.md](KAFKA.md)): in-app notifications, announcement broadcasts, the e-mail to the college administrator when a registration is waiting, and the e-mails to applicants. Failed events end in a dead-letter topic. Without `KAFKA_BROKERS` the same events are delivered in-process, and a broker outage falls back the same way, so nothing is lost | One more service to run (the compose file includes a single broker; a managed or 3-broker cluster is the production-grade setup). **Not exercised against a real broker in CI** | Before relying on it: register a test applicant on the server and check the administrator's inbox (section 9) |
 | 14 | Receipt numbers after the rename | Receipts are numbered `AIEM-<DON\|MEM>-<date>-<id>` and the number is **derived** from the transaction, not stored. The earlier `AITD-` prefix was dropped with the rename of the product | A receipt issued before the rename and downloaded again shows the new number; anybody matching old receipts by number in accounts must map the prefix | If you must keep the old prefix for the old records, add a stored receipt number to `Transaction` and generate it once at payment time |
+| 15 | The college alumni list (`AlumniRecord`) | **Imported by the college, read only by administrators.** The list holds the name, batch, department and enrolment number of people who have **not registered**, so it is personal data of third parties. Only ADMIN and above reach it (`/admin/alumni-records*`, RBAC-matrix rows); a registration in the review queue shows only the match level, the reason and the matched record's batch and department, never another person's name or number. The browser parses the CSV and sends JSON (no file-upload route), at most 1000 rows per request. Every import (counts only) and every removal (id and batch, no name) is written to the audit log (`IMPORT` / `DELETE` on `ALUMNI_RECORD`); the rows themselves are never logged or audited. `importedById` is released when the importing administrator deletes their account (the list belongs to the college, not to the person). A bulk approval goes through the same service rules as a single approval, and the page only offers it for exact matches with a verified e-mail | The list is a second store of alumni data to look after: back it up like the database, and an out-of-date list produces wrong "Not on the list" badges (only a hint: an administrator still decides). An enrolment number alone is never enough for an "exact" match, the name must agree too | **Delete the records (the `Remove` button on `/admin/alumni-list`, or `DELETE FROM "AlumniRecord"`) when the list is no longer needed**, for example after the founding batches are admitted; revisit if the college wants it kept longer, then add a retention period |
+| 16 | Round 3 code-level changes that alter behaviour ([SECURITY_AUDIT.md](SECURITY_AUDIT.md#round-3-code-level-findings-and-fixes-2026-11-12)) | **The e-mail link always needs the registration password** (`POST /auth/verify-email`), also with `REQUIRE_EMAIL_VERIFICATION=false` (R3-06). **Notification cooldowns:** one bell notification per actor and subject per day (follow, reaction, repost, RSVP, mentorship request, mention), per 30 minutes for comments and per 10 minutes for messages; the actions themselves are never held back (R3-07). **Kafka topics keep messages 7 days** (`KAFKA_RETENTION_MS`, set on both topics at start-up; [KAFKA.md](KAFKA.md)) (R3-11). **Notification events must carry a site path as link** (not a URL) and bounded text (R3-12); **broadcasts reach approved members only** (R3-13). The magazine uploader refuses a file that does not start like a PDF (R3-15). **A password that is a look-alike of a listed one (full-width, accented, zero-width characters) is refused** (R3-08) | Nothing visible to members; an applicant who typed the wrong password on the verification page is asked again | On a Kafka cluster whose ACLs forbid describing or altering topic configs the API logs a warning at start-up: set `retention.ms=604800000` on `<prefix>.notifications` and `<prefix>.notifications.dlq` yourself |
 
 ## 7. Must be finished before a public launch
 
@@ -180,6 +185,8 @@ These are not configuration; they are engineering work. Do not open registration
 ## 9. After deploying
 
 **Check the notification path.** Register a test applicant with a real mailbox: the college administrator (every `ADMIN`/`SUPER_ADMIN` account, plus `APPROVAL_NOTIFY_EMAIL` if you set it) must receive "New registration to review" by SMTP and see the notice in the bell; approving must send the applicant "you can sign in". `GET /health` should say `kafkaStatus: up`; the dead-letter topic ([KAFKA.md](KAFKA.md)) should stay empty.
+
+**Notification settings** need migration `20261113000000_notification_preferences` (a new table); `prisma migrate deploy` applies it, and the Docker entrypoint already runs that on start. Nothing else to configure: members start with everything on.
 
 **Approve the first members.** Sign in as the seeded administrator, open *Admin > Approvals*, and decide who may join. Check
 that the approval e-mail reaches a real mailbox before you tell members to register. Decide who works the queue (and how

@@ -62,11 +62,12 @@ NEXT_PUBLIC_API_URL=http://localhost:5000/api
 
 # --- LOCAL TRIAL ONLY ---------------------------------------------------------------------
 # The API runs in production mode and refuses to start on a configuration meant for the public internet
-# (https addresses, a mail server, ...). These two lines let this stack run on ONE machine with neither.
+# (https addresses, a mail server, ...). These lines let this stack run on ONE machine with neither.
 # For a real deployment REMOVE THEM, set real values, and follow docs/PRODUCTION_CHECKLIST.md
 # (check with:  npm run preflight -w server -- --env-file ../.env).
 ALLOW_INSECURE_PRODUCTION_CONFIG=true
 REQUIRE_EMAIL_VERIFICATION=false
+REQUIRE_ADMIN_2FA=false
 EOF
   chmod 600 .env
   green "Created .env."

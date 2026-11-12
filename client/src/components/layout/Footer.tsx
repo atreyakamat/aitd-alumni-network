@@ -2,14 +2,14 @@ import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { buildLoginHref } from '@/lib/public-paths';
 
-const linkClass = 'text-sm tracking-wide text-slate-500 transition-colors hover:text-blue-700 font-body';
+const linkClass = 'text-sm tracking-wide text-slate-600 transition-colors hover:text-blue-700 font-body';
 
 /** A link to a members-only page (that is every page of the platform): goes through sign-in and says so. */
 function MemberLink({ path, children }: { path: string; children: React.ReactNode }) {
   return (
     <Link href={buildLoginHref(path)} className={linkClass}>
       {children}
-      <span className="ml-1.5 text-[10px] font-label uppercase tracking-widest text-slate-400">Members</span>
+      <span className="ml-1.5 text-[10px] font-label uppercase tracking-widest text-slate-600">Members</span>
     </Link>
   );
 }
@@ -20,7 +20,7 @@ export function Footer() {
       <div className="grid grid-cols-1 gap-8 px-8 py-16 md:grid-cols-3 lg:px-12">
         <div className="space-y-6">
           <div className="font-headline text-lg font-bold text-blue-900">AIEM Connect</div>
-          <p className="max-w-xs text-sm tracking-wide text-slate-500 font-body">
+          <p className="max-w-xs text-sm tracking-wide text-slate-600 font-body">
             Connecting past excellence with future potential through a global network of scholarly leaders.
           </p>
         </div>
@@ -40,13 +40,13 @@ export function Footer() {
           </div>
           <div className="flex flex-col space-y-3">
             <span className="mb-2 text-xs font-bold uppercase tracking-widest text-primary font-label">Legal</span>
-            <Link href="/privacy" className="text-sm tracking-wide text-slate-500 transition-colors hover:text-blue-700 font-body">
+            <Link href="/privacy" className="text-sm tracking-wide text-slate-600 transition-colors hover:text-blue-700 font-body">
               Privacy Policy
             </Link>
-            <Link href="/terms" className="text-sm tracking-wide text-slate-500 transition-colors hover:text-blue-700 font-body">
+            <Link href="/terms" className="text-sm tracking-wide text-slate-600 transition-colors hover:text-blue-700 font-body">
               Terms of Service
             </Link>
-            <Link href="/contact" className="text-sm tracking-wide text-slate-500 transition-colors hover:text-blue-700 font-body">
+            <Link href="/contact" className="text-sm tracking-wide text-slate-600 transition-colors hover:text-blue-700 font-body">
               Contact Us
             </Link>
           </div>
@@ -54,7 +54,7 @@ export function Footer() {
 
         <div className="space-y-6">
           <span className="block text-xs font-bold uppercase tracking-widest text-primary font-label">Join the Legacy</span>
-          <p className="text-sm tracking-wide text-slate-500 font-body">Create your free alumni account to stay connected.</p>
+          <p className="text-sm tracking-wide text-slate-600 font-body">Create your free alumni account to stay connected.</p>
           <Button className="h-12 px-6 text-sm font-bold font-label" asChild>
             <Link href="/register">Join</Link>
           </Button>
@@ -62,7 +62,7 @@ export function Footer() {
       </div>
 
       <div className="flex flex-col items-center justify-between gap-4 bg-slate-200/50 px-8 py-8 md:flex-row lg:px-12">
-        <span className="text-xs tracking-wide text-slate-500 font-body">
+        <span className="text-xs tracking-wide text-slate-600 font-body">
           © {new Date().getFullYear()} AIEM Connect. All rights reserved.
         </span>
       </div>

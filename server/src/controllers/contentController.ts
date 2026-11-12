@@ -3,7 +3,7 @@ import { galleryService } from '../services/galleryService';
 import { newsService } from '../services/newsService';
 import { chapterService } from '../services/chapterService';
 import { marketplaceService } from '../services/marketplaceService';
-import { uploadToStorage } from '../utils/storage';
+import { deleteFromStorage, uploadToStorage } from '../utils/storage';
 import { Actor, isAdminRole } from '../config/permissions';
 
 const actorOf = (req: Request): Actor => ({ id: req.user!.id, userRole: req.user!.userRole });
@@ -103,18 +103,19 @@ export class GalleryController {
       // Check permission before anything is written to storage
       const actor = actorOf(req);
       await galleryService.assertCanAddPhoto(albumId, actor);
+      // ...and validate the caption too: a failure after the write would leave a file nothing points to
+      const caption = galleryService.parseCaption(req.body?.caption);
 
       const photos = [];
       for (const file of files) {
         const photoUrl = await uploadToStorage(file, 'gallery');
-        const photo = await galleryService.addPhoto(
-          albumId,
-          actor,
-          photoUrl,
-          photoUrl,
-          req.body.caption
-        );
-        photos.push(photo);
+        try {
+          photos.push(await galleryService.addPhoto(albumId, actor, photoUrl, photoUrl, caption));
+        } catch (error) {
+          // The record could not be made (album removed meanwhile, database error): do not keep the file
+          await deleteFromStorage(photoUrl).catch(() => undefined);
+          throw error;
+        }
       }
 
       res.status(201).json({ success: true, data: photos });

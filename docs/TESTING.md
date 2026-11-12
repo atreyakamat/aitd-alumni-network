@@ -35,6 +35,32 @@ the real stack with a mail catcher: `npm run docker:verify` (guide: [DOCKER_TEST
 against an in-memory stand-in and plant defects to prove each gate can fail, need no Docker: `npm run test:scripts`. GitHub CI runs both
 ([workflow](../.github/workflows/docker-verify.yml)).
 
+## End-to-end tests (browser)
+
+`e2e/` holds Playwright specs that drive a real browser against a RUNNING stack: public pages, the private-platform redirects
+(a visitor is sent to `/login?next=...`), guest donations, the register -> approve -> sign-in journey, and an axe scan
+(WCAG 2 A/AA; serious and critical violations fail the test). CI runs them in `.github/workflows/e2e.yml`.
+
+```
+npm run e2e                                   # defaults: web http://localhost:3005, API http://localhost:5050/api
+E2E_BROWSER_CHANNEL=chrome npm run e2e        # use the installed Chrome instead of downloading Chromium
+E2E_ADMIN_EMAIL=... E2E_ADMIN_PASSWORD=... npm run e2e   # also runs the member journey (it registers one throw-away member)
+npx playwright test --project=mobile          # 375 px wide
+```
+
+The first time on a machine without Chrome: `npx playwright install chromium`. Set `E2E_BASE_URL` / `E2E_API_URL` to aim at a
+staging stack; never aim the member journey at production (it creates a registration).
+
+## Load test
+
+`npm run load:test -- --email <test account> --password <password>` sends controlled GET traffic (about 20 requests/second for 30 seconds) to the
+read-heavy endpoints and reports p50/p95/p99 and errors per endpoint; it fails when an endpoint is slower than p95 500 ms or fails more than 1 %.
+The API limits every address to 300 requests per 15 minutes and refuses `DISABLE_RATE_LIMIT` in production, so run it against a second local
+instance without the limiter (development mode only): `cd server && PORT=5051 DISABLE_RATE_LIMIT=true node dist/index.js`, then
+`--api http://localhost:5051`. The tool refuses non-local addresses unless `--allow-remote`, caps the rate at 50 requests/second and sends only GET
+requests. Measured on 2026-11-12 with the demo database (a dozen members): every endpoint p95 under 40 ms. A realistic test needs a realistic amount of
+data: seed a scratch database before drawing conclusions about directory and search at scale.
+
 ## The TDD loop
 
 1. **Red** – write the test for the behaviour the PRD requires (including the role/ownership rule and every error branch).

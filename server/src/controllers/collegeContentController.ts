@@ -1,7 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { collegeVideoService } from '../services/collegeVideoService';
 import { collegeMagazineService } from '../services/collegeMagazineService';
-import { storeVideo, uploadToStorage } from '../utils/storage';
+import { assertPdfFile, storeVideo, uploadToStorage } from '../utils/storage';
 import { Actor, isAdminRole } from '../config/permissions';
 
 type Handler = (req: Request, res: Response) => Promise<unknown>;
@@ -82,6 +82,7 @@ export const collegeMagazineController = {
       res.status(400).json({ success: false, error: { message: 'No PDF uploaded (field "file")', code: 'NO_FILE' } });
       return undefined;
     }
+    assertPdfFile(req.file);
     const url = await uploadToStorage(req.file, 'magazines');
     return { fileUrl: url };
   }, 201),

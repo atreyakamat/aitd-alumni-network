@@ -2,14 +2,17 @@ jest.mock('../../services/notificationService', () => ({
   notificationService: { createNotification: jest.fn().mockResolvedValue(undefined) },
 }));
 
-import { NOTIFICATION_DEDUPE_WINDOW_MS, actorName, notifyOnce, reactionMessage } from '../../services/socialNotifications';
+import { NOTIFICATION_DEDUPE_WINDOW_MS, actorName, notifyOnce, reactionMessage, resetNotificationCooldowns } from '../../services/socialNotifications';
 import { notificationService } from '../../services/notificationService';
 import { prismaMock } from '../../../tests/helpers';
 
 const createNotification = notificationService.createNotification as jest.Mock;
 const notice = (userId: string, type = 'MENTION') => ({ userId, type: type as any, title: 't', message: 'm', link: '/posts/p1' });
 
-beforeEach(() => createNotification.mockClear());
+beforeEach(() => {
+  createNotification.mockClear();
+  resetNotificationCooldowns();
+});
 
 describe('notifyOnce', () => {
   it('never notifies the actor and notifies each person once (first entry wins)', async () => {
@@ -132,5 +135,64 @@ describe('notifyOnce de-duplication (follow / react / connect loops)', () => {
     await notifyOnce('asha', [equalNotice({ metadata: {} })]);
     expect(prismaMock.notification.findFirst).not.toHaveBeenCalled();
     expect(createNotification).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe('notifyOnce cooldown (R3-07): per notice window and bursts inside one process', () => {
+  const chat = (overrides: Record<string, unknown> = {}) => ({
+    userId: 'them',
+    type: 'MESSAGE_RECEIVED' as any,
+    title: 'New Message',
+    message: 'Asha sent you a message',
+    link: '/messages/asha',
+    metadata: { messageId: 'm1', senderId: 'asha' },
+    dedupeBy: ['senderId'],
+    windowMs: 10 * 60 * 1000,
+    ...overrides,
+  });
+
+  it('uses the window the notice asks for, and does not pass the option on to the notification', async () => {
+    prismaMock.notification.findFirst.mockResolvedValue(null);
+    const before = Date.now();
+    await notifyOnce('asha', [chat()]);
+    const since = prismaMock.notification.findFirst.mock.calls[0][0].where.createdAt.gte.getTime();
+    expect(since).toBeGreaterThanOrEqual(before - 10 * 60 * 1000);
+    expect(since).toBeLessThanOrEqual(Date.now() - 10 * 60 * 1000);
+    expect(createNotification.mock.calls[0][0]).not.toHaveProperty('windowMs');
+  });
+
+  it('a burst of equal notices started together sends one, even though the database lookup finds nothing for all of them', async () => {
+    prismaMock.notification.findFirst.mockResolvedValue(null);
+    const results = await Promise.all(Array.from({ length: 8 }, () => notifyOnce('asha', [chat()])));
+    expect(results.reduce((a, b) => a + b, 0)).toBe(1);
+    expect(createNotification).toHaveBeenCalledTimes(1);
+  });
+
+  it('a different actor or recipient is a different key', async () => {
+    prismaMock.notification.findFirst.mockResolvedValue(null);
+    await notifyOnce('asha', [chat()]);
+    await notifyOnce('ravi', [chat({ metadata: { messageId: 'm2', senderId: 'ravi' } })]);
+    await notifyOnce('asha', [chat({ userId: 'other' })]);
+    expect(createNotification).toHaveBeenCalledTimes(3);
+  });
+
+  it('a failed delivery does not use up the cooldown', async () => {
+    prismaMock.notification.findFirst.mockResolvedValue(null);
+    createNotification.mockRejectedValueOnce(new Error('bus down'));
+    await expect(notifyOnce('asha', [chat()])).rejects.toThrow('bus down');
+    await expect(notifyOnce('asha', [chat()])).resolves.toBe(1);
+  });
+
+  it('forgets a reservation once its window is over', async () => {
+    prismaMock.notification.findFirst.mockResolvedValue(null);
+    const spy = jest.spyOn(Date, 'now');
+    const start = Date.now();
+    spy.mockReturnValue(start);
+    await notifyOnce('asha', [chat()]);
+    spy.mockReturnValue(start + 5 * 60 * 1000);
+    await expect(notifyOnce('asha', [chat()])).resolves.toBe(0);
+    spy.mockReturnValue(start + 11 * 60 * 1000);
+    await expect(notifyOnce('asha', [chat()])).resolves.toBe(1);
+    spy.mockRestore();
   });
 });

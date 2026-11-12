@@ -92,7 +92,7 @@ describe('verifying the e-mail address', () => {
   it('does not tell the administrator a second time when verification is not required (they were told at registration)', async () => {
     config.auth.requireEmailVerification = false;
     arrange();
-    await authService.verifyEmail('raw-token');
+    await authService.verifyEmail('raw-token', PASSWORD);
     expect(publish).toHaveBeenCalledWith('registration.received', { userId: 'u1' });
     expect(publish).not.toHaveBeenCalledWith('registration.submitted', expect.anything());
   });

@@ -10,6 +10,7 @@ import {
 } from '../utils/email';
 import { fanOutNotification, type BroadcastPayload } from './broadcastService';
 import { normalizeEmail } from './inviteService';
+import { notificationPreferenceService } from './notificationPreferenceService';
 import { clientLinks } from '../utils/clientLinks';
 import { parseEventData, EventValidationError, type NotificationEnvelope } from './notificationEvents';
 
@@ -47,6 +48,11 @@ const emit = (userId: string, notification: unknown) => {
 
 /** Stores one in-app notification and nudges the member if they are online. */
 export const persistNotification = async (data: DeliverData, eventId?: string) => {
+  // The member switched this kind of notification off: a successful no-op (not an error, so nothing is retried or dead-lettered)
+  if (!data.essential && !(await notificationPreferenceService.isEnabled(data.userId, data.type, 'inApp'))) {
+    log.debug('Notification suppressed by the member\'s settings', { userId: data.userId, type: data.type });
+    return undefined;
+  }
   const marked = eventId !== undefined;
   if (marked) {
     const existing = await prisma.notification.findFirst({
@@ -129,7 +135,10 @@ const registrationSubmitted = async (envelope: NotificationEnvelope) => {
     if (already) continue;
     // The mail goes first: if it fails the event is retried and nothing is recorded. The other order would record the
     // notice, and the retry would then skip this administrator and the mail would never be sent.
-    await sendNewRegistrationEmail(admin.email, summary);
+    // Always delivered (REGISTRATION_PENDING has no category), asked anyway so the rule lives in one place
+    if (await notificationPreferenceService.isEnabled(admin.id, 'REGISTRATION_PENDING', 'email')) {
+      await sendNewRegistrationEmail(admin.email, summary);
+    }
     await persistNotification({
       userId: admin.id,
       type: 'REGISTRATION_PENDING',

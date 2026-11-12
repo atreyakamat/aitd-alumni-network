@@ -3,6 +3,7 @@ import { NotificationType } from '@prisma/client';
 import { emitToUser } from '../utils/socket';
 import { notificationQueue, BROADCAST_JOB } from '../config/queue';
 import { readKafkaSettings } from '../config/kafka';
+import { notificationPreferenceService } from './notificationPreferenceService';
 
 export interface BroadcastPayload {
   type: NotificationType;
@@ -27,7 +28,8 @@ export async function fanOutNotification(payload: BroadcastPayload): Promise<num
 
   for (;;) {
     const users = await prisma.user.findMany({
-      where: { isActive: true, ...(payload.excludeUserId ? { id: { not: payload.excludeUserId } } : {}) },
+      // Members only: an applicant who is waiting for approval, or was turned down, is not part of the community
+      where: { isActive: true, approvalStatus: 'APPROVED', ...(payload.excludeUserId ? { id: { not: payload.excludeUserId } } : {}) },
       select: { id: true },
       orderBy: { id: 'asc' },
       take: FAN_OUT_BATCH,
@@ -35,8 +37,16 @@ export async function fanOutNotification(payload: BroadcastPayload): Promise<num
     });
     if (users.length === 0) break;
 
-    await prisma.notification.createMany({
-      data: users.map((u) => ({
+    // Members who switched this kind of notification off are left out (one query per batch; the cursor still moves past them)
+    const optedOut = await notificationPreferenceService.optedOutUserIds(
+      users.map((u) => u.id),
+      payload.type,
+      'inApp'
+    );
+    const recipients = users.filter((u) => !optedOut.has(u.id));
+
+    if (recipients.length > 0) await prisma.notification.createMany({
+      data: recipients.map((u) => ({
         userId: u.id,
         type: payload.type,
         title: payload.title,
@@ -47,7 +57,7 @@ export async function fanOutNotification(payload: BroadcastPayload): Promise<num
     });
 
     // Realtime nudge to anyone currently connected; a socket failure must not stop the fan-out.
-    for (const u of users) {
+    for (const u of recipients) {
       try {
         emitToUser(u.id, 'new_notification', {
           type: payload.type,
@@ -60,7 +70,7 @@ export async function fanOutNotification(payload: BroadcastPayload): Promise<num
       }
     }
 
-    delivered += users.length;
+    delivered += recipients.length;
     if (users.length < FAN_OUT_BATCH) break;
     cursor = users[users.length - 1].id;
   }

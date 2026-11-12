@@ -45,6 +45,12 @@ export const config = {
      * on. Production needs working outbound e-mail, or nobody can finish registering (the preflight checks that).
      */
     requireEmailVerification: toBool(process.env.REQUIRE_EMAIL_VERIFICATION, process.env.NODE_ENV === 'production'),
+    /**
+     * Every administrator signs in with the password AND an e-mailed one-time code, whether or not they switched 2FA on
+     * themselves (chapter administrators, administrators and super administrators). On by default in production; needs working
+     * outbound e-mail (the preflight checks that). Off in development and the test suites unless asked for.
+     */
+    requireAdmin2FA: toBool(process.env.REQUIRE_ADMIN_2FA, process.env.NODE_ENV === 'production'),
   },
   email: {
     from: process.env.EMAIL_FROM || 'noreply@aiemgoa.ac.in',

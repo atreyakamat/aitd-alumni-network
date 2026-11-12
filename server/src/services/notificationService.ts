@@ -80,6 +80,8 @@ export class NotificationService {
     message: string;
     link?: string;
     metadata?: any;
+    /** Deliver even if the member switched this category off (urgent notices to administrators). */
+    essential?: boolean;
   }): Promise<Notification | undefined> {
     const stored = await publishNotificationEvent('notification.deliver', {
       userId: data.userId,
@@ -88,6 +90,7 @@ export class NotificationService {
       message: data.message,
       link: data.link,
       metadata: data.metadata,
+      ...(data.essential ? { essential: true } : {}),
     });
     return stored as Notification | undefined;
   }

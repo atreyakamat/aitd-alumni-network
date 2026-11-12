@@ -99,7 +99,7 @@ describe('privacyService', () => {
         // Outstanding access tokens are revoked too, not just refresh tokens
         tokenVersion: { increment: 1 },
       });
-      for (const model of ['refreshToken', 'verificationToken', 'workExperience', 'education', 'userSkill', 'notification', 'connection', 'marketplaceListing']) {
+      for (const model of ['refreshToken', 'verificationToken', 'workExperience', 'education', 'userSkill', 'notification', 'notificationPreference', 'connection', 'marketplaceListing']) {
         expect(prismaMock[model].deleteMany).toHaveBeenCalled();
       }
       expect(prismaMock.refreshToken.deleteMany).toHaveBeenCalledWith({ where: { userId: 'u1' } });
@@ -122,6 +122,15 @@ describe('privacyService', () => {
       });
       // Live sockets close with the account
       expect(disconnect).toHaveBeenCalledWith('u1');
+    });
+
+    it('lets go of the college alumni records the administrator imported: the list stays, the pointer to the account does not', async () => {
+      arrangeUser({ userRole: 'ADMIN' });
+      prismaMock.user.update.mockResolvedValue({});
+      jest.spyOn(socketUtil, 'disconnectUser').mockImplementation(() => undefined);
+      await privacyService.deleteMyAccount('u1', { password: 'Correct#Pass1' });
+      expect(prismaMock.alumniRecord.updateMany).toHaveBeenCalledWith({ where: { importedById: 'u1' }, data: { importedById: null } });
+      expect(prismaMock.alumniRecord.deleteMany).not.toHaveBeenCalled();
     });
 
     it('blocks the last super admin from deleting themselves', async () => {

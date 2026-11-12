@@ -648,7 +648,36 @@ export const buildGates = () => {
     return { detail: `served without Redis; up again after ${seconds(back.waitedMs)}` };
   });
 
-  gate('D08', 'drills', 'docker compose down and up again (without -v) keeps the data', ['drills', 'kafka', 'admin'], async (ctx) => {
+  gate('D08', 'drills', 'Backup and restore: a dump of the database restores into a scratch database with the same data', ['drills'], async (ctx) => {
+    const db = ctx.envValues?.POSTGRES_DB ?? 'aiem_verify';
+    const user = ctx.envValues?.POSTGRES_USER ?? 'aiem';
+    const sh = async (script) => ctx.compose.execIn('postgres', ['sh', '-c', script], { timeoutMs: 180_000 });
+    const count = async (database, sql) => {
+      const result = await sh(`psql -U ${user} -d ${database} -tAc '${sql}'`);
+      must(result.code === 0, `psql failed on ${database}: ${brief(result)}`);
+      return Number(result.stdout.trim());
+    };
+    const users = await count(db, 'select count(*) from "User"');
+    const tables = await count(db, "select count(*) from information_schema.tables where table_schema='public'");
+    must(users >= 2, `only ${users} user(s) in the database: the earlier gates should have created some`);
+    try {
+      const dump = await sh(`pg_dump -U ${user} -Fc ${db} -f /tmp/verify.dump`);
+      must(dump.code === 0, `pg_dump failed: ${brief(dump)}`);
+      const create = await sh(`createdb -U ${user} aiem_restore`);
+      must(create.code === 0, `createdb failed: ${brief(create)}`);
+      const restore = await sh(`pg_restore -U ${user} -d aiem_restore --no-owner /tmp/verify.dump`);
+      must(restore.code === 0, `pg_restore failed: ${brief(restore)}`);
+      const restoredUsers = await count('aiem_restore', 'select count(*) from "User"');
+      const restoredTables = await count('aiem_restore', "select count(*) from information_schema.tables where table_schema='public'");
+      must(restoredUsers === users, `the restore has ${restoredUsers} users, the original ${users}`);
+      must(restoredTables === tables, `the restore has ${restoredTables} tables, the original ${tables}`);
+      return { detail: `${users} users and ${tables} tables restored into a scratch database` };
+    } finally {
+      await sh(`dropdb -U ${user} --if-exists aiem_restore; rm -f /tmp/verify.dump`);
+    }
+  });
+
+  gate('D09', 'drills', 'docker compose down and up again (without -v) keeps the data', ['drills', 'kafka', 'admin'], async (ctx) => {
     const h = ctx.helpers;
     const down = await ctx.compose.down({ volumes: false });
     must(down.code === 0, `compose down failed: ${brief(down)}`);

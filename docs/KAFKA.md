@@ -61,6 +61,7 @@ published on the host; the API reaches it at `kafka:9092`, waits until it is hea
 | `KAFKA_REPLICATION_FACTOR` | `1` | Raise to 3 on a three-broker cluster |
 | `KAFKA_GROUP_ID` | `aiem-notifications` | Consumer group; every API replica joins it |
 | `KAFKA_MAX_ATTEMPTS` | `5` | Delivery attempts (pauses of 1 s, 2 s, 4 s, ...) before an event goes to the dead-letter topic |
+| `KAFKA_RETENTION_MS` | `604800000` (7 days) | How long the notifications topic and the dead-letter topic keep messages (`retention.ms`, bounded to 1 hour to 30 days). They hold personal data (addresses, applicant names, a rejection reason), so the API sets it on both topics at start-up, also on topics that already exist, and logs a warning if the broker refuses the change. A topic made by an older release keeps no limit until the API has restarted once |
 | `KAFKA_CONSUMER_ENABLED` | `true` | `false` on API replicas when a separate worker process runs the consumer |
 | `KAFKA_SSL`, `KAFKA_SASL_MECHANISM`, `KAFKA_SASL_USERNAME`, `KAFKA_SASL_PASSWORD` | off | For a managed or secured cluster (`plain`, `scram-sha-256`, `scram-sha-512`) |
 | `APPROVAL_NOTIFY_EMAIL` | empty | Extra mailbox(es) told about a waiting registration |
@@ -88,8 +89,21 @@ docker compose exec kafka /opt/kafka/bin/kafka-console-consumer.sh --bootstrap-s
   --topic aiem.notifications.dlq --from-beginning --property print.headers=true --timeout-ms 5000
 ```
 
-Alert on a growing dead-letter topic and on `"level":"error"` lines that say `moving it to the dead-letter topic`. Replaying dead-lettered
-events is manual today (publish the message value again to `aiem.notifications`); a replay command is on the open list below.
+Or with the tool (it is part of the API image):
+
+```bash
+docker compose exec api node dist/scripts/dlq.js list                      # what is in the dead-letter topic and why
+docker compose exec api node dist/scripts/dlq.js replay --all              # dry run: shows what would be replayed
+docker compose exec api node dist/scripts/dlq.js replay --all --yes        # puts the valid events back on aiem.notifications
+docker compose exec api node dist/scripts/dlq.js replay --offset 0:12 --yes
+docker compose exec api node dist/scripts/dlq.js purge --yes               # deletes what is in the topic now (replay first what you still want)
+```
+
+Replay is safe: an event keeps its id and the handlers are idempotent on it, so nothing is delivered twice; a message that is still not a valid
+event is skipped with the reason and never replayed. Replay and purge only show what they would do until `--yes` is given. The depth of the
+dead-letter topic and the consumer lag are also shown on Admin, System status.
+
+Alert on a growing dead-letter topic and on `"level":"error"` lines that say `moving it to the dead-letter topic`.
 
 ## Honest limits
 
@@ -99,4 +113,4 @@ events is manual today (publish the message value again to `aiem.notifications`)
   this pipeline is untested against a real broker. Start the stack once on the server, register a test
   applicant and watch the administrator's inbox before relying on it ([PRODUCTION_CHECKLIST.md](PRODUCTION_CHECKLIST.md) section 9).
 * One broker is one point of failure; a managed cluster or three brokers is the production-grade setup (`KAFKA_REPLICATION_FACTOR=3`).
-* Open: a command to list and replay the dead-letter topic; a lag/alert dashboard.
+* Open: an external alerting dashboard (the dead-letter depth and the consumer lag are on the System status page and in `/metrics`, but nothing pages you).

@@ -100,6 +100,22 @@ the leftover Reels flag was removed in this merge. What was found and fixed whil
   and counts are returned: never hosts, keys, bucket names or addresses. A failing check turns only its own line red.
   `GET /api/platform/readiness` and the module-readiness list behind it were removed.
 
+## 2026-11-12: notification settings
+
+- **Per-member notification settings** (*Settings > Notifications*): for each category (connections and followers, messages,
+  posts and comments, events, jobs and mentorship, college announcements) a member switches the in-app notification and the
+  e-mail on or off. No stored row means on. `GET` / `PUT /api/notifications/preferences` act on the signed-in member only; the
+  body is `{ preferences: [{ category, inApp?, email? }] }` (unknown categories and extra fields are a 400).
+- **Never switchable:** account, approval, security, payment and administrator-work notices (`REGISTRATION_PENDING`,
+  `MEMBERSHIP_EXPIRY`, `CONTENT_REPORTED`, and every registration, password, 2FA, verification and receipt e-mail). They are
+  an allow-list in `notificationPreferenceService.ts` and have no database category. A notification sent with `essential: true`
+  (a payment that needs reconciling) also bypasses the settings. `ADMIN_ANNOUNCEMENT` is switchable.
+- **Where it applies:** `createNotification` and the Kafka consumer (a suppressed notification is a successful no-op, so no
+  retry and no dead letter), the broadcast fan-out, and the weekly digest (the announcements e-mail). If the settings cannot
+  be read the notification is delivered. The only e-mail that is a switchable notification today is the digest; the
+  other e-mail switches are stored for when such e-mails are added.
+- Rows are part of the data export (`notificationPreferences`) and are deleted with the account.
+
 ## Planned (Phase D, out of scope for this release)
 
 1. AI mentorship matching

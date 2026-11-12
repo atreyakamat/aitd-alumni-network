@@ -37,6 +37,7 @@ const PROFILE_SELECT = {
   secondaryEmail: true,
   userRole: true,
   isVerified: true,
+  isNotable: true,
   // What the person told the reviewer and the outcome of the review
   enrollmentNumber: true,
   verificationNote: true,
@@ -92,6 +93,8 @@ export class PrivacyService {
       requirementResponses,
       referrals,
       activityLog,
+      postViews,
+      notificationPreferences,
     ] = await Promise.all([
       prisma.post.findMany({ where: { userId } }),
       prisma.postComment.findMany({ where: { userId } }),
@@ -127,6 +130,10 @@ export class PrivacyService {
       prisma.requirementResponse.findMany({ where: { userId }, include: { requirement: { select: { id: true, title: true } } } }),
       prisma.referralRequest.findMany({ where: { OR: [{ requesterId: userId }, { targetId: userId }] } }),
       prisma.auditLog.findMany({ where: { userId }, orderBy: { createdAt: 'asc' } }),
+      // Which posts the member opened: their reading history is data about them as much as what they wrote
+      prisma.postImpression.findMany({ where: { userId }, select: { postId: true, createdAt: true }, orderBy: { createdAt: 'asc' } }),
+      // What the member chose to be notified about
+      prisma.notificationPreference.findMany({ where: { userId }, select: { category: true, inApp: true, email: true, updatedAt: true } }),
     ]);
 
     await logAuditAction({
@@ -166,10 +173,12 @@ export class PrivacyService {
       requirementResponses,
       referrals,
       activityLog,
+      postViews,
+      notificationPreferences,
     };
   }
 
-  async deleteMyAccount(userId: string, input: DeleteAccountInput, meta: RequestMeta = {}) {
+  async deleteMyAccount(userId: string, input: DeleteAccountInput, _meta: RequestMeta = {}) {
     const user = await prisma.user.findUnique({
       where: { id: userId },
       select: { id: true, email: true, userRole: true, passwordHash: true },
@@ -200,6 +209,7 @@ export class PrivacyService {
       await tx.education.deleteMany({ where: { userId } });
       await tx.userSkill.deleteMany({ where: { userId } });
       await tx.notification.deleteMany({ where: { userId } });
+      await tx.notificationPreference.deleteMany({ where: { userId } });
       await tx.connection.deleteMany({ where: { OR: [{ requesterId: userId }, { addresseeId: userId }] } });
       await tx.marketplaceListing.deleteMany({ where: { userId } });
       // Social graph and bookmarks exist only because of this user
@@ -217,6 +227,9 @@ export class PrivacyService {
       await tx.referralRequest.deleteMany({ where: { OR: [{ requesterId: userId }, { targetId: userId }] } });
       await tx.requirementResponse.deleteMany({ where: { userId } });
       await tx.collegeVideo.deleteMany({ where: { submittedById: userId, status: { not: 'APPROVED' } } });
+      // The college alumni list belongs to the college, not to the administrator who imported it (and is not part of
+      // their data export: its rows are other people's data). Only the pointer to this account is let go.
+      await tx.alumniRecord.updateMany({ where: { importedById: userId }, data: { importedById: null } });
       // Deactivate (not delete) so mentees keep their request/session history
       await tx.mentorProfile.updateMany({ where: { userId }, data: { isActive: false, bio: null, availability: null } });
 

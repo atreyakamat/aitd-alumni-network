@@ -39,6 +39,8 @@ function ChatContent() {
 
   useEffect(() => {
     fetchConversations();
+  // Loads the conversation list once on mount.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {

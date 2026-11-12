@@ -300,3 +300,82 @@ again is told the address exists, and an administrator can approve the old regis
 | Lint | server eslint, client `next lint` | 0 errors |
 
 The suites are the regression guard: every finding above has at least one test that fails without its fix.
+
+## Round 3: code-level findings and fixes (2026-11-12)
+
+Scope: the code-level half of the round-3 plan ([SECURITY_AUDIT_PLAN.md](SECURITY_AUDIT_PLAN.md), phases C to I and the carry-over of section 8),
+run by the owner against their own application on a test database. Method as before: attack with a failing test, root-cause, fix
+test-first, regression test (`server/tests/security/round3/`, `client/src/__security__/round3/`, and unit tests next to the code).
+Everything in the infrastructure phases (nginx, Docker, Tailscale, scanners) still needs the `atreya-2` run.
+
+**Verdict.** The authentication and authorization core held under a much wider attack than rounds 1 and 2 used: no way was found to
+obtain a session, an access token or a socket for a PENDING or REJECTED account, no mass-assignment or token-forging variant worked,
+and the payment code, the sanitiser and the upload pipeline refused everything thrown at them. What was found sits at the edges:
+a verification-link gap when verification is switched off, state that Kafka keeps for ever, a broadcast that ignored approval,
+and error handling (two HTTP 500s). 11 findings, none Critical or High.
+
+### Findings
+
+| ID | Sev | Where | Evidence | Root cause and fix | Test |
+|---|---|---|---|---|---|
+| R3-06 | Medium | `authService.verifyEmail`, `REQUIRE_EMAIL_VERIFICATION=false` | Attacker registers the victim's address with their password; the victim clicks the mailed link: `200`, the address is verified, the attacker's password, name, enrolment number and note stay on the account (an administrator can then approve it, because the approval check for an unverified address exists only while verification is required). With verification **required** the same attack is stopped (link needs the password, no session before verification, approval refused, re-registration replaces it) | Round 2 asked for the registration password only when the policy was on, although the client page always asks. Now `assertRegistrationPassword` runs for every setting; the owner takes the address back with "Forgot password" (kills the attacker's password and sessions). **Open, other engineer's file:** `memberApprovalService.approve` should refuse an address with no `emailVerifiedAt` in every mode, not only while verification is required | `tests/security/round3/prehijack-verify-link.sec.test.ts` (both settings), `authService.verification.test.ts` |
+| R3-07 | Low | follow, react, RSVP, comment, mention, message, mentorship | Loops notified every time: RSVP/cancel x6 gave 3 notifications, comment/delete x5 gave 5, a mention removed and re-added by editing a comment or a post gave 6, 8 messages gave 8, 4 mentorship requests after declines gave 4, 8 parallel comments gave 8 (follow, reaction and repost already had a 24 h cooldown from the round-2 follow-up) | `notifyOnce` extended, not duplicated: `windowMs` per notice, a synchronous in-process claim (`utils/cooldownStore.ts`) in front of the database lookup so a burst or a Kafka consumer that has not stored the first row yet cannot all pass. Applied to RSVP and mentorship requests (24 h), comments, replies and comment mentions (30 min), edit-loop mentions (24 h), messages (10 min). The action always goes through | `notification-cooldown.sec.test.ts`, `socialNotifications.test.ts` |
+| R3-08 | Low | `utils/password.ts` | `Ｐａｓｓｗｏｒｄ１`, `Pásswörd1`, `Pássword1`, `Pass​word1`, `Paſſword1` were all accepted although `Password1` is on the deny-list | The comparison was on raw characters. `policyForm()` = NFKC, then NFKD with combining marks and format characters removed, then lower case, used by the deny-list and the "password equals e-mail" rule only. What is hashed and compared at login is untouched, so existing hashes keep working | `src/__tests__/utils/password.test.ts` |
+| R3-09 | Low | `contentController.userAddPhoto` | Repeated multipart field `caption` (an array) answered 400 after both files were written: orphan files for every attempt | Caption validated (`galleryService.parseCaption`) before the first write; a file whose record cannot be made is deleted again | `gallery-caption-orphan.sec.test.ts` |
+| R3-10 | Low | `client/src/lib/api.ts` | 38 more `${id}` path segments without encoding (round 2 counted 56, the rest already used `seg`) | Wrapped in `seg()`; a client test scans every API path template in `src/lib` and fails when a new un-encoded `${...}` appears (the scan itself is checked to find more than 60 templates) | `client/src/__security__/round3/api-path-encoding.test.ts` |
+| R3-11 | Medium | `config/kafka.ts` (`ensureNotificationTopics`) | The notification and dead-letter topics were created without `retention.ms`; `createTopics` does not touch an existing topic. They carry e-mail addresses, applicant names and the reason a registration was rejected | Both topics are created with `retention.ms` = 7 days (`KAFKA_RETENTION_MS`, bounded 1 hour to 30 days) and existing topics are brought to it (`describeConfigs`, `alterConfigs` only where it differs); a broker that refuses is logged, not fatal | `src/__tests__/config/kafka.test.ts` (fake kafkajs) |
+| R3-12 | Low | `services/notificationEvents.ts` | An envelope with `link: "javascript:alert(1)"`, `https://evil.example`, `//evil.example`, a 1 MB title or 5 MB metadata was accepted by the consumer and stored. Only server code can produce events (pinned by a scan: no controller or route touches the bus), so this is defence in depth against a forged message on the topic or a future bug | `link` must be a path on this site (<= 500 characters, no `//`, backslash, whitespace or control characters); title <= 300, message <= 2,000, metadata <= 8 KB; checked when an event is built and when it is consumed | `notification-events.sec.test.ts` |
+| R3-13 | Medium | `broadcastService.fanOutNotification` | A broadcast (new magazine issue, requirement, video) was written for every `isActive` account, so applicants waiting for approval and rejected ones collected the community's announcements | `approvalStatus: 'APPROVED'` added to the fan-out query | `notification-events.sec.test.ts` |
+| R3-14 | Low | `errorHandler`, `utils/storage.ts` | A NUL byte in an upload file name answered **500** (`Malformed part header` from the multipart parser); so did a zero-byte file | Parser errors map to 400 `INVALID_MULTIPART` (and are no longer logged as incidents); an empty upload is 400 `INVALID_FILE_TYPE` | `errorHandler.test.ts`, `storage.test.ts`, `uploads.sec.test.ts` |
+| R3-15 | Low | `POST /magazine/upload-file` (administrators) | An HTML, SVG or ZIP file with a `.pdf` name and `application/pdf` was stored and served from the app origin (as `application/pdf` with `nosniff`, so not runnable, but arbitrary bytes under the college's name) | `assertPdfFile`: the bytes must contain `%PDF-` in the first 1,024 bytes | `storage.test.ts`, `uploads.sec.test.ts` |
+| R3-16 | Low | `privacyService.exportMyData` | The data export left out the member's post views (`PostImpression`, which deletion does remove) and `isNotable` | Added (`postViews`, `profile.isNotable`). A new scan forces a decision for every user-referencing model and every `User` column, as round 2 did for deletion; `AlumniRecord` (the college's list, only the importer id points at a member) is listed as not exported with its reason | `privacy-coverage.sec.test.ts` |
+
+### Carry-over items from round 2
+
+| Item | Outcome |
+|---|---|
+| Pre-hijack through the verify-email link | **Closed for both settings** (R3-06). With verification required it already held; with it off it did not |
+| Notification spam | **Closed** (R3-07): per actor, subject and type, extended in `notifyOnce` |
+| Password policy, NFKC | **Closed** (R3-08), hashing and login comparison unchanged |
+| `userAddPhoto` orphan file | **Closed** (R3-09) |
+| `api.ts` ids without `encodeURIComponent` | **Closed** (R3-10) with a rule that cannot be forgotten |
+
+### Attacks that found nothing (kept as tests because they pin an invariant)
+
+| Area | What was tried | Result | Test |
+|---|---|---|---|
+| Approval bypass, PENDING and REJECTED | login, 2FA challenge (before and after the status change), an access token and a refresh token issued before the change, 12 routes with the old token, password reset, e-mail verification, invitation acceptance, the socket handshake, other members reaching the unapproved id, optional-token routes | Nothing hands out or keeps a credential; the old refresh token is deleted and stays dead after approval; every answer is a message, never a token | `approval-bypass.sec.test.ts` (27) |
+| Mass assignment | 29 forbidden fields (`approvalStatus`, `userRole`, `isVerified`, `isActive`, `tokenVersion`, `passwordHash`, `emailVerifiedAt`, reviewer fields, ownership ids, `__proto__`) on profile, work, education, skills, password change, admin status/role, approve/reject, posts, comments, jobs | The row is byte-identical afterwards; an ADMIN cannot make or touch a SUPER_ADMIN | `mass-assignment.sec.test.ts` |
+| JWT | HS384/512 with the real secret, `alg:none` in six spellings, `kid`/`jku`/`jwk`/`x5u`/`crit` headers, the three keys crossed, `nbf`, 10 KB tokens, deleted/deactivated/demoted accounts, refresh reuse after rotation (family and child revoked, alert written, other accounts untouched) | All 401 | `jwt.sec.test.ts` |
+| Enumeration | forgot-password and resend-verification for six kinds of address (identical status and body), wrong-password login for six kinds, timing medians (login within 2x, forgot-password within 120 ms), bad tokens, pending versus rejected through profile, search and directory | Indistinguishable; the stage of an account is told only to somebody who proved the password | `enumeration.sec.test.ts` |
+| Stored XSS and HTML injection | 14 payloads through about two dozen fields (posts, comments, profile, work, education, skills, messages, events, jobs, news, marketplace, chapters, albums, referrals, reports, invites, registration, notifications) and the admin landing blocks; the client searched for `dangerouslySetInnerHTML`, `innerHTML`, `eval`, `srcDoc`, raw `href` and `window.open` | No tag, handler or script URI stored; no raw-HTML sink exists; the one `srcDoc` is an iframe with an empty `sandbox`; raw links go through `safeHref` | `stored-xss-renderers.sec.test.ts` (32), `client/src/__security__/round3/html-sinks.test.ts` |
+| Uploads | SVG in four spellings, HTML, PHP, PDF and ZIP as images, truncated and empty files, double extensions, 8 hostile file names, content-type confusion, a 42-megapixel flood, over 5 MB, EXIF, polyglot tails; how the stored file is served | All refused or re-encoded; the stored name is the server's; `nosniff` and the image type on serving (except R3-14 and R3-15) | `uploads.sec.test.ts` |
+| Payments | amounts (12 hostile values), tier tampering, another member's order, a signature of another order or payment, 11 malformed signatures, replay, a body that picks the amount, the webhook (no, wrong, modified, key-secret signature; ten parallel deliveries; amount mismatch; 256 KB limit; no secret configured), receipts | One winner, no change from any forged call, `503`/`400` never `500` | `payments.sec.test.ts` (27) |
+| Races | ten simultaneous approvals, six rejections, approve against reject (the audit trail always explains the state), eight parallel registrations of one address, case variants, six parallel replacements of a pending registration | One winner, one audit entry, one live password and link | `approval-races.sec.test.ts` |
+| Kafka | who can cause an event (no controller, route or middleware touches the bus; four service modules publish, pinned) | Only server code | `notification-events.sec.test.ts` |
+
+Observation for the approval service (not changed, another engineer's file): approving and rejecting the same applicant at the same
+moment can end with both decisions applied in sequence (`REJECTED`, then `APPROVED`, which is allowed by design), so the applicant may be
+sent both the rejection and the welcome e-mail. The audit trail and the final status agree (tested); making the two decisions mutually exclusive would
+need a version column or a row lock in `memberApprovalService`.
+
+### Test results (after round 3, code-level)
+
+| Suite | Command | Result |
+|---|---|---|
+| Server unit | `npm test -w server` | 133 suites, 4,670 tests |
+| Server security (real PostgreSQL) | `npm run test:security -w server` | 44 suites, 597 tests (13 new suites in `round3/`) |
+| Server integration | `npm run test:integration -w server` | 9 suites, 55 tests |
+| Client/server contract | `npm run test:contract -w server` | 5 suites, 948 tests |
+| Client (vitest) | `npm test -w client` | 131 files, 1,576 tests (two new guards in `src/__security__/round3/`) |
+| Type checks | server `npm run typecheck -w server`, client `npm run typecheck -w client` | clean |
+| Lint | `npm run lint -w server` | 0 errors |
+
+### Added after round 3 (2026-11-12) and open residues
+
+* **Administrators need a second factor** (`REQUIRE_ADMIN_2FA`, on by default in production): chapter admin and above pass an e-mailed one-time code at every sign-in, whether or not they enabled 2FA themselves (`utils/secondFactor.ts`; tests in `authService.test.ts`, `twoFactorService.test.ts`, `configDefaults.test.ts`, `productionChecks.test.ts`). The start-up guard refuses production without working mail while it is on.
+* **`GET /metrics`** exists only with `METRICS_TOKEN`, answers `404` without it and `401` on a wrong bearer token (constant-time compare, nothing computed first), exposes counts and states only.
+* **Landing page accessibility** (axe scan, `e2e/public.spec.ts`): footer text and the "Members" labels failed WCAG AA contrast and the "Sign In" call to action was white on white; fixed.
+* **Open residue 1, accepted for non-production:** approving an applicant does not require a verified mailbox while `REQUIRE_EMAIL_VERIFICATION` is off. In production verification is required, so the case cannot arise there. Turning the check on in every mode would block the local demo and the test suites for no production gain.
+* **Open residue 2, by design:** approving is allowed from `REJECTED` (an administrator may reconsider), rejecting only from `PENDING`. Two administrators deciding the same applicant at the same instant can therefore produce reject-then-approve, and the applicant may receive both e-mails. The audit trail and the final status stay consistent (tested); closing it needs a version column and is not worth the schema change.
+* **Still needs the `atreya-2` / CI run:** R3-11 (Kafka topic retention against a real broker, check with `kafka-configs --describe`), nginx, Docker image scans, the real-stack drills.

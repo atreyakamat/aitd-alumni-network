@@ -50,6 +50,11 @@ const getFileBuffer = (file: Express.Multer.File): Buffer => {
     return fs.readFileSync(file.path);
   }
 
+  // A zero-byte upload is the client's mistake (an empty file input), not a server fault
+  if (file.buffer && file.buffer.length === 0) {
+    throw new AppError('The file is empty', 400, 'INVALID_FILE_TYPE');
+  }
+
   throw new Error('Uploaded file buffer is unavailable');
 };
 
@@ -179,6 +184,14 @@ const documentFilter = (_req: any, file: any, cb: any) => {
   const ext = path.extname(file.originalname || '').toLowerCase();
   if (ext === '.pdf' && file.mimetype === 'application/pdf') return cb(null, true);
   cb(new AppError('Invalid file type. Only PDF files are allowed.', 400, 'INVALID_FILE_TYPE'));
+};
+
+/** A PDF starts with "%PDF-" within its first 1,024 bytes (the PDF specification's own allowance). Name and declared type are the uploader's word. */
+export const assertPdfFile = (file: Express.Multer.File): void => {
+  const head = file.buffer?.subarray(0, 1024);
+  if (!head || !head.includes('%PDF-')) {
+    throw new AppError('The file is not a valid PDF', 400, 'INVALID_FILE_TYPE');
+  }
 };
 
 export const documentUpload = multer({

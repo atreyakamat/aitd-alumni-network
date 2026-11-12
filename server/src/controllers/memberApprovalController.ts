@@ -14,6 +14,10 @@ export const memberApprovalController = {
         search: queryText(req.query.search),
         page: queryText(req.query.page),
         limit: queryText(req.query.limit),
+        batchYear: queryText(req.query.batchYear),
+        department: queryText(req.query.department),
+        match: queryText(req.query.match),
+        waitingDays: queryText(req.query.waitingDays),
       });
       res.json({ success: true, ...result });
     } catch (error) {
@@ -32,6 +36,26 @@ export const memberApprovalController = {
   async approve(req: Request, res: Response, next: NextFunction) {
     try {
       const data = await memberApprovalService.approve(actorOf(req), req.params.id, req.body?.note, metaOf(req));
+      res.json({ success: true, data });
+    } catch (error) {
+      next(error);
+    }
+  },
+
+  /** Up to 50 ids, each through the same rules as the single approval; the answer lists the result per id. */
+  async bulkApprove(req: Request, res: Response, next: NextFunction) {
+    try {
+      const data = await memberApprovalService.bulkApprove(actorOf(req), req.body?.ids, req.body?.note, metaOf(req));
+      res.json({ success: true, data });
+    } catch (error) {
+      next(error);
+    }
+  },
+
+  /** The reason is always required: every person is told why. */
+  async bulkReject(req: Request, res: Response, next: NextFunction) {
+    try {
+      const data = await memberApprovalService.bulkReject(actorOf(req), req.body?.ids, req.body?.reason, metaOf(req));
       res.json({ success: true, data });
     } catch (error) {
       next(error);

@@ -15,6 +15,7 @@ import { Badge } from '@/components/ui/badge';
 import { DeleteAccountDialog } from '@/components/settings/DeleteAccountDialog';
 import { PaymentHistory } from '@/components/settings/PaymentHistory';
 import { ChangePasswordCard } from '@/components/settings/ChangePasswordCard';
+import { NotificationSettingsCard } from '@/components/settings/NotificationSettingsCard';
 
 export default function SettingsPage() {
   const { user, clearSession } = useAuth();
@@ -96,6 +97,8 @@ export default function SettingsPage() {
       </Card>
 
       <ChangePasswordCard />
+
+      <NotificationSettingsCard />
 
       <Card>
         <CardHeader>

@@ -178,6 +178,8 @@ export default function JobsPage() {
                 <div className="flex flex-col md:flex-row md:items-start gap-4">
                   <div className="flex items-center justify-center h-16 w-16 bg-secondary rounded-lg flex-shrink-0">
                     {job.companyLogoUrl ? (
+                      // Company logos are user-supplied URLs; the image optimizer is switched off on purpose (images.unoptimized).
+                      // eslint-disable-next-line @next/next/no-img-element
                       <img src={safeMediaSrc(job.companyLogoUrl)} alt={job.company} className="h-10 w-10 object-contain" />
                     ) : (
                       <Building className="h-8 w-8 text-muted-foreground" />

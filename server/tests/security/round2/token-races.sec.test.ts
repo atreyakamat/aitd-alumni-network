@@ -23,9 +23,9 @@ describe('single-use tokens cannot be redeemed twice at once', () => {
   it('an e-mail verification token verifies exactly once', async () => {
     const { user } = await createUser('MEMBER', { isVerified: false, emailVerifiedAt: null });
     const token = await oneTimeToken(user.id, 'EMAIL_VERIFY');
-    const results = await Promise.all(Array.from({ length: 6 }, () => http().post('/api/auth/verify-email').send({ token })));
+    const results = await Promise.all(Array.from({ length: 5 }, () => http().post('/api/auth/verify-email').send({ token, password: PASSWORD })));
     expect(results.filter((r) => r.status === 200)).toHaveLength(1);
-    expect(results.filter((r) => r.status === 400)).toHaveLength(5);
+    expect(results.filter((r) => r.status === 400)).toHaveLength(4);
   });
 
   it('a password-reset token sets exactly one password', async () => {

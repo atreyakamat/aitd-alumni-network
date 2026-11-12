@@ -3,6 +3,7 @@ import { AppError } from '../middleware/errorHandler';
 import { paginationHelper, buildPaginationResponse } from '../utils/helpers';
 import { networkService } from './networkService';
 import { notificationService } from './notificationService';
+import { notifyOnce } from './socialNotifications';
 import { emitToUser } from '../utils/socket';
 import { clientLinks } from '../utils/clientLinks';
 import { optionalSafeMediaRef } from '../utils/safeUrl';
@@ -10,6 +11,8 @@ import { optionalSafeMediaRef } from '../utils/safeUrl';
 export const MESSAGE_MAX_LENGTH = 5000;
 /** New message requests (messages to non-connections) one user may open per rolling 24 hours. */
 export const MAX_MESSAGE_REQUESTS_PER_DAY = 20;
+/** One bell notification per sender and recipient per ten minutes; the messages themselves are never held back. */
+export const MESSAGE_NOTICE_WINDOW_MS = 10 * 60 * 1000;
 
 interface SendMessageInput {
   content: string;
@@ -236,14 +239,20 @@ export class MessageService {
       select: { fullName: true },
     });
 
-    await notificationService.createNotification({
-      userId: receiverId,
-      type: 'MESSAGE_RECEIVED',
-      title: isRequest ? 'New Message Request' : 'New Message',
-      message: `${sender?.fullName ?? 'Someone'} sent you a message`,
-      link: clientLinks.conversation(senderId),
-      metadata: { messageId: message.id, senderId },
-    });
+    // Every message is delivered (socket event, inbox, unread badge); the bell rings once per sender per ten minutes, so one sender
+    // cannot fill the notification list (and the mail/Kafka path behind it) with a message loop
+    await notifyOnce(senderId, [
+      {
+        userId: receiverId,
+        type: 'MESSAGE_RECEIVED',
+        title: isRequest ? 'New Message Request' : 'New Message',
+        message: `${sender?.fullName ?? 'Someone'} sent you a message`,
+        link: clientLinks.conversation(senderId),
+        metadata: { messageId: message.id, senderId },
+        dedupeBy: ['senderId'],
+        windowMs: MESSAGE_NOTICE_WINDOW_MS,
+      },
+    ]);
 
     return message;
   }

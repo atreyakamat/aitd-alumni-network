@@ -5,6 +5,7 @@ import { config } from '../config';
 import { AppError } from '../middleware/errorHandler';
 import { clearAttempts, checkPasswordWithBudget, reserveAttempt } from './attemptLimiter';
 import { comparePassword } from '../utils/password';
+import { secondFactorRequired } from '../utils/secondFactor';
 
 const OTP_LENGTH = 6;
 const OTP_EXPIRY_MINUTES = 10;
@@ -99,10 +100,10 @@ export class TwoFactorService {
   async resendOTP(userId: string): Promise<{ message: string }> {
     const user = await prisma.user.findUnique({
       where: { id: userId },
-      select: { email: true, isActive: true, twoFactorEnabled: true },
+      select: { email: true, isActive: true, twoFactorEnabled: true, userRole: true },
     });
 
-    if (!user || !user.isActive || !user.twoFactorEnabled) {
+    if (!user || !user.isActive || !secondFactorRequired(user)) {
       throw new AppError('Your verification session has expired. Please sign in again.', 401, 'INVALID_2FA_SESSION');
     }
 

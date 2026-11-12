@@ -2,7 +2,7 @@
 
 `docker-compose.yml` runs the whole platform: **PostgreSQL 17**, **Redis 7**, the **API** (Express + Prisma +
 socket.io) and the **web** app (Next.js), plus an optional **nginx** reverse proxy. This is the canonical deployment
-guide. The root `DEPLOYMENT_*.md` files describe the old MySQL shared-host setup and are superseded.
+guide. The `DEPLOYMENT_*.md` files (now in [archive/](archive/README.md)) describe the old MySQL shared-host setup and are superseded.
 
 > **Real deployment?** Follow [PRODUCTION_CHECKLIST.md](PRODUCTION_CHECKLIST.md) instead of the quick start below. The API
 > runs with `NODE_ENV=production` and **refuses to start** on an unsafe configuration (weak or leaked secrets, localhost or
@@ -17,9 +17,10 @@ cp .env.docker.example .env
 # Generate every secret (printed, not saved):  npm run secrets -w server
 # then set POSTGRES_PASSWORD, JWT_SECRET, JWT_REFRESH_SECRET and SEED_ADMIN_PASSWORD (12+ chars) in .env
 # (./start.sh does all of this for you, including the two trial lines below)
-# and, because a trial has no domain or mail server, add these two lines (NEVER on a real server):
+# and, because a trial has no domain or mail server, add these lines (NEVER on a real server):
 #   ALLOW_INSECURE_PRODUCTION_CONFIG=true
 #   REQUIRE_EMAIL_VERIFICATION=false
+#   REQUIRE_ADMIN_2FA=false
 
 docker compose up -d --build
 docker compose ps            # wait until api and web are "healthy"

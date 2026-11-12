@@ -102,7 +102,7 @@ describe('AUTHZ: JWT forging and token-type confusion', () => {
   });
 
   it('does not trust the role embedded in the token once the DB role has changed', async () => {
-    const superAdmin = await createUser('SUPER_ADMIN');
+    await createUser('SUPER_ADMIN');
     const target = await createUser('MEMBER');
     const staleToken = target.auth; // claims MEMBER
 

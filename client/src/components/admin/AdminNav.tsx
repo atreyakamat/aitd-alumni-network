@@ -13,6 +13,7 @@ import {
   HandHeart,
   LayoutDashboard,
   LayoutTemplate,
+  ListChecks,
   Mail,
   ScrollText,
   UserCheck,
@@ -34,6 +35,7 @@ export interface AdminNavItem {
 export const ADMIN_NAV_ITEMS: readonly AdminNavItem[] = [
   { href: '/admin', label: 'Overview', icon: LayoutDashboard, group: 'people' },
   { href: '/admin/approvals', label: 'Approvals', icon: UserCheck, group: 'people' },
+  { href: '/admin/alumni-list', label: 'Alumni list', icon: ListChecks, group: 'people' },
   { href: '/admin/users', label: 'Members', icon: Users, group: 'people' },
   { href: '/admin/moderation', label: 'Moderation', icon: ClipboardCheck, group: 'people' },
   { href: '/admin/reports', label: 'Reports', icon: Flag, group: 'people' },
